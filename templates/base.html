@@ -45,7 +45,7 @@
         [data-theme="dark"] .table tbody td { color: var(--text-primary); }
         [data-theme="dark"] .form-control, [data-theme="dark"] .form-select {
             background-color: var(--bg-body);
-            color: var(--semeq-blue-accent);
+            color: var(--text-primary);
             border-color: var(--border-color);
         }
         /* Placeholder no dark mode: cinza claro para diferenciar do texto digitado (azul) */
@@ -108,15 +108,31 @@
         [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
         [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6,
         [data-theme="dark"] strong { color: var(--text-primary); }
-        /* Dark mode: NADA de texto azul. Links brancos/cinza claro. */
+        /* Dark mode: NADA de texto azul em fundo escuro. Links/textos brancos ou cinza. */
         [data-theme="dark"] a:not(.btn):not(.badge) { color: var(--text-primary) !important; }
-        [data-theme="dark"] a.btn-semeq-primary, [data-theme="dark"] a.btn-semeq-secondary { color: #ffffff !important; }
+        [data-theme="dark"] a.btn-semeq-primary { color: #ffffff !important; }
+        /* Botao de fundo claro (secundario/Limpar): texto pode ser azul */
+        [data-theme="dark"] .btn-semeq-secondary,
+        [data-theme="dark"] a.btn-semeq-secondary {
+            background-color: #e2e8f0 !important;
+            color: var(--semeq-blue-accent) !important;
+        }
+        [data-theme="dark"] .btn-semeq-secondary:hover,
+        [data-theme="dark"] a.btn-semeq-secondary:hover {
+            background-color: #cbd5e1 !important;
+            color: var(--semeq-blue-accent) !important;
+        }
         [data-theme="dark"] .text-primary, [data-theme="dark"] .icon-card.text-primary { color: var(--text-primary) !important; }
         [data-theme="dark"] .form-text { color: var(--text-muted) !important; }
         [data-theme="dark"] .section-title { color: var(--text-primary) !important; }
         /* Asterisco obrigatório vira cinza claro em vez de vermelho */
         [data-theme="dark"] .text-danger:not(.progress-bar) { color: #f87171 !important; }
         [data-theme="dark"] .sidebar-nav a.active { border-left-color: var(--semeq-blue-accent); }
+        /* Home: logo/texto principal em branco no dark mode (inline color seria navy) */
+        [data-theme="dark"] .home-logo,
+        [data-theme="dark"] .home-title { color: var(--text-primary) !important; }
+        [data-theme="dark"] .home-title i,
+        [data-theme="dark"] .home-logo i { color: #ffffff !important; }
 
 [data-theme="dark"] .badge-subtle-success { background-color: #134e3a; color: #d1fae5; }
         [data-theme="dark"] .badge-subtle-warning { background-color: #3b2f10; color: #fef3c7; }

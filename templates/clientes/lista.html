@@ -100,9 +100,6 @@
                         </th>
                         <th>
                             <div class="d-flex gap-1">
-                                <button type="button" class="btn btn-semeq-primary btn-sm" id="btnFiltrar" title="Aplicar filtros">
-                                    <i class="bi bi-search me-1"></i> Filtrar
-                                </button>
                                 <button type="button" class="btn btn-semeq-outline btn-sm" id="btnLimpar" title="Limpar filtros">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
@@ -207,7 +204,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Elements from table header filter row only
     const tableStateSelect = document.getElementById('id_state_filter');
     const tableCityInput = document.querySelector('input[name="city"]');
-    const btnFiltrar = document.getElementById('btnFiltrar');
     const btnLimpar = document.getElementById('btnLimpar');
     
     // Helper to build URL for filter options API
@@ -281,22 +277,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // FILTRAR button - collect all filter values and navigate
-    if (btnFiltrar) {
-        btnFiltrar.addEventListener('click', function() {
-            const params = new URLSearchParams();
-            const filterInputs = document.querySelectorAll('.table-filter-row select, .table-filter-row input[type="text"]');
-            
-            filterInputs.forEach(el => {
-                if (el.value && el.value.trim()) {
-                    params.set(el.name, el.value.trim());
-                }
-            });
-            
-            const queryString = params.toString();
-            window.location.href = queryString ? `?${queryString}` : window.location.pathname;
+    // Aplica os filtros navegando para a query string montada
+    function aplicarFiltros() {
+        const params = new URLSearchParams();
+        const filterInputs = document.querySelectorAll('.table-filter-row select, .table-filter-row input[type="text"]');
+        filterInputs.forEach(el => {
+            if (el.value && el.value.trim()) {
+                params.set(el.name, el.value.trim());
+            }
         });
+        const queryString = params.toString();
+        window.location.href = queryString ? `?${queryString}` : window.location.pathname;
     }
-    
+
     // LIMPAR button - navigate to clean URL
     if (btnLimpar) {
         btnLimpar.addEventListener('click', function() {
@@ -311,25 +304,31 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = window.location.pathname;
         });
     }
-    
-    // Also handle Enter key on text inputs
-    document.querySelectorAll('.table-filter-row input[type="text"]').forEach(input => {
-        input.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (btnFiltrar) btnFiltrar.click();
-            }
-        });
-    });
 
-    // Busca em tempo real (debounce 300ms)
+    // Busca em tempo real (debounce) em todos os campos de texto
     let filterTimeout;
     document.querySelectorAll('.table-filter-row input[type="text"]').forEach(input => {
         input.addEventListener('input', function() {
             clearTimeout(filterTimeout);
-            filterTimeout = setTimeout(() => {
-                if (btnFiltrar) btnFiltrar.click();
-            }, 300);
+            filterTimeout = setTimeout(aplicarFiltros, 350);
+        });
+    });
+
+    // Auto-submit ao mudar selects (estado, país, ativo)
+    document.querySelectorAll('.table-filter-row select').forEach(sel => {
+        sel.addEventListener('change', function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(aplicarFiltros, 350);
+        });
+    });
+
+    // Enter nos campos de texto tambem aplica
+    document.querySelectorAll('.table-filter-row input[type="text"]').forEach(input => {
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                aplicarFiltros();
+            }
         });
     });
 });

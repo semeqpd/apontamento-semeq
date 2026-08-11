@@ -89,9 +89,6 @@
                 </div>
                 {% endif %}
                 <div class="col-md-12 d-flex gap-2 flex-wrap">
-                    <button type="submit" class="btn btn-semeq-primary">
-                        <i class="bi bi-search me-1"></i> Filtrar
-                    </button>
                     <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-secondary">
                         <i class="bi bi-x-lg me-1"></i> Limpar
                     </a>
@@ -270,14 +267,15 @@
 {% load static %}
 <script src="{% static 'js/status.js' %}"></script>
 <script>
-// Auto-submit filter form on change (with debounce)
+// Auto-submit filter form on change/typing (with debounce)
 let filterTimeout;
-document.querySelectorAll('#apontamentoFilters select, #apontamentoFilters input[type="date"]').forEach(el => {
-    el.addEventListener('change', function() {
+document.querySelectorAll('#apontamentoFilters select, #apontamentoFilters input').forEach(el => {
+    const event = el.tagName === 'SELECT' ? 'change' : 'input';
+    el.addEventListener(event, function() {
         clearTimeout(filterTimeout);
         filterTimeout = setTimeout(() => {
             document.getElementById('apontamentoFilters').submit();
-        }, 300);
+        }, 350);
     });
 });
 
