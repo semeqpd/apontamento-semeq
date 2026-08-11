@@ -53,14 +53,6 @@ urlpatterns = [
     # DEACTIVATED: path('times/<int:pk>/editar/', views.TimeUpdateView.as_view(), name='time_editar'),
     # DEACTIVATED: path('times/<int:pk>/excluir/', views.TimeDeleteView.as_view(), name='time_excluir'),
 
-    # Configurações - DEACTIVATED
-    # DEACTIVATED: path('configuracoes/', views.ConfiguracoesView, name='configuracoes'),
-
-    # Password Reset - DEACTIVATED (modo construção)
-    # DEACTIVATED: path('password_reset/', auth_views.PasswordResetView.as_view(...), name='password_reset'),
-    # DEACTIVATED: path('password_reset/done/', ...),
-    # DEACTIVATED: path('reset/<uidb64>/<token>/', ...),
-    # DEACTIVATED: path('reset/done/', ...),
 
     # Auth - MANTER ATIVO (necessário para login/logout)
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
@@ -70,9 +62,4 @@ urlpatterns = [
         success_url='/'
     ), name='password_change'),
 
-    # Password Reset - DEACTIVATED (modo construção)
-    # DEACTIVATED: path('password_reset/', auth_views.PasswordResetView.as_view(...), name='password_reset'),
-    # DEACTIVATED: path('password_reset/done/', ...),
-    # DEACTIVATED: path('reset/<uidb64>/<token>/', ...),
-    # DEACTIVATED: path('reset/done/', ...),
 ]
