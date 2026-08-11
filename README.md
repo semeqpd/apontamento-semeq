@@ -56,12 +56,23 @@ DJANGO_DB_PORT=5432
 
 ### 5. Criar o banco no PostgreSQL (uma vez)
 
-No `psql` do banco, crie o usuário e o banco:
+O usuário e a senha criados no banco **devem ser exatamente iguais** aos valores de `DJANGO_DB_USER` e `DJANGO_DB_PASSWORD` do `.env`. Escolha um par e use nos dois lugares.
 
-```sql
-CREATE ROLE <usuario> WITH LOGIN PASSWORD '<senha>' SUPERUSER CREATEDB;
-CREATE DATABASE apontamento OWNER <usuario>;
+Exemplo com o usuário `admin` e senha `senha123`:
+
+No `.env`:
 ```
+DJANGO_DB_USER=admin
+DJANGO_DB_PASSWORD=senha123
+```
+
+No `psql` do banco:
+```sql
+CREATE ROLE admin WITH LOGIN PASSWORD 'senha123' SUPERUSER CREATEDB;
+CREATE DATABASE apontamento OWNER admin;
+```
+
+> Você pode trocar `admin`/`senha123` por qualquer usuário/senha que preferir. O importante é que os valores no `.env` e no comando SQL sejam **os mesmos**.
 
 ### 6. Aplicar as migrações
 
