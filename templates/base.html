@@ -48,6 +48,17 @@
             color: var(--text-primary);
             border-color: var(--border-color);
         }
+        /* Dropdown nativo: options legiveis ao abrir (fundo claro + texto escuro) */
+        [data-theme="dark"] select option,
+        [data-theme="dark"] .form-select option {
+            background-color: #ffffff;
+            color: #1e293b;
+        }
+        [data-theme="dark"] select option:checked,
+        [data-theme="dark"] .form-select option:checked {
+            background-color: #dbeafe;
+            color: #1e3a8a;
+        }
         /* Placeholder no dark mode: cinza claro para diferenciar do texto digitado (azul) */
         [data-theme="dark"] .form-control::placeholder,
         [data-theme="dark"] .form-select::placeholder {
@@ -108,6 +119,9 @@
         [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
         [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6,
         [data-theme="dark"] strong { color: var(--text-primary); }
+        /* Cards de métricas do dashboard: valores em branco/cinza-claro no dark */
+        [data-theme="dark"] .card-metric h2 { color: var(--text-primary) !important; }
+        [data-theme="dark"] .card-metric h6 { color: var(--text-muted) !important; }
         /* Dark mode: NADA de texto azul em fundo escuro. Links/textos brancos ou cinza. */
         [data-theme="dark"] a:not(.btn):not(.badge) { color: var(--text-primary) !important; }
         [data-theme="dark"] a.btn-semeq-primary { color: #ffffff !important; }
