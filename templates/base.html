@@ -1,16 +1,869 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br" data-theme="{{ request.user.perfil.tema_preferido|default:'light' }}">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <link rel="stylesheet" href="{% static 'assets/bootstrap/css/bootstrap.min.css' %}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Portal de Suporte - SEMEQ{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
+    <!-- Google Fonts, Bootstrap 5 & Icons via CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Design System SEMEQ -->
+    <style>
+        :root {
+            --semeq-navy: #0a1033;
+            --semeq-navy-hover: #141c4f;
+            --semeq-blue-accent: #1d4ed8;
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        /* DARK MODE - mantém a paleta SEMEQ (navy/blue), apenas inverte superfícies */
+        [data-theme="dark"] {
+            --bg-body: #0b1220;
+            --card-bg: #16203a;
+            --border-color: #2a3a5c;
+            --text-primary: #e2e8f0;
+            --text-muted: #94a3b8;
+            --semeq-navy-hover: #1e2a4a;
+        }
+
+        [data-theme="dark"] body { background-color: var(--bg-body); color: var(--text-primary); }
+        [data-theme="dark"] .navbar-custom { background-color: var(--card-bg); border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .navbar-brand-text { color: var(--text-primary); }
+        [data-theme="dark"] .table { --bs-table-bg: transparent; --bs-table-color: var(--text-primary); }
+        [data-theme="dark"] .table thead th { background-color: var(--bg-body); color: var(--text-muted); }
+        [data-theme="dark"] .table tbody td { color: var(--text-primary); }
+        [data-theme="dark"] .form-control, [data-theme="dark"] .form-select {
+            background-color: var(--bg-body);
+            color: var(--semeq-blue-accent);
+            border-color: var(--border-color);
+        }
+        /* Placeholder no dark mode: cinza claro para diferenciar do texto digitado (azul) */
+        [data-theme="dark"] .form-control::placeholder,
+        [data-theme="dark"] .form-select::placeholder {
+            color: var(--text-muted);
+            opacity: 1;
+        }
+        [data-theme="dark"] .form-label { color: var(--text-primary); }
+        [data-theme="dark"] .ts-control, [data-theme="dark"] .ts-dropdown { background-color: var(--card-bg); color: var(--text-primary); }
+        /* Corrigir cabecalho table-light, grupo bg-light e total table-secondary */
+        [data-theme="dark"] .table .table-light,
+        [data-theme="dark"] table.table thead.table-light th,
+        [data-theme="dark"] .table thead.table-light th {
+            --bs-table-bg: var(--bg-body);
+            background-color: var(--bg-body) !important;
+            color: var(--text-muted);
+        }
+        [data-theme="dark"] .bg-light {
+            background-color: var(--bg-body) !important;
+            color: var(--text-primary);
+        }
+        [data-theme="dark"] .table-secondary,
+        [data-theme="dark"] .table .table-secondary,
+        [data-theme="dark"] .table-secondary td,
+        [data-theme="dark"] .table-secondary > * {
+            --bs-table-bg: var(--semeq-navy-hover);
+            background-color: var(--semeq-navy-hover) !important;
+            color: var(--text-muted) !important;
+        }
+        /* Texto escuro/Bootstrap vira claro no dark mode (exceto badges coloridos, que mantêm contraste) */
+        [data-theme="dark"] .text-dark:not(.bg-warning):not(.bg-info):not([class*="bg-warning"]):not([class*="bg-info"]) { color: var(--text-primary) !important; }
+        [data-theme="dark"] .badge.text-dark { color: var(--text-primary) !important; }
+        [data-theme="dark"] .badge.bg-warning.text-dark,
+        [data-theme="dark"] .badge.bg-info.text-dark,
+        [data-theme="dark"] .badge-warning .text-dark,
+        [data-theme="dark"] .badge-info .text-dark,
+        [data-theme="dark"] .badge.bg-warning,
+        [data-theme="dark"] .badge.bg-info { color: #1e293b !important; }
+        [data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
+        [data-theme="dark"] .form-control[readonly] {
+            background-color: var(--bg-body) !important;
+            color: var(--text-primary);
+        }
+        [data-theme="dark"] .btn-semeq-outline:hover {
+            background-color: var(--semeq-navy-hover);
+            color: var(--text-primary);
+        }
+        [data-theme="dark"] .btn-semeq-cancel {
+            background-color: transparent;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color);
+        }
+        [data-theme="dark"] .btn-semeq-cancel:hover {
+            background-color: var(--semeq-navy-hover);
+            color: var(--text-primary);
+            box-shadow: none;
+        }
+        [data-theme="dark"] .card-footer { background-color: var(--card-bg) !important; color: var(--text-primary); }
+        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
+        [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6,
+        [data-theme="dark"] strong { color: var(--text-primary); }
+        /* Dark mode: NADA de texto azul. Links brancos/cinza claro. */
+        [data-theme="dark"] a:not(.btn):not(.badge) { color: var(--text-primary) !important; }
+        [data-theme="dark"] a.btn-semeq-primary, [data-theme="dark"] a.btn-semeq-secondary { color: #ffffff !important; }
+        [data-theme="dark"] .text-primary, [data-theme="dark"] .icon-card.text-primary { color: var(--text-primary) !important; }
+        [data-theme="dark"] .form-text { color: var(--text-muted) !important; }
+        [data-theme="dark"] .section-title { color: var(--text-primary) !important; }
+        /* Asterisco obrigatório vira cinza claro em vez de vermelho */
+        [data-theme="dark"] .text-danger:not(.progress-bar) { color: #f87171 !important; }
+        [data-theme="dark"] .sidebar-nav a.active { border-left-color: var(--semeq-blue-accent); }
+
+[data-theme="dark"] .badge-subtle-success { background-color: #134e3a; color: #d1fae5; }
+        [data-theme="dark"] .badge-subtle-warning { background-color: #3b2f10; color: #fef3c7; }
+        [data-theme="dark"] .badge-subtle-primary { background-color: #1e3a5f; color: #dbeafe; }
+
+        body {
+            background-color: var(--bg-body);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            min-height: 100vh;
+            background-color: var(--semeq-navy);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem 1rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sidebar-brand h4 {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        .sidebar-nav {
+            padding-top: 1rem;
+        }
+
+        .sidebar a {
+            color: #94a3b8;
+            text-decoration: none;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            font-size: 0.92rem;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar a i {
+            font-size: 1.1rem;
+        }
+
+        .sidebar a:hover {
+            color: #ffffff;
+            background: var(--semeq-navy-hover);
+        }
+
+        .sidebar a.active {
+            color: #ffffff;
+            background: var(--semeq-navy-hover);
+            border-left: 4px solid var(--semeq-blue-accent);
+            padding-left: 20px;
+        }
+
+        /* NAVBAR */
+        .navbar-custom {
+            background-color: #ffffff;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.9rem 1.5rem;
+        }
+
+        .navbar-brand-text {
+            font-weight: 600;
+            color: var(--semeq-navy);
+            font-size: 1rem;
+        }
+
+        /* CARDS & DASHBOARD */
+        .card-dashboard {
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(10, 16, 51, 0.04);
+            background: var(--card-bg);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-dashboard:hover {
+            box-shadow: 0 4px 16px rgba(10, 16, 51, 0.08);
+        }
+
+        .card-dashboard .card-header {
+            background-color: transparent;
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 1.25rem;
+        }
+
+        .card-metric {
+            border-top: 3.5px solid transparent;
+        }
+
+        .card-metric.metric-blue { border-top-color: var(--semeq-navy); }
+        .card-metric.metric-green { border-top-color: #10b981; }
+        .card-metric.metric-yellow { border-top-color: #f59e0b; }
+        .card-metric.metric-red { border-top-color: #ef4444; }
+
+        .card-metric h6 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+
+        .card-metric h2 {
+            font-weight: 700;
+            color: var(--semeq-navy);
+            margin: 0;
+        }
+
+        .icon-card {
+            font-size: 2.5rem;
+            opacity: 0.25;
+        }
+
+        /* BOTÕES */
+        .btn-semeq-primary {
+            background-color: var(--semeq-navy);
+            color: #ffffff;
+            font-weight: 600;
+            border: none;
+            padding: 0.55rem 1.2rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-semeq-primary:hover {
+            background-color: var(--semeq-navy-hover);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(10, 16, 51, 0.15);
+        }
+
+        .btn-semeq-outline {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-weight: 500;
+            padding: 0.55rem 1.2rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-semeq-outline:hover {
+            background-color: #f1f5f9;
+            color: var(--semeq-navy);
+        }
+
+        /* TABELA */
+        .table thead th {
+            background-color: #f8fafc;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.8rem 1rem;
+        }
+
+        .table tbody td {
+            padding: 0.9rem 1rem;
+            vertical-align: middle;
+            font-size: 0.875rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .badge-subtle-success {
+            background-color: #d1fae5;
+            color: #065f46;
+            font-weight: 600;
+        }
+
+        .badge-subtle-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        .badge-subtle-primary {
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        /* FORMULÁRIOS (apontamento) */
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(10, 16, 51, 0.06);
+            overflow: hidden;
+            background: var(--card-bg);
+        }
+
+        .card-header {
+            background-color: var(--semeq-navy);
+            color: #ffffff;
+            padding: 1.25rem 1.5rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border-bottom: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-brand i {
+            font-size: 1.3rem;
+            color: #ffffff;
+        }
+
+        .section-title {
+            color: var(--semeq-navy);
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid var(--semeq-navy);
+            padding-left: 10px;
+        }
+
+        .form-label, label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 0.35rem;
+        }
+
+        .form-control, .form-select {
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.6rem 0.85rem;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            background-color: #ffffff;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--semeq-navy);
+            box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15);
+            background-color: #ffffff;
+        }
+
+        .form-control[readonly] {
+            background-color: #f1f5f9;
+            font-weight: 600;
+            color: var(--semeq-navy);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--semeq-navy);
+            border-color: var(--semeq-navy);
+        }
+
+        hr {
+            border-color: var(--border-color);
+            opacity: 0.7;
+            margin: 1.75rem 0;
+        }
+
+        .btn-semeq-secondary {
+            background-color: #e2e8f0;
+            color: var(--text-primary);
+            font-weight: 500;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            border: none;
+            margin-right: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-semeq-secondary:hover {
+            background-color: #cbd5e1;
+            color: var(--text-primary);
+        }
+
+        /* Botão Cancelar: fundo transparente + texto azul escuro (cor da página) */
+        .btn-semeq-cancel {
+            background-color: transparent;
+            color: var(--semeq-blue-accent);
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            border: 1px solid var(--semeq-blue-accent);
+            margin-right: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-semeq-cancel:hover {
+            background-color: var(--semeq-blue-accent);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2);
+        }
+
+        /* LOGIN PAGE */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-body);
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem;
+        }
+
+        .login-brand {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-brand i {
+            font-size: 3rem;
+            color: var(--semeq-navy);
+            margin-bottom: 0.75rem;
+        }
+
+        .login-brand h4 {
+            color: var(--semeq-navy);
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        .login-brand small {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 991.98px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                z-index: 1050;
+                width: 260px;
+                transition: left 0.3s ease;
+            }
+            .sidebar.show {
+                left: 0;
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 1040;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-  {% include 'parciais/_menu.html' %}
+    <!-- Sidebar Overlay for Mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  {% include 'parciais/_footer.html' %}
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <!-- MENU LATERAL (SIDEBAR) -->
+            <div class="col-md-2 sidebar p-0" id="sidebar">
+                <div class="sidebar-brand">
+                    <h4>
+                        <i class="bi bi-shield-check me-1"></i>
+                        SEMEQ
+                    </h4>
+                    <span class="text-white-50 small" style="font-size: 0.72rem; letter-spacing: 0.5px;">SUPPORT PORTAL</span>
+                </div>
 
+                <div class="sidebar-nav">
+                    <a href="{% url 'semeq:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                    <a href="{% url 'semeq:apontamento_lista' %}" class="{% if request.resolver_match.url_name == 'apontamento_lista' %}active{% endif %}">
+                        <i class="bi bi-journal-text"></i> Apontamentos
+                    </a>
+                    {% if request.user.is_superuser or request.user.perfil.is_gestor_or_above %}
+                    <a href="{% url 'semeq:cliente_lista' %}" class="{% if request.resolver_match.url_name == 'cliente_lista' %}active{% endif %}">
+                        <i class="bi bi-building"></i> Clientes
+                    </a>
+                    {% endif %}
+                    <!-- DESATIVADO (modo construção): Equipamentos
+                    {% if request.user.is_superuser or request.user.perfil.is_lider_or_above %}
+                    <a href="#" class="{% if request.resolver_match.url_name == 'equipamento_lista' %}active{% endif %}">
+                        <i class="bi bi-box-seam"></i> Equipamentos
+                    </a>
+                    {% endif %}
+                    -->
+                    {% if request.user.is_superuser or request.user.perfil.can_manage_users %}
+                    <a href="{% url 'semeq:usuario_lista' %}" class="{% if request.resolver_match.url_name == 'usuario_lista' %}active{% endif %}">
+                        <i class="bi bi-people"></i> Usuários
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'semeq:configuracoes' %}" class="{% if request.resolver_match.url_name == 'configuracoes' %}active{% endif %}">
+                        <i class="bi bi-gear"></i> Configurações
+                    </a>
+                    <a href="{% url 'semeq:logout' %}" class="{% if request.resolver_match.url_name == 'logout' %}active{% endif %}">
+                        <i class="bi bi-box-arrow-right"></i> Sair
+                    </a>
+                </div>
+
+                <!-- Toggle Tema na Sidebar -->
+                <div class="p-3 mt-auto" style="border-top: 1px solid rgba(255,255,255,0.08);">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="sidebarTemaToggle" {% if request.user.perfil.tema_preferido == 'dark' %}checked{% endif %}>
+                        <label class="form-check-label text-white small" for="sidebarTemaToggle">
+                            <i class="bi bi-moon-stars me-2"></i> Tema Escuro
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTEÚDO PRINCIPAL -->
+            <div class="col-md-10">
+                <!-- NAVBAR SUPERIOR -->
+                <nav class="navbar navbar-expand-lg navbar-custom">
+                    <div class="container-fluid p-0">
+                        <button class="btn btn-link text-dark p-0 me-3 d-md-none" type="button" id="sidebarToggle">
+                            <i class="bi bi-list fs-4"></i>
+                        </button>
+                        <span class="navbar-brand-text">
+                            <i class="bi bi-headset me-2 text-secondary"></i>
+                            Sistema de Gestão de Suporte - SEMEQ
+                        </span>
+
+                        <div class="d-flex align-items-center gap-2 ms-auto">
+                            <i class="bi bi-person-circle fs-5 text-secondary"></i>
+                            <span class="fw-semibold text-dark small">{{ request.user.get_full_name|default:request.user.username }}</span>
+                            {% if request.user.is_superuser %}
+                            <span class="badge bg-danger text-white small ms-1">Admin</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- CONTEÚDO DINÂMICO -->
+                <main class="p-4">
+                    {% if messages %}
+                    <div class="mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% block content %}
+                    {% endblock %}
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ==================== SEARCHABLE SELECT COMPONENT ====================
+        class SearchableSelect {
+            constructor(selectElement) {
+                this.select = selectElement;
+                this.options = Array.from(selectElement.options).map(opt => ({
+                    value: opt.value,
+                    text: opt.text,
+                    selected: opt.selected,
+                    disabled: opt.disabled
+                }));
+                this.filteredOptions = [...this.options];
+                this.isOpen = false;
+                this.highlightedIndex = -1;
+                
+                this.init();
+            }
+            
+            init() {
+                // Hide original select
+                this.select.style.display = 'none';
+                
+                // Create wrapper
+                this.wrapper = document.createElement('div');
+                this.wrapper.className = 'searchable-select-wrapper';
+                this.select.parentNode.insertBefore(this.wrapper, this.select.nextSibling);
+                
+                // Create input
+                this.input = document.createElement('input');
+                this.input.type = 'text';
+                this.input.className = 'form-control searchable-select-input';
+                this.input.placeholder = this.select.getAttribute('placeholder') || 'Buscar...';
+                this.input.setAttribute('autocomplete', 'off');
+                this.input.tabIndex = this.select.tabIndex || 0;
+                this.wrapper.appendChild(this.input);
+                
+                // Create dropdown
+                this.dropdown = document.createElement('div');
+                this.dropdown.className = 'searchable-select-dropdown';
+                this.wrapper.appendChild(this.dropdown);
+                
+                // Set selected value display
+                this.updateInputDisplay();
+                
+                // Events
+                this.input.addEventListener('focus', () => this.open());
+                this.input.addEventListener('blur', () => setTimeout(() => this.close(), 150));
+                this.input.addEventListener('input', (e) => this.filter(e.target.value));
+                this.input.addEventListener('keydown', (e) => this.handleKeydown(e));
+                
+                // Click outside to close
+                document.addEventListener('click', (e) => {
+                    if (!this.wrapper.contains(e.target)) {
+                        this.close();
+                    }
+                });
+                
+                // Sync original select changes
+                this.select.addEventListener('change', () => this.syncFromSelect());
+            }
+            
+            updateInputDisplay() {
+                const selected = this.options.find(o => o.value === this.select.value);
+                this.input.value = selected ? selected.text : '';
+            }
+            
+            syncFromSelect() {
+                this.options = Array.from(this.select.options).map(opt => ({
+                    value: opt.value,
+                    text: opt.text,
+                    selected: opt.selected,
+                    disabled: opt.disabled
+                }));
+                this.filteredOptions = [...this.options];
+                this.updateInputDisplay();
+                this.renderDropdown();
+            }
+            
+            open() {
+                if (this.isOpen) return;
+                this.isOpen = true;
+                this.highlightedIndex = -1;
+                this.dropdown.classList.add('show');
+                this.input.setAttribute('aria-expanded', 'true');
+                this.filter(this.input.value);
+            }
+            
+            close() {
+                if (!this.isOpen) return;
+                this.isOpen = false;
+                this.dropdown.classList.remove('show');
+                this.input.setAttribute('aria-expanded', 'false');
+                this.highlightedIndex = -1;
+            }
+            
+            filter(query) {
+                const q = query.toLowerCase().trim();
+                if (!q) {
+                    this.filteredOptions = this.options.filter(o => !o.disabled);
+                } else {
+                    this.filteredOptions = this.options.filter(o => 
+                        !o.disabled && o.text.toLowerCase().includes(q)
+                    );
+                }
+                this.highlightedIndex = -1;
+                this.renderDropdown();
+            }
+            
+            renderDropdown() {
+                this.dropdown.innerHTML = '';
+                
+                if (this.filteredOptions.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'searchable-select-empty';
+                    empty.textContent = 'Nenhuma opção encontrada';
+                    this.dropdown.appendChild(empty);
+                    return;
+                }
+                
+                this.filteredOptions.forEach((opt, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'searchable-select-item';
+                    item.textContent = opt.text;
+                    item.dataset.value = opt.value;
+                    if (opt.selected) item.classList.add('selected');
+                    if (index === this.highlightedIndex) item.classList.add('highlighted');
+                    
+                    item.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        this.selectOption(opt.value);
+                    });
+                    
+                    this.dropdown.appendChild(item);
+                });
+            }
+            
+            handleKeydown(e) {
+                if (!this.isOpen && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    this.open();
+                    return;
+                }
+                
+                switch (e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.highlightNext();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.highlightPrev();
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        if (this.highlightedIndex >= 0) {
+                            this.selectOption(this.filteredOptions[this.highlightedIndex].value);
+                        }
+                        break;
+                    case 'Escape':
+                        this.close();
+                        break;
+                }
+            }
+            
+            highlightNext() {
+                if (this.highlightedIndex < this.filteredOptions.length - 1) {
+                    this.highlightedIndex++;
+                    this.renderDropdown();
+                    this.scrollHighlighted();
+                }
+            }
+            
+            highlightPrev() {
+                if (this.highlightedIndex > 0) {
+                    this.highlightedIndex--;
+                    this.renderDropdown();
+                    this.scrollHighlighted();
+                }
+            }
+            
+            scrollHighlighted() {
+                const item = this.dropdown.querySelector('.searchable-select-item.highlighted');
+                if (item) {
+                    item.scrollIntoView({ block: 'nearest' });
+                }
+            }
+            
+            selectOption(value) {
+                this.select.value = value;
+                this.select.dispatchEvent(new Event('change', { bubbles: true }));
+                this.updateInputDisplay();
+                this.close();
+                this.input.focus();
+            }
+        }
+        
+        // Auto-initialize all selects with data-searchable="true"
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('select[data-searchable="true"]').forEach(select => {
+                new SearchableSelect(select);
+            });
+        });
+
+        // ==================== SIDEBAR TOGGLE ====================
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        if (sidebarToggle && sidebar && overlay) {
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('show');
+                overlay.classList.toggle('show');
+            });
+
+            overlay.addEventListener('click', () => {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            });
+        }
+
+        // Auto-hide sidebar on link click (mobile)
+        document.querySelectorAll('.sidebar a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 992) {
+                    sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
+                }
+            });
+        });
+
+        // ==================== TEMA CLARO/ESCURO ====================
+        (function () {
+            function getCsrfToken() {
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) return meta.getAttribute('content');
+                const match = document.cookie.match(/(^|;)\s*csrftoken\s*=\s*([^;]+)/);
+                return match ? match.pop() : '';
+            }
+            function aplicarTema(tema) {
+                document.documentElement.setAttribute('data-theme', tema);
+            }
+            const temaToggle = document.getElementById('sidebarTemaToggle');
+            if (temaToggle) {
+                temaToggle.addEventListener('change', function () {
+                    const tema = this.checked ? 'dark' : 'light';
+                    aplicarTema(tema);
+                    fetch('/configuracoes/tema/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken(),
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ tema: tema })
+                    }).catch(function () { aplicarTema(tema === 'dark' ? 'light' : 'dark'); });
+                });
+            }
+        })();
+    </script>
+
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

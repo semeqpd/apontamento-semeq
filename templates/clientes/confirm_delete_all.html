@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Exclusão Total - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>⚠️ AÇÃO IRREVERSÍVEL</h3>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-danger">
+                        <h5 class="alert-heading"><i class="bi bi-exclamation-octagon me-2"></i>ATENÇÃO MÁXIMA</h5>
+                        <p class="mb-2">Esta ação <strong>NÃO PODE SER DESFEITA</strong>.</p>
+                        <p class="mb-0">Todos os dados abaixo serão <strong>permanentemente excluídos</strong>:</p>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0 text-center p-3">
+                                <div class="display-4 text-danger">{{ total_clientes }}</div>
+                                <div class="text-muted">Clientes</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0 text-center p-3">
+                                <div class="display-4 text-danger">{{ total_equipamentos }}</div>
+                                <div class="text-muted">Equipamentos</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0 text-center p-3">
+                                <div class="display-4 text-danger">{{ total_apontamentos }}</div>
+                                <div class="text-muted">Apontamentos</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Consequências:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Todos os clientes serão removidos permanentemente</li>
+                            <li>Todos os equipamentos vinculados serão removidos</li>
+                            <li>Todos os apontamentos (histórico) serão removidos</li>
+                            <li><strong>Não há backup automático - ação irreversível</strong></li>
+                        </ul>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="confirmacao" class="form-label fw-bold">Digite "CONFIRMO" para prosseguir:</label>
+                            <input type="text" class="form-control form-control-lg" name="confirmacao" id="confirmacao" 
+                                   placeholder="CONFIRMO" required autocomplete="off">
+                            <div class="form-text">A confirmação deve ser exata: <code>CONFIRMO</code> (maiúsculas)</div>
+                        </div>
+                        
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{% url 'semeq:cliente_lista' %}" class="btn btn-semeq-secondary btn-lg">
+                                <i class="bi bi-x-lg me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger btn-lg" id="btnConfirmar" disabled>
+                                <i class="bi bi-trash3 me-1"></i> EXCLUIR TUDO
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('confirmacao');
+    const btn = document.getElementById('btnConfirmar');
+    
+    if (input && btn) {
+        input.addEventListener('input', function() {
+            btn.disabled = this.value !== 'CONFIRMO';
+        });
+    }
+});
+</script>
+{% endblock %}

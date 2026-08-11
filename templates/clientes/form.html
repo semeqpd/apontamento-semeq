@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar Cliente{% else %}Novo Cliente{% endif %} - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-brand">
+                <i class="bi bi-building"></i>
+                <span>{% if object %}Editar Cliente{% else %}Novo Cliente{% endif %}</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="section-title">Identificação</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.corporation_id.label }}</label>
+                        {{ form.corporation_id }}
+                        {% if form.corporation_id.errors %}
+                            <div class="text-danger small mt-1">{{ form.corporation_id.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.corporation.label }} <span class="text-danger">*</span></label>
+                        {{ form.corporation }}
+                        {% if form.corporation.errors %}
+                            <div class="text-danger small mt-1">{{ form.corporation.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.plant_id.label }}</label>
+                        {{ form.plant_id }}
+                        {% if form.plant_id.errors %}
+                            <div class="text-danger small mt-1">{{ form.plant_id.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-9">
+                        <label class="form-label">{{ form.plant.label }} <span class="text-danger">*</span></label>
+                        {{ form.plant }}
+                        {% if form.plant.errors %}
+                            <div class="text-danger small mt-1">{{ form.plant.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="section-title">Localização</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.unat.label }}</label>
+                        {{ form.unat }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.city.label }}</label>
+                        {{ form.city }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ form.state_province.label }}</label>
+                        {{ form.state_province }}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.country.label }}</label>
+                        {{ form.country }}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">{{ form.iso_3166.label }}</label>
+                        {{ form.iso_3166 }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.region.label }}</label>
+                        {{ form.region }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.business.label }}</label>
+                        {{ form.business }}
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="section-title">Códigos SAP</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.sap_bp_code.label }}</label>
+                        {{ form.sap_bp_code }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.zone.label }}</label>
+                        {{ form.zone }}
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="section-title">Status</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <div class="form-check mt-4">
+                            {{ form.ativo }}
+                            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <a href="{% url 'semeq:cliente_lista' %}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-check-lg me-1"></i> {% if object %}Atualizar{% else %}Salvar{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

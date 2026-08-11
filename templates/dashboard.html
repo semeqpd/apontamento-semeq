@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Dashboard - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<!-- FILTROS -->
+<div class="card card-dashboard mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end" id="dashboardFilters">
+            {% if perfil.is_gestor_or_above %}
+            <div class="col-md-2">
+                <label class="form-label">Equipe</label>
+                <select name="time" class="form-select" id="id_time">
+                    <option value="">Todas as equipes</option>
+                    {% for time in times %}
+                    <option value="{{ time.pk }}" {% if filtros.time == time.pk|stringformat:"s" %}selected{% endif %}>{{ time.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Colaborador</label>
+                <select name="usuario" class="form-select" id="id_usuario">
+                    <option value="">Todos os colaboradores</option>
+                    {% for user in usuarios %}
+                    <option value="{{ user.pk }}" {% if filtros.usuario == user.pk|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% elif perfil.is_lider_or_above %}
+            <div class="col-md-2">
+                <label class="form-label">Colaborador do Time</label>
+                <select name="usuario" class="form-select" id="id_usuario">
+                    <option value="">Todos</option>
+                    {% for user in usuarios %}
+                    <option value="{{ user.pk }}" {% if filtros.usuario == user.pk|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label">Data Início</label>
+                <input type="date" name="data_inicio" class="form-control" value="{{ filtros.data_inicio }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Data Fim</label>
+                <input type="date" name="data_fim" class="form-control" value="{{ filtros.data_fim }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">Todos</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if filtros.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Prioridade</label>
+                <select name="prioridade" class="form-select">
+                    <option value="">Todas</option>
+                    {% for value, label in prioridade_choices %}
+                    <option value="{{ value }}" {% if filtros.prioridade == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-12 col-auto">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-semeq-secondary" onclick="window.location.href='{% url 'semeq:dashboard' %}'">
+                        <i class="bi bi-x-lg me-1"></i> Limpar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MÉTRICAS / KPIS -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-3 col-sm-6">
+        <div class="card card-dashboard card-metric metric-blue">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6>Apontamentos Hoje</h6>
+                        <h2>{{ total_hoje }}</h2>
+                    </div>
+                    <i class="bi bi-journal-check icon-card text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6">
+        <div class="card card-dashboard card-metric metric-green">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6>Horas Trabalhadas</h6>
+                        <h2>{{ horas_trabalhadas }}</h2>
+                    </div>
+                    <i class="bi bi-clock-history icon-card text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6">
+        <div class="card card-dashboard card-metric metric-yellow">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6>Em Aberto</h6>
+                        <h2>{{ em_aberto }}</h2>
+                    </div>
+                    <i class="bi bi-exclamation-circle icon-card text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6">
+        <div class="card card-dashboard card-metric metric-red">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6>SLA (Concluídos)</h6>
+                        <h2>{{ sla_pct }}%</h2>
+                    </div>
+                    <i class="bi bi-award icon-card text-danger"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AÇÕES RÁPIDAS -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card card-dashboard">
+            <div class="card-header">
+                <strong class="text-dark small text-uppercase" style="letter-spacing: 0.5px;">Ações Rápidas</strong>
+            </div>
+            <div class="card-body d-flex flex-wrap gap-2">
+                <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
+                    <i class="bi bi-plus-circle me-1"></i>
+Novo Apontamento
+                </a>
+
+                <!-- DESATIVADO (modo construção): Exportar
+                <div class="btn-group">
+                    <button type="button" class="btn btn-semeq-outline dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Exportar
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="#" disabled>
+                                <i class="bi bi-filetype-csv me-2"></i> CSV
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" disabled>
+                                <i class="bi bi-filetype-xlsx me-2"></i> Excel (XLSX)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                -->
+
+                <!-- DESATIVADO (modo construção): Indicadores e Pesquisar
+                <a href="#" class="btn btn-semeq-outline" disabled>
+                    <i class="bi bi-bar-chart me-1"></i> Indicadores
+                </a>
+
+                <a href="#" class="btn btn-semeq-outline" disabled>
+                    <i class="bi bi-search me-1"></i> Pesquisar Apontamento
+                </a>
+                -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ÚLTIMOS APONTAMENTOS -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card card-dashboard">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <strong class="text-dark small text-uppercase" style="letter-spacing: 0.5px;">Últimos Apontamentos</strong>
+                <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-outline btn-sm">
+                    <i class="bi bi-list me-1"></i> Ver todos
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if ultimos %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Ticket</th>
+                                <th>Cliente</th>
+                                <th>Prioridade</th>
+                                <th>Responsável</th>
+                                <th>Projeto</th>
+                                <th>Status</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in ultimos %}
+                            <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.pk %}'" style="cursor: pointer;">
+                                <td class="fw-semibold text-dark">{{ a.ticket }}</td>
+                                <td>{{ a.cliente.corporation }} - {{ a.cliente.plant }}</td>
+                                <td>
+                                    {% if a.prioridade == 'critica' %}
+                                    <span class="badge bg-danger">{{ a.get_prioridade_display }}</span>
+                                    {% elif a.prioridade == 'alta' %}
+                                    <span class="badge bg-warning text-dark">{{ a.get_prioridade_display }}</span>
+                                    {% elif a.prioridade == 'media' %}
+                                    <span class="badge bg-info text-dark">{{ a.get_prioridade_display }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ a.get_prioridade_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
+                                <td>{{ a.projeto }}</td>
+                                <td>
+                                    {% if a.status == 'concluido' %}
+                                    <span class="badge badge-subtle-success px-2 py-1">{{ a.get_status_display }}</span>
+                                    {% elif a.status == 'aberto' %}
+                                    <span class="badge badge-subtle-warning px-2 py-1">{{ a.get_status_display }}</span>
+                                    {% elif a.status == 'andamento' %}
+                                    <span class="badge badge-subtle-primary px-2 py-1">{{ a.get_status_display }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary px-2 py-1">{{ a.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ a.data|date:"d/m/Y" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-journal-text fs-1 text-muted"></i>
+                    <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
+                    <p class="text-muted">Clique em "Novo Apontamento" para criar o primeiro.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-submit filter form on change (with debounce)
+let filterTimeout;
+document.querySelectorAll('#dashboardFilters select, #dashboardFilters input[type="date"]').forEach(el => {
+    el.addEventListener('change', function() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            document.getElementById('dashboardFilters').submit();
+        }, 300);
+    });
+});
+</script>
+{% endblock %}

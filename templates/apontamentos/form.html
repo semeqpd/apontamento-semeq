@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar{% else %}Novo{% endif %} Apontamento - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-brand">
+                <i class="bi bi-journal-text"></i>
+                <span>{% if object %}Editar{% else %}Novo{% endif %} Apontamento</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" novalidate id="apontamentoForm">
+                {% csrf_token %}
+
+                <!-- Non-field errors (ex: hora_final <= hora_inicial, conflito de horário) -->
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
+                        <div>
+                            <strong>Erro no formulário:</strong>
+                            <ul class="mb-0 mt-1">
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Seção: Dados Gerais -->
+                <div class="section-title">
+                    Dados Gerais
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.cliente.label }} <span class="text-danger">*</span></label>
+                        {% if object %}
+                        <div id="clienteAtualInfo">
+                            <div class="fw-medium">{{ object.cliente.corporation }} - {{ object.cliente.plant }}</div>
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="alterarClienteCheck">
+                                <label class="form-check-label" for="alterarClienteCheck">Alterar cliente</label>
+                            </div>
+                        </div>
+                        <div id="clienteBuscaWrapper" class="d-none">
+                            {{ form.cliente }}
+                        </div>
+                        {% else %}
+                        {{ form.cliente }}
+                        {% endif %}
+                        {% if form.cliente.errors %}
+                            <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.projeto.label }} <span class="text-danger">*</span></label>
+                        {{ form.projeto }}
+                        {% if form.projeto.errors %}<div class="text-danger small mt-1">{{ form.projeto.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.solicitante.label }} <span class="text-danger">*</span></label>
+                        {{ form.solicitante }}
+                        {% if form.solicitante.errors %}<div class="text-danger small mt-1">{{ form.solicitante.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.ticket.label }} <span class="text-danger">*</span></label>
+                        {{ form.ticket }}
+                        {% if form.ticket.errors %}<div class="text-danger small mt-1">{{ form.ticket.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.equipamento.label }}</label>
+                        {{ form.equipamento }}
+                        {% if form.equipamento.errors %}<div class="text-danger small mt-1">{{ form.equipamento.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.prioridade.label }} <span class="text-danger">*</span></label>
+                        {{ form.prioridade }}
+                        {% if form.prioridade.errors %}<div class="text-danger small mt-1">{{ form.prioridade.errors }}</div>{% endif %}
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Seção: Apontamento -->
+                <div class="section-title">
+                    Apontamento
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.equipe.label }} <span class="text-danger">*</span></label>
+                        {{ form.equipe }}
+                        {% if form.equipe.errors %}<div class="text-danger small mt-1">{{ form.equipe.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.responsavel.label }} <span class="text-danger">*</span></label>
+                        {{ form.responsavel }}
+                        {% if form.responsavel.errors %}<div class="text-danger small mt-1">{{ form.responsavel.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.atividade.label }} <span class="text-danger">*</span></label>
+                        {{ form.atividade }}
+                        {% if form.atividade.errors %}<div class="text-danger small mt-1">{{ form.atividade.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.tipo_problema.label }} <span class="text-danger">*</span></label>
+                        {{ form.tipo_problema }}
+                        {% if form.tipo_problema.errors %}<div class="text-danger small mt-1">{{ form.tipo_problema.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.status.label }} <span class="text-danger">*</span></label>
+                        {{ form.status }}
+                        {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.data.label }} <span class="text-danger">*</span></label>
+                        {{ form.data }}
+                        {% if form.data.errors %}<div class="text-danger small mt-1">{{ form.data.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">{{ form.hora_inicial.label }} <span class="text-danger">*</span></label>
+                        {{ form.hora_inicial }}
+                        {% if form.hora_inicial.errors %}<div class="text-danger small mt-1">{{ form.hora_inicial.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">{{ form.hora_final.label }} <span class="text-danger">*</span></label>
+                        {{ form.hora_final }}
+                        {% if form.hora_final.errors %}<div class="text-danger small mt-1">{{ form.hora_final.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">Tempo Total (min)</label>
+                        <input type="text" class="form-control" id="id_tempo_total" value="0 min" readonly>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Seção: Informações adicionais -->
+                <div class="section-title">
+                    Informações Adicionais
+                </div>
+
+                <div class="row g-3 align-items-center mb-3">
+                    <div class="col-md-4">
+                            <div class="form-check">
+                                {{ form.gw_ar }}
+                                <label class="form-check-label" for="{{ form.gw_ar.id_for_label }}">{{ form.gw_ar.label }}</label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-5">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    <label class="form-label mb-0">{{ form.desvio.label }}</label>
+                                </div>
+                                <div class="col">
+                                    {{ form.desvio }}
+                                    {% if form.desvio.errors %}<div class="text-danger small mt-1">{{ form.desvio.errors }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                </div>
+
+                <hr>
+
+                <!-- Seção: Descrição -->
+                <div class="mb-4">
+                    <label class="form-label">{{ form.descricao.label }} <span class="text-danger">*</span></label>
+                    {{ form.descricao }}
+                    {% if form.descricao.errors %}<div class="text-danger small mt-1">{{ form.descricao.errors }}</div>{% endif %}
+                </div>
+
+                <!-- Botões de Ação -->
+                <div class="text-end">
+                    <a href="javascript:history.back()" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-check-lg me-1"></i> Salvar Apontamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-calculate tempo total
+    const horaInicial = document.querySelector('[name="hora_inicial"]');
+    const horaFinal = document.querySelector('[name="hora_final"]');
+    const tempoTotal = document.getElementById('id_tempo_total');
+
+    function calcularTempo() {
+        if (horaInicial.value && horaFinal.value) {
+            const [hi, mi] = horaInicial.value.split(':').map(Number);
+            const [hf, mf] = horaFinal.value.split(':').map(Number);
+            
+            let inicio = hi * 60 + mi;
+            let fim = hf * 60 + mf;
+            
+            if (fim < inicio) fim += 24 * 60;
+            
+            const diff = fim - inicio;
+            
+            tempoTotal.value = `${diff} min`;
+        }
+    }
+
+    horaInicial?.addEventListener('change', calcularTempo);
+    horaFinal?.addEventListener('change', calcularTempo);
+
+    // Set default date to today if empty
+    const dataInput = document.querySelector('[name="data"]');
+    if (dataInput && !dataInput.value) {
+        const today = new Date().toISOString().split('T')[0];
+        dataInput.value = today;
+    }
+</script>
+
+<!-- Tom Select CSS & JS for autocomplete -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cliente autocomplete
+    if (document.getElementById('id_cliente')) {
+        new TomSelect('#id_cliente', {
+            plugins: ['dropdown_input'],
+            valueField: 'pk',
+            labelField: 'corporation',
+            searchField: ['corporation', 'plant', 'corporation_id', 'plant_id', 'city'],
+            preload: 'focus',
+            allowEmptyOption: true,
+            placeholder: 'Digite para buscar cliente...',
+            load: function(query, callback) {
+                if (!query.length) return callback();
+                fetch(`/clientes/autocomplete/?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(json => callback(json.results))
+                    .catch(() => callback());
+            },
+            render: {
+                option: function(data, escape) {
+                    // Handle empty/placeholder option
+                    if (!data.corporation || !data.plant) {
+                        return `<div class="text-muted small">${escape(data.text || 'Selecione um cliente')}</div>`;
+                    }
+                    return `<div>
+                        <strong>${escape(data.corporation)} - ${escape(data.plant)}</strong><br>
+                        <small class="text-muted">ID: ${escape(data.corporation_id || '')}/${escape(data.plant_id || '')} | ${escape(data.city || 'N/A')}</small>
+                    </div>`;
+                },
+                item: function(data, escape) {
+                    if (!data.corporation || !data.plant) {
+                        return `<div>${escape(data.text || '')}</div>`;
+                    }
+                    return `<div>${escape(data.corporation)} - ${escape(data.plant)}</div>`;
+                }
+            }
+            // onInitialize removed to preserve pre-selected client value when editing
+        });
+    }
+
+    // Checkbox "Alterar cliente" — mostra/esconde a busca de cliente na edição
+    const alterarClienteCheck = document.getElementById('alterarClienteCheck');
+    const clienteBuscaWrapper = document.getElementById('clienteBuscaWrapper');
+    const clienteAtualInfo = document.getElementById('clienteAtualInfo');
+    if (alterarClienteCheck && clienteBuscaWrapper && clienteAtualInfo) {
+        alterarClienteCheck.addEventListener('change', function() {
+            if (this.checked) {
+                clienteAtualInfo.classList.add('d-none');
+                clienteBuscaWrapper.classList.remove('d-none');
+                // Inicializa o TomSelect caso ainda não tenha sido inicializado
+                if (document.getElementById('id_cliente') && !document.getElementById('id_cliente').tomselect) {
+                    // O TomSelect será criado abaixo no fluxo normal; aqui apenas exibimos
+                }
+            } else {
+                clienteAtualInfo.classList.remove('d-none');
+                clienteBuscaWrapper.classList.add('d-none');
+                // Reverte a seleção para o cliente atual
+                const clienteSelect = document.getElementById('id_cliente');
+                if (clienteSelect && clienteSelect.tomselect) {
+                    clienteSelect.tomselect.clear();
+                    clienteSelect.tomselect.setValue('{{ object.cliente.pk }}');
+                }
+            }
+        });
+    }
+
+    // Equipamento autocomplete
+    if (document.getElementById('id_equipamento')) {
+        new TomSelect('#id_equipamento', {
+            plugins: ['dropdown_input', 'remove_button'],
+            valueField: 'pk',
+            labelField: 'numero_serie',
+            searchField: ['numero_serie', 'modelo', 'tipo'],
+            preload: 'focus',
+            allowEmptyOption: true,
+            placeholder: 'Digite para buscar equipamento...',
+            load: function(query, callback) {
+                if (!query.length) return callback();
+                fetch(`/equipamentos/autocomplete/?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(json => callback(json.results))
+                    .catch(() => callback());
+            },
+            render: {
+                option: function(data, escape) {
+                    // Handle empty/placeholder option
+                    if (!data.numero_serie) {
+                        return `<div class="text-muted small">${escape(data.text || 'Selecione um equipamento')}</div>`;
+                    }
+                    return `<div>
+                        <strong>${escape(data.numero_serie)}</strong>
+                        <span class="text-muted ms-2">${escape(data.modelo || '')}</span>
+                        <small class="text-muted d-block">Tipo: ${escape(data.tipo || '')} | Cliente: ${escape(data.cliente__corporation || '')} - ${escape(data.cliente__plant || '')}</small>
+                    </div>`;
+                },
+                item: function(data, escape) {
+                    if (!data.numero_serie) {
+                        return `<div>${escape(data.text || '')}</div>`;
+                    }
+                    return `<div>${escape(data.numero_serie)} ${data.modelo ? '- ' + escape(data.modelo) : ''}</div>`;
+                }
+            },
+            onInitialize: function() {
+                this.setText('');
+            }
+        });
+    }
+    
+    // Prevent browser's native validation from interfering with Django's validation
+    document.getElementById('apontamentoForm').setAttribute('novalidate', 'true');
+    
+    // Ensure only fields with actual errors get the 'is-invalid' class
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('apontamentoForm');
+        if (form) {
+            // Remove any erroneous 'is-invalid' classes on page load
+            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            
+            // Add event listener to clear error styling when user starts typing
+            form.querySelectorAll('.form-control, .form-select').forEach(function(input) {
+                input.addEventListener('input', function() {
+                    if (this.classList.contains('is-invalid')) {
+                        this.classList.remove('is-invalid');
+                    }
+                    // Also clear error message
+                    const errorDiv = this.parentNode.querySelector('.text-danger');
+                    if (errorDiv) {
+                        errorDiv.remove();
+                    }
+                });
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

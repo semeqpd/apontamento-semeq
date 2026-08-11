@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Detalhes do Apontamento #{{ apontamento.ticket }} - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="header-brand">
+                <i class="bi bi-journal-text"></i>
+                <span>Detalhes do Apontamento #{{ apontamento.ticket }}</span>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'semeq:apontamento_editar' apontamento.pk %}" class="btn btn-semeq-primary">
+                    <i class="bi bi-pencil me-1"></i> Editar
+                </a>
+                <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Voltar
+                </a>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <!-- Dados Gerais -->
+            <div class="section-title mb-3">
+                Dados Gerais
+            </div>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label text-muted small">Cliente</label>
+                    <div class="fw-medium">{{ apontamento.cliente.corporation }} - {{ apontamento.cliente.plant }}</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small">Projeto</label>
+                    <div class="fw-medium">{{ apontamento.projeto }}</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small">Solicitante</label>
+                    <div class="fw-medium">{{ apontamento.solicitante }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Ticket</label>
+                    <div class="fw-medium">{{ apontamento.ticket }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Equipamento</label>
+                    <div class="fw-medium">{{ apontamento.equipamento|default:"—" }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Prioridade</label>
+                    <div class="fw-medium">
+                        {% if apontamento.prioridade == 'critica' %}
+                        <span class="badge bg-danger">{{ apontamento.get_prioridade_display }}</span>
+                        {% elif apontamento.prioridade == 'alta' %}
+                        <span class="badge bg-warning text-dark">{{ apontamento.get_prioridade_display }}</span>
+                        {% elif apontamento.prioridade == 'media' %}
+                        <span class="badge bg-info text-dark">{{ apontamento.get_prioridade_display }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ apontamento.get_prioridade_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Equipe</label>
+                    <div class="fw-medium"><span class="badge bg-light text-dark">{{ apontamento.get_equipe_display }}</span></div>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Apontamento -->
+            <div class="section-title mb-3">
+                Apontamento
+            </div>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Responsável</label>
+                    <div class="fw-medium">{{ apontamento.responsavel.get_full_name|default:apontamento.responsavel.username }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Atividade</label>
+                    <div class="fw-medium">{{ apontamento.get_atividade_display }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Tipo do Problema</label>
+                    <div class="fw-medium">{{ apontamento.get_tipo_problema_display }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Status</label>
+                    <div class="fw-medium">
+                        {% if apontamento.status == 'concluido' %}
+                        <span class="badge badge-subtle-success px-2 py-1">{{ apontamento.get_status_display }}</span>
+                        {% elif apontamento.status == 'aberto' %}
+                        <span class="badge badge-subtle-warning px-2 py-1">{{ apontamento.get_status_display }}</span>
+                        {% elif apontamento.status == 'andamento' %}
+                        <span class="badge badge-subtle-primary px-2 py-1">{{ apontamento.get_status_display }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary px-2 py-1">{{ apontamento.get_status_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Data</label>
+                    <div class="fw-medium">{{ apontamento.data|date:"d/m/Y" }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Horário</label>
+                    <div class="fw-medium text-primary">
+                        {{ apontamento.hora_inicial|time:"H:i" }} - {{ apontamento.hora_final|time:"H:i" }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Tempo Total</label>
+                    <div class="fw-medium fs-5 text-success">{{ apontamento.tempo_total|duration_minutes }}min</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">GW no Ar</label>
+                    <div class="fw-medium">
+                        <span class="badge {% if apontamento.gw_ar %}bg-success{% else %}bg-secondary{% endif %}">
+                            {% if apontamento.gw_ar %}Sim{% else %}Não{% endif %}
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small">Desvio</label>
+                    <div class="fw-medium">{{ apontamento.get_desvio_display }}</div>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Descrição -->
+            <div class="section-title mb-3">
+                Descrição do Apontamento
+            </div>
+            <div class="mb-4">
+                <div class="p-3 bg-light rounded">
+                    {{ apontamento.descricao|linebreaks }}
+                </div>
+            </div>
+
+            <!-- Auditoria -->
+            <hr>
+            <div class="section-title mb-3">
+                Auditoria
+            </div>
+            <div class="row g-3 text-muted small">
+                <div class="col-md-6">
+                    <strong>Criado por:</strong> {{ apontamento.criado_por.get_full_name|default:apontamento.criado_por.username }}
+                </div>
+                <div class="col-md-6">
+                    <strong>Criado em:</strong> {{ apontamento.criado_em|date:"d/m/Y H:i" }}
+                </div>
+                <div class="col-md-6">
+                    <strong>Atualizado em:</strong> {{ apontamento.atualizado_em|date:"d/m/Y H:i" }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+{% endblock %}

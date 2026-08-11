@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Importar Clientes - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-brand">
+                <i class="bi bi-file-earmark-arrow-up"></i>
+                <span>Importar Clientes (Excel/CSV)</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            {% if preview %}
+                <!-- Preview Mode -->
+                <div class="alert alert-info">
+                    <h5 class="alert-heading"><i class="bi bi-eye me-1"></i> Preview da Importação</h5>
+                    <p class="mb-1"><strong>{{ total_rows }}</strong> linhas encontradas no arquivo.</p>
+                    <p class="mb-0">Mostrando as primeiras 5 linhas. Confira os dados antes de confirmar.</p>
+                </div>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                {% for header in headers %}
+                                    <th class="small">{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in preview %}
+                            <tr>
+                                {% for header in headers %}
+                                    <td class="small">{{ row|get_item:header|default:"-" }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="atualizar_existentes" value="{{ form.atualizar_existentes.value|yesno:'on,off' }}">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a href="{% url 'semeq:cliente_importar' %}" class="btn btn-semeq-secondary">
+                            <i class="bi bi-x-lg me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" name="confirmar" value="1" class="btn btn-semeq-primary">
+                            <i class="bi bi-check-lg me-1"></i> Confirmar Importação
+                        </button>
+                    </div>
+                </form>
+
+            {% else %}
+                <!-- Upload Form -->
+                <div class="section-title">Upload do Arquivo</div>
+
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label class="form-label">{{ form.arquivo.label }}</label>
+                        {{ form.arquivo }}
+                        {% if form.arquivo.help_text %}
+                            <div class="form-text">{{ form.arquivo.help_text }}</div>
+                        {% endif %}
+                        {% if form.arquivo.errors %}
+                            <div class="text-danger small mt-1">{{ form.arquivo.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check">
+                            {{ form.atualizar_existentes }}
+                            <label class="form-check-label" for="{{ form.atualizar_existentes.id_for_label }}">{{ form.atualizar_existentes.label }}</label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="section-title">Formato Esperado</div>
+                    <p class="text-muted small mb-3">O arquivo Excel deve conter as seguintes colunas (cabeçalho na primeira linha):</p>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr><th>Coluna</th><th>Descrição</th><th>Obrigatório</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>CORPORATION_ID</td><td>ID único da corporação</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
+                                <tr><td>CORPORATION</td><td>Nome da corporação</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
+                                <tr><td>PLANT_ID</td><td>ID único da planta</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
+                                <tr><td>PLANT</td><td>Nome da planta</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
+                                <tr><td>UNAT</td><td>Unidade de negócio</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>CITY</td><td>Cidade</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>STATE_PROVINCE</td><td>Estado/Província</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>COUNTRY</td><td>País</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>REGION</td><td>Região</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>BUSINESS</td><td>Negócio/Setor</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>ZONE</td><td>Zona</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="text-muted small mt-3"><strong>Chave única:</strong> CORPORATION_ID + PLANT_ID. Se "Atualizar clientes existentes" estiver marcado, registros com mesma chave serão atualizados.</p>
+
+                    <div class="text-end">
+                        <a href="{% url 'semeq:cliente_lista' %}" class="btn btn-semeq-secondary">
+                            <i class="bi bi-x-lg me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-semeq-primary">
+                            <i class="bi bi-eye me-1"></i> Visualizar Preview
+                        </button>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Apontamentos - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i> Apontamentos</h4>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button type="button" class="btn btn-semeq-outline dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i> Exportar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" href="{% url 'semeq:apontamento_exportar' %}?formato=csv&q={{ search }}&status={{ status_filter }}&prioridade={{ prioridade_filter }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}{% if usuario_filter %}&usuario={{ usuario_filter }}{% endif %}{% if time_filter %}&time={{ time_filter }}{% endif %}">
+                            <i class="bi bi-filetype-csv me-2"></i> CSV
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'semeq:apontamento_exportar' %}?formato=xlsx&q={{ search }}&status={{ status_filter }}&prioridade={{ prioridade_filter }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}{% if usuario_filter %}&usuario={{ usuario_filter }}{% endif %}{% if time_filter %}&time={{ time_filter }}{% endif %}">
+                            <i class="bi bi-filetype-xlsx me-2"></i> Excel (XLSX)
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
+                <i class="bi bi-plus-lg me-1"></i> Novo Apontamento
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card card-dashboard mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3" id="apontamentoFilters">
+                <div class="col-md-3">
+                    <label class="form-label">Buscar</label>
+                    <input type="text" name="q" class="form-control" value="{{ search }}" placeholder="Ticket, Projeto, Solicitante, Cliente...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Prioridade</label>
+                    <select name="prioridade" class="form-select">
+                        <option value="">Todas</option>
+                        {% for value, label in prioridade_choices %}
+                        <option value="{{ value }}" {% if prioridade_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Data Início</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Data Fim</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                </div>
+                {% if times %}
+                <div class="col-md-2">
+                    <label class="form-label">Equipe</label>
+                    <select name="time" class="form-select">
+                        <option value="">Todas</option>
+                        {% for time in times %}
+                        <option value="{{ time.pk }}" {% if time_filter == time.pk|stringformat:"s" %}selected{% endif %}>{{ time.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                {% if usuarios %}
+                <div class="col-md-2">
+                    <label class="form-label">Colaborador</label>
+                    <select name="usuario" class="form-select">
+                        <option value="">Todos</option>
+                        {% for user in usuarios %}
+                        <option value="{{ user.pk }}" {% if usuario_filter == user.pk|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-12 d-flex gap-2 flex-wrap">
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
+                    <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="card card-dashboard">
+        <div class="card-body p-0">
+            {% if apontamentos_por_data %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="apontamentosTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Horário / Duração</th>
+                            <th>Ticket</th>
+                            <th>Cliente</th>
+                            <th>Responsável</th>
+                            <th>Projeto</th>
+                            <th>Solicitante</th>
+                            <th>Equipamento</th>
+                            <th>Prioridade</th>
+                            <th>Status</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data, aps in apontamentos_por_data.items %}
+                        <tr class="table-group-divider">
+                            <td colspan="10" class="bg-light fw-semibold">
+                                <i class="bi bi-calendar3 me-2"></i> Apontamentos do Dia: {{ data|date:"d/m/Y" }}
+                            </td>
+                        </tr>
+                        {% for a in aps %}
+                        <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.pk %}'" style="cursor: pointer;">
+                            <td class="text-nowrap text-primary fw-medium">
+                                {{ a.hora_inicial|time:"H:i" }} - {{ a.hora_final|time:"H:i" }} <span class="text-muted">({{ a.tempo_total|duration_minutes }} min)</span>
+                            </td>
+                            <td class="fw-semibold text-dark">{{ a.ticket }}</td>
+                            <td>{{ a.cliente.corporation }} - {{ a.cliente.plant }}</td>
+                            <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
+                            <td>{{ a.projeto|truncatechars:30 }}</td>
+                            <td>{{ a.solicitante }}</td>
+                            <td>{{ a.equipamento|default:"—" }}</td>
+                            <td>
+                                {% if a.prioridade == 'critica' %}
+                                <span class="badge bg-danger">{{ a.get_prioridade_display }}</span>
+                                {% elif a.prioridade == 'alta' %}
+                                <span class="badge bg-warning text-dark">{{ a.get_prioridade_display }}</span>
+                                {% elif a.prioridade == 'media' %}
+                                <span class="badge bg-info text-dark">{{ a.get_prioridade_display }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ a.get_prioridade_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm status-select" data-pk="{{ a.pk }}" onclick="event.stopPropagation()" title="Alterar status" style="min-width:130px;">
+                                    {% for value, label in status_choices %}
+                                    <option value="{{ value }}" {% if a.status == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir"
+                                        data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento"
+                                        data-pk="{{ a.pk }}" onclick="event.stopPropagation()">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-secondary">
+                            <td colspan="10">
+                                <small class="fw-medium">Total do dia: {{ totais_por_data|get_item:data|default:0 }} min</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-journal-text fs-1 text-muted"></i>
+                <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
+                <p class="text-muted">Clique em "Novo Apontamento" para criar o primeiro.</p>
+                <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
+                    <i class="bi bi-plus-lg me-1"></i> Criar Apontamento
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Novo Apontamento -->
+<div class="modal fade" id="modalNovoApontamento" tabindex="-1" aria-labelledby="modalNovoApontamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalNovoApontamentoLabel"><i class="bi bi-plus-circle me-2"></i>Novo Apontamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalNovoApontamentoContent">
+                    <!-- Content loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Detalhes do Apontamento -->
+<div class="modal fade" id="modalDetalheApontamento" tabindex="-1" aria-labelledby="modalDetalheApontamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetalheApontamentoLabel"><i class="bi bi-eye me-2"></i>Detalhes do Apontamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalDetalheApontamentoContent">
+                    <!-- Content loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Editar Apontamento -->
+<div class="modal fade" id="modalEditarApontamento" tabindex="-1" aria-labelledby="modalEditarApontamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarApontamentoLabel"><i class="bi bi-pencil me-2"></i>Editar Apontamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalEditarApontamentoContent">
+                    <!-- Content loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Excluir Apontamento -->
+<div class="modal fade" id="modalExcluirApontamento" tabindex="-1" aria-labelledby="modalExcluirApontamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalExcluirApontamentoLabel"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este apontamento?</p>
+                <p class="text-muted small" id="excluirApontamentoInfo"></p>
+                <input type="hidden" id="excluirApontamentoPk">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-semeq-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" id="formExcluirApontamento" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-semeq-danger" id="btnConfirmarExcluir">
+                        <i class="bi bi-trash me-1"></i> Excluir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/status.js' %}"></script>
+<script>
+// Auto-submit filter form on change (with debounce)
+let filterTimeout;
+document.querySelectorAll('#apontamentoFilters select, #apontamentoFilters input[type="date"]').forEach(el => {
+    el.addEventListener('change', function() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            document.getElementById('apontamentoFilters').submit();
+        }, 300);
+    });
+});
+
+// Delete modal: carrega o pk e define a action do form de exclusão
+const modalExcluir = document.getElementById('modalExcluirApontamento');
+if (modalExcluir) {
+    modalExcluir.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const pk = button.getAttribute('data-pk');
+        document.getElementById('excluirApontamentoPk').value = pk;
+        document.getElementById('formExcluirApontamento').setAttribute('action', '/apontamentos/' + pk + '/excluir/');
+        document.getElementById('excluirApontamentoInfo').textContent = 'Apontamento #' + pk;
+    });
+}
+</script>
+{% endblock %}

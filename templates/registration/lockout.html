@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}Acesso Bloqueado - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container text-center py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="mb-4">
+                <i class="bi bi-shield-lock-exclamation" style="font-size: 4rem; color: var(--semeq-danger);"></i>
+            </div>
+            <h2 class="mb-3">Acesso Temporariamente Bloqueado</h2>
+            <p class="text-muted mb-4">
+                Muitas tentativas de login falharam. Por segurança, sua conta/IP foi bloqueado temporariamente.
+            </p>
+            
+            <div class="alert alert-info text-start mb-4">
+                <h6 class="alert-heading"><i class="bi bi-info-circle me-1"></i> Informações:</h6>
+                <ul class="mb-0 small">
+                    <li>Limite de tentativas excedido: {{ failure_limit }}</li>
+                    <li>Tempo de bloqueio: {{ cooloff_time }} hora(s)</li>
+                    <li>Tentativas restantes até desbloqueio: {{ remaining_attempts }}</li>
+                </ul>
+            </div>
+            
+            <div class="d-flex justify-content-center gap-2">
+                <a href="{% url 'semeq:login' %}" class="btn btn-semeq-primary">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Tentar Novamente Mais Tarde
+                </a>
+                <a href="{% url 'semeq:home' %}" class="btn btn-semeq-outline">
+                    <i class="bi bi-house-door me-1"></i> Página Inicial
+                </a>
+            </div>
+            
+            <hr class="my-4">
+            
+            <p class="text-muted small">
+                Se você acredita que isso é um erro, entre em contato com o administrador do sistema.
+                <br>Seu IP: {{ request.META.REMOTE_ADDR }}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

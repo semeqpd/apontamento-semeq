@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+
+{% block title %}Clientes - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Clientes</h2>
+    <div class="d-flex gap-2">
+        <div class="btn-group">
+            <button type="button" class="btn btn-semeq-outline dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-1"></i> Exportar
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{% url 'semeq:cliente_exportar' %}?formato=csv&q={{ filters.q }}&corporation_id={{ filters.corporation_id }}&plant_id={{ filters.plant_id }}&city={{ filters.city }}&state={{ filters.state }}&country={{ filters.country }}&ativo={{ filters.ativo }}">
+                        <i class="bi bi-filetype-csv me-2"></i> CSV
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'semeq:cliente_exportar' %}?formato=xlsx&q={{ filters.q }}&corporation_id={{ filters.corporation_id }}&plant_id={{ filters.plant_id }}&city={{ filters.city }}&state={{ filters.state }}&country={{ filters.country }}&ativo={{ filters.ativo }}">
+                        <i class="bi bi-filetype-xlsx me-2"></i> Excel (XLSX)
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <a href="{% url 'semeq:cliente_importar' %}" class="btn btn-semeq-outline">
+            <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar Excel/CSV
+        </a>
+        <a href="{% url 'semeq:cliente_novo' %}" class="btn btn-semeq-primary">
+            <i class="bi bi-plus-lg me-1"></i> Novo Cliente
+        </a>
+        {% if request.user.is_superuser or request.user.perfil.is_admin %}
+        <form method="post" action="{% url 'semeq:cliente_excluir_todos' %}" onsubmit="return confirm('⚠️ TEM CERTEZA ABSOLUTA?\\n\\nIsso remove TODOS os clientes, equipamentos e apontamentos.\\n\\nEsta ação NÃO pode ser desfeita.\\n\\nDigite OK para confirmar.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" title="Excluir TODOS os clientes (Admin)">
+                <i class="bi bi-trash3 me-1"></i> Excluir Todos
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tabela de Clientes -->
+<div class="card card-dashboard">
+    <div class="card-body p-0">
+        {% if clientes %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="clientesTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID Corporação</th>
+                        <th>Corporação</th>
+                        <th>ID Planta</th>
+                        <th>Planta</th>
+                        <th>Cidade</th>
+                        <th>Estado</th>
+                        <th>País</th>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                    <!-- Linha de Filtros por Coluna -->
+                    <tr class="table-filter-row">
+                        <th>
+                            <input type="text" class="form-control form-control-sm" name="corporation_id" value="{{ filters.corporation_id }}" placeholder="Filtrar...">
+                        </th>
+                        <th>
+                            <input type="text" class="form-control form-control-sm" name="corporation" value="{{ filters.corporation }}" placeholder="Filtrar...">
+                        </th>
+                        <th>
+                            <input type="text" class="form-control form-control-sm" name="plant_id" value="{{ filters.plant_id }}" placeholder="Filtrar...">
+                        </th>
+                        <th>
+                            <input type="text" class="form-control form-control-sm" name="plant" value="{{ filters.plant }}" placeholder="Filtrar...">
+                        </th>
+                        <th>
+                            <input type="text" class="form-control form-control-sm" name="city" value="{{ filters.city }}" placeholder="Filtrar...">
+                        </th>
+                        <th>
+                            <select class="form-select form-select-sm" name="state" id="id_state_filter">
+                                <option value="">Todos</option>
+                                {% for s in states %}
+                                <option value="{{ s }}" {% if filters.state == s %}selected{% endif %}>{{ s }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <select class="form-select form-select-sm" name="country" id="id_country_filter">
+                                <option value="">Todos</option>
+                                {% for c in countries %}
+                                <option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th>
+                            <select class="form-select form-select-sm" name="ativo" id="id_ativo_filter">
+                                <option value="">Todos</option>
+                                <option value="true" {% if filters.ativo == 'true' %}selected{% endif %}>Ativos</option>
+                                <option value="false" {% if filters.ativo == 'false' %}selected{% endif %}>Inativos</option>
+                            </select>
+                        </th>
+                        <th>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-semeq-primary btn-sm" id="btnFiltrar" title="Aplicar filtros">
+                                    <i class="bi bi-search me-1"></i> Filtrar
+                                </button>
+                                <button type="button" class="btn btn-semeq-outline btn-sm" id="btnLimpar" title="Limpar filtros">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr>
+                        <td class="fw-monospace small">{{ cliente.corporation_id }}</td>
+                        <td class="fw-semibold">{{ cliente.corporation }}</td>
+                        <td class="fw-monospace small">{{ cliente.plant_id }}</td>
+                        <td>{{ cliente.plant }}</td>
+                        <td>{{ cliente.city|default:"-" }}</td>
+                        <td>{{ cliente.state_province|default:"-" }}</td>
+                        <td>{{ cliente.country|default:"-" }}</td>
+                        <td>
+                            {% if cliente.ativo %}
+                            <span class="badge badge-subtle-success px-2 py-1">Ativo</span>
+                            {% else %}
+                            <span class="badge bg-secondary px-2 py-1">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'semeq:cliente_editar' cliente.pk %}" class="btn btn-outline-primary" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'semeq:cliente_excluir' cliente.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        {% if is_paginated %}
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center">
+            <span class="text-muted small">
+                Mostrando {{ clientes.start_index }} a {{ clientes.end_index }} de {{ paginator.count }} clientes
+            </span>
+            <nav aria-label="Paginação">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ filter_params }}&page=1">&laquo; Primeira</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ filter_params }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{{ filter_params }}&page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ filter_params }}&page={{ page_obj.next_page_number }}">Próxima</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ filter_params }}&page={{ paginator.num_pages }}">Última &raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-building fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">Nenhum cliente encontrado com estes filtros</h5>
+            <p class="text-muted small">Ajuste os filtros acima ou limpe para ver todos os clientes.</p>
+            <div class="d-flex justify-content-center gap-2 flex-wrap mt-3">
+                <button type="button" class="btn btn-semeq-secondary" id="btnLimparFiltrosEmpty">
+                    <i class="bi bi-x-lg me-1"></i> Limpar filtros
+                </button>
+                <a href="{% url 'semeq:cliente_novo' %}" class="btn btn-semeq-primary">
+                    <i class="bi bi-plus-lg me-1"></i> Criar primeiro cliente
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Elements from table header filter row only
+    const tableStateSelect = document.getElementById('id_state_filter');
+    const tableCityInput = document.querySelector('input[name="city"]');
+    const btnFiltrar = document.getElementById('btnFiltrar');
+    const btnLimpar = document.getElementById('btnLimpar');
+    
+    // Helper to build URL for filter options API
+    function buildFilterUrl(field, parentField = '', parentValue = '') {
+        const params = new URLSearchParams();
+        params.set('field', field);
+        if (parentField && parentValue) {
+            params.set('parent_field', parentField);
+            params.set('parent_value', parentValue);
+        }
+        return `{% url 'semeq:cliente_filtro_opcoes' %}?${params.toString()}`;
+    }
+    
+    // Helper to populate select options
+    function populateSelect(select, options, valueKey, labelKey, selectedValue) {
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">Todas</option>';
+        
+        options.forEach(opt => {
+            const value = valueKey ? opt[valueKey] : opt;
+            const label = labelKey ? opt[labelKey] : opt;
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            if (value === (selectedValue || currentValue)) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+    }
+    
+    // ESTADO -> CIDADES (cascading for table header)
+    // When state changes, show matching cities as datalist for the city input
+    if (tableStateSelect && tableCityInput) {
+        tableStateSelect.addEventListener('change', function() {
+            const stateValue = this.value;
+            
+            // Fetch cities for this state and create a datalist
+            if (stateValue) {
+                fetch(buildFilterUrl('cidades', 'state', stateValue))
+                    .then(response => response.json())
+                    .then(data => {
+                        // Create or update datalist for city input
+                        let datalist = document.getElementById('city-datalist');
+                        if (!datalist) {
+                            datalist = document.createElement('datalist');
+                            datalist.id = 'city-datalist';
+                            document.body.appendChild(datalist);
+                            tableCityInput.setAttribute('list', 'city-datalist');
+                        }
+                        datalist.innerHTML = '';
+                        (data.options || []).forEach(city => {
+                            const option = document.createElement('option');
+                            option.value = city;
+                            datalist.appendChild(option);
+                        });
+                    })
+                    .catch(() => {
+                        // On error, remove datalist
+                        const datalist = document.getElementById('city-datalist');
+                        if (datalist) datalist.remove();
+                        tableCityInput.removeAttribute('list');
+                    });
+            } else {
+                // No state selected, remove datalist
+                const datalist = document.getElementById('city-datalist');
+                if (datalist) datalist.remove();
+                tableCityInput.removeAttribute('list');
+            }
+        });
+    }
+    
+    // FILTRAR button - collect all filter values and navigate
+    if (btnFiltrar) {
+        btnFiltrar.addEventListener('click', function() {
+            const params = new URLSearchParams();
+            const filterInputs = document.querySelectorAll('.table-filter-row select, .table-filter-row input[type="text"]');
+            
+            filterInputs.forEach(el => {
+                if (el.value && el.value.trim()) {
+                    params.set(el.name, el.value.trim());
+                }
+            });
+            
+            const queryString = params.toString();
+            window.location.href = queryString ? `?${queryString}` : window.location.pathname;
+        });
+    }
+    
+    // LIMPAR button - navigate to clean URL
+    if (btnLimpar) {
+        btnLimpar.addEventListener('click', function() {
+            window.location.href = window.location.pathname;
+        });
+    }
+
+    // LIMPAR button (empty state) - navigate to clean URL
+    const btnLimparFiltrosEmpty = document.getElementById('btnLimparFiltrosEmpty');
+    if (btnLimparFiltrosEmpty) {
+        btnLimparFiltrosEmpty.addEventListener('click', function() {
+            window.location.href = window.location.pathname;
+        });
+    }
+    
+    // Also handle Enter key on text inputs
+    document.querySelectorAll('.table-filter-row input[type="text"]').forEach(input => {
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (btnFiltrar) btnFiltrar.click();
+            }
+        });
+    });
+
+    // Busca em tempo real (debounce 300ms)
+    let filterTimeout;
+    document.querySelectorAll('.table-filter-row input[type="text"]').forEach(input => {
+        input.addEventListener('input', function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                if (btnFiltrar) btnFiltrar.click();
+            }, 300);
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,8 +1,78 @@
-from django.urls import path
+from django.urls import path, reverse_lazy
+from django.contrib.auth import views as auth_views
+from django.contrib.auth.decorators import login_required
 from . import views
 
 app_name = 'semeq'
 
 urlpatterns = [
-  path('', views.HomeView, name='home'),
+    path('', views.HomeView, name='home'),
+    path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+
+    # Apontamento
+    path('apontamentos/', views.ApontamentoListView.as_view(), name='apontamento_lista'),
+    path('apontamentos/novo/', views.ApontamentoCreateView.as_view(), name='apontamento_novo'),
+    path('apontamentos/<int:pk>/', views.ApontamentoDetailView.as_view(), name='apontamento_detalhe'),
+    path('apontamentos/<int:pk>/editar/', views.ApontamentoUpdateView.as_view(), name='apontamento_editar'),
+    path('apontamentos/<int:pk>/status/', views.ApontamentoStatusView.as_view(), name='apontamento_mudar_status'),
+    path('apontamentos/<int:pk>/excluir/', views.ApontamentoDeleteView.as_view(), name='apontamento_excluir'),
+    path('apontamentos/exportar/', views.ApontamentoExportView.as_view(), name='apontamento_exportar'),
+
+    # Cliente
+    path('clientes/', views.ClienteListView.as_view(), name='cliente_lista'),
+    path('clientes/novo/', views.ClienteCreateView.as_view(), name='cliente_novo'),
+    path('clientes/<int:pk>/editar/', views.ClienteUpdateView.as_view(), name='cliente_editar'),
+    path('clientes/<int:pk>/excluir/', views.ClienteDeleteView.as_view(), name='cliente_excluir'),
+    path('clientes/excluir-todos/', views.ClienteDeleteAllView.as_view(), name='cliente_excluir_todos'),
+    path('clientes/importar/', views.ClienteImportView.as_view(), name='cliente_importar'),
+    path('clientes/importar/processar/', views.ClienteImportProcessView.as_view(), name='cliente_importar_processo'),
+    path('clientes/exportar/', views.ClienteExportView.as_view(), name='cliente_exportar'),
+    path('clientes/filtro-opcoes/', views.ClienteFilterOptionsView.as_view(), name='cliente_filtro_opcoes'),
+    path('clientes/autocomplete/', views.ClienteAutocompleteView.as_view(), name='cliente_autocomplete'),
+    path('equipamentos/autocomplete/', views.EquipamentoAutocompleteView.as_view(), name='equipamento_autocomplete'),
+
+    # Usuario
+    path('usuarios/', views.UsuarioListView.as_view(), name='usuario_lista'),
+    path('usuarios/novo/', views.UsuarioCreateView.as_view(), name='usuario_novo'),
+    path('usuarios/<int:pk>/editar/', views.UsuarioUpdateView.as_view(), name='usuario_editar'),
+    path('usuarios/<int:pk>/excluir/', views.UsuarioDeleteView.as_view(), name='usuario_excluir'),
+
+    # Configurações
+    path('configuracoes/', views.ConfiguracoesView.as_view(), name='configuracoes'),
+    path('configuracoes/tema/', views.ConfiguracoesTemaView.as_view(), name='configuracoes_tema'),
+
+    # Equipamento - DEACTIVATED (modo construção)
+    # DEACTIVATED: path('equipamentos/', views.EquipamentoListView.as_view(), name='equipamento_lista'),
+    # DEACTIVATED: path('equipamentos/novo/', views.EquipamentoCreateView.as_view(), name='equipamento_novo'),
+    # DEACTIVATED: path('equipamentos/<int:pk>/editar/', views.EquipamentoUpdateView.as_view(), name='equipamento_editar'),
+    # DEACTIVATED: path('equipamentos/<int:pk>/excluir/', views.EquipamentoDeleteView.as_view(), name='equipamento_excluir'),
+
+    # Times - DEACTIVATED (modo construção)
+    # DEACTIVATED: path('times/', views.TimeListView.as_view(), name='time_lista'),
+    # DEACTIVATED: path('times/novo/', views.TimeCreateView.as_view(), name='time_novo'),
+    # DEACTIVATED: path('times/<int:pk>/editar/', views.TimeUpdateView.as_view(), name='time_editar'),
+    # DEACTIVATED: path('times/<int:pk>/excluir/', views.TimeDeleteView.as_view(), name='time_excluir'),
+
+    # Configurações - DEACTIVATED
+    # DEACTIVATED: path('configuracoes/', views.ConfiguracoesView, name='configuracoes'),
+
+    # Password Reset - DEACTIVATED (modo construção)
+    # DEACTIVATED: path('password_reset/', auth_views.PasswordResetView.as_view(...), name='password_reset'),
+    # DEACTIVATED: path('password_reset/done/', ...),
+    # DEACTIVATED: path('reset/<uidb64>/<token>/', ...),
+    # DEACTIVATED: path('reset/done/', ...),
+
+    # Auth - MANTER ATIVO (necessário para login/logout)
+    path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('logout/', views.CustomLogoutView.as_view(next_page='semeq:login'), name='logout'),
+    path('senha/alterar/', auth_views.PasswordChangeView.as_view(
+        template_name='registration/password_change.html',
+        success_url='/'
+    ), name='password_change'),
+
+    # Password Reset - DEACTIVATED (modo construção)
+    # DEACTIVATED: path('password_reset/', auth_views.PasswordResetView.as_view(...), name='password_reset'),
+    # DEACTIVATED: path('password_reset/done/', ...),
+    # DEACTIVATED: path('reset/<uidb64>/<token>/', ...),
+    # DEACTIVATED: path('reset/done/', ...),
 ]

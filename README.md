@@ -1,23 +1,49 @@
-## Como usar
-``` python manage.py runserver```
+# Portal SEMEQ - Sistema de Apontamentos
 
+Sistema web em Django para registro de apontamentos de horas e atendimentos. Permite criar, editar e acompanhar apontamentos, controlar quem os registrou, gerenciar clientes e usuários, e gerar relatórios em CSV/Excel.
 
-## Pastas:
-- Front-end está na pasta templates
-- O Back-end está distribuído por tabela nas pastas services(ex: task, user, etc...)
-- O Views é onde faz a conexão com o front-end e back-end
-- Services é regra de negócio
-- Models banco de dados
-- Url é onde está o url tanto do front quanto do backend
-- Templates:
-  - Parciais: componentes separados para reutilização
-  - static: arquivos com o bootstrap, tanto css e js
+## Funcionalidades
 
-## Tecnologias:
-- Django
-- Python 3.1.2
-- Postgres
-- Bootstrap
+- Registro de apontamentos de horas (criação, edição, exclusão, status e exportação).
+- Dashboard com indicadores e filtros por equipe, colaborador, status, prioridade e data.
+- Gestão de clientes (cadastro e importação de Excel/CSV).
+- Gestão de usuários com papéis e times.
+- Tema claro/escuro.
 
-## UML
-- <a href="https://lucid.app/lucidchart/ac0e061e-ff18-4cf3-b2a2-4dae1d7ebbaf/edit?viewport_loc=-1455%2C-821%2C2377%2C1426%2C0_0&invitationId=inv_1a124e40-81af-444c-88bc-173051625044">Lucichart</a>
+## Como rodar
+
+Requisitos: Python 3.12+ e PostgreSQL (ou SQLite, sem instalação extra).
+
+```bash
+# 1. Criar e ativar o ambiente virtual
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Linux/macOS
+
+# 2. Instalar as dependências
+pip install -r requirements.txt
+
+# 3. Configurar as variáveis de ambiente
+copy .env.example .env       # Windows
+# cp .env.example .env      # Linux/macOS
+
+# 4. Aplicar as migrações
+python manage.py migrate
+
+# 5. Criar os usuários iniciais
+python manage.py setup_usuarios
+
+# 6. Rodar o servidor
+python manage.py runserver 0.0.0.0:8000
+```
+
+Acesse `http://127.0.0.1:8000/`.
+
+### Credenciais padrão
+
+| Usuário | Senha |
+|---------|-------|
+| admin | Semeq@2026abc |
+| gestor | Semeq@2024 |
+| lider_pmc / lider_shd | Semeq@2024 |
+| colab_pmc1..3 / colab_shd1..3 | Semeq@2024 |

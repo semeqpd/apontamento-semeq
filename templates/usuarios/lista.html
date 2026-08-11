@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Colaboradores - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Colaboradores</h2>
+    <a href="{% url 'semeq:usuario_novo' %}" class="btn btn-semeq-primary">
+        <i class="bi bi-plus-lg me-1"></i> Novo Colaborador
+    </a>
+</div>
+
+<!-- Filtros e Busca -->
+<div class="card card-dashboard mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Buscar</label>
+                <input type="text" name="q" class="form-control" placeholder="Nome, usuário, e-mail..." value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Função</label>
+                <select name="role" class="form-select">
+                    <option value="">Todas</option>
+                    {% for value, label in roles %}
+                        <option value="{{ value }}" {% if role_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Time</label>
+                <select name="time" class="form-select">
+                    <option value="">Todos os times</option>
+                    {% for t in times %}
+                        <option value="{{ t.pk }}" {% if time_filter == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-semeq-primary w-100">
+                    <i class="bi bi-search me-1"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabela de Colaboradores -->
+<div class="card card-dashboard">
+    <div class="card-body p-0">
+        {% if usuarios %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Colaborador</th>
+                        <th>Nome Completo</th>
+                        <th>E-mail</th>
+                        <th>Função</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in usuarios %}
+                    <tr>
+                        <td class="fw-semibold">{{ user.username }}</td>
+                        <td>{{ user.get_full_name|default:"-" }}</td>
+                        <td>{{ user.email|default:"-" }}</td>
+                        <td>
+                            {% if user.perfil %}
+                                <span class="badge bg-primary px-2 py-1">{{ user.perfil.get_role_display }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary px-2 py-1">Sem perfil</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.perfil and user.perfil.time %}
+                                {{ user.perfil.time.nome }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                                <span class="badge badge-subtle-success px-2 py-1">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-secondary px-2 py-1">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'semeq:usuario_editar' user.pk %}" class="btn btn-outline-primary" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if user != request.user %}
+                                <a href="{% url 'semeq:usuario_excluir' user.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        {% if is_paginated %}
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center">
+            <span class="text-muted small">
+                Mostrando {{ usuarios.start_index }} a {{ usuarios.end_index }} de {{ paginator.count }} colaboradores
+            </span>
+            <nav aria-label="Paginação">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page=1">&laquo; Primeira</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ page_obj.next_page_number }}">Próxima</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ paginator.num_pages }}">Última &raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-people fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">Nenhum colaborador encontrado</h5>
+            <a href="{% url 'semeq:usuario_novo' %}" class="btn btn-semeq-primary mt-2">
+                <i class="bi bi-plus-lg me-1"></i> Criar primeiro colaborador
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
