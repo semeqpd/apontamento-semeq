@@ -8,28 +8,18 @@
 <div class="card card-dashboard mb-4">
     <div class="card-body">
         <form method="GET" class="row g-3 align-items-end" id="dashboardFilters">
-            {% if perfil.is_gestor_or_above %}
+            {% if perfil.is_lider_or_above %}
             <div class="col-md-2">
                 <label class="form-label">Equipe</label>
                 <select name="time" class="form-select" id="id_time">
-                    <option value="">Todas as equipes</option>
+                    {% if perfil.is_gestor_or_above %}<option value="">Todas as equipes</option>{% endif %}
                     {% for time in times %}
                     <option value="{{ time.pk }}" {% if filtros.time == time.pk|stringformat:"s" %}selected{% endif %}>{{ time.nome }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label">Colaborador</label>
-                <select name="usuario" class="form-select" id="id_usuario">
-                    <option value="">Todos os colaboradores</option>
-                    {% for user in usuarios %}
-                    <option value="{{ user.pk }}" {% if filtros.usuario == user.pk|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% elif perfil.is_lider_or_above %}
-            <div class="col-md-2">
-                <label class="form-label">Colaborador do Time</label>
+                <label class="form-label">Colaborador da Equipe</label>
                 <select name="usuario" class="form-select" id="id_usuario">
                     <option value="">Todos</option>
                     {% for user in usuarios %}

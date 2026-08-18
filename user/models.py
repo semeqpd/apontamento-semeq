@@ -135,7 +135,9 @@ class Equipamento(models.Model):
         ('controlador', 'Controlador'),
         ('outro', 'Outro'),
     ]
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='equipamentos')
+    equipamento_id = models.CharField(max_length=50, verbose_name="ID Equipamento",  null=True,
+    blank=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='cliente')
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo")
     numero_serie = models.CharField(max_length=100, unique=True, verbose_name="Nº Série")
     modelo = models.CharField(max_length=100, blank=True, verbose_name="Modelo")

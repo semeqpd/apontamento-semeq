@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Excluir Equipamento - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 600px;">
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <div class="header-brand">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Confirmar Exclusão</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Atenção:</strong> Esta ação não pode ser desfeita.
+            </div>
+
+            <p class="lead">Tem certeza que deseja excluir este equipamento?</p>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3 text-muted small">ID Equipamento</dt>
+                        <dd class="col-sm-9 fw-bold">{{ object.equipamento_id }}</dd>
+                        
+                        <dt class="col-sm-3 text-muted small">Cliente</dt>
+                        <dd class="col-sm-9">{{ object.cliente.corporation }} - {{ object.cliente.plant }}</dd>
+                        
+                        <dt class="col-sm-3 text-muted small">Tipo</dt>
+                        <dd class="col-sm-9">{{ object.get_tipo_display }}</dd>
+                        
+                        <dt class="col-sm-3 text-muted small">Nº Série</dt>
+                        <dd class="col-sm-9">{{ object.numero_serie }}</dd>
+                        
+                        <dt class="col-sm-3 text-muted small">Modelo</dt>
+                        <dd class="col-sm-9">{{ object.modelo|default:"-" }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <form method="post" id="delete-form">
+                {% csrf_token %}
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'semeq:equipamento_lista' %}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Tem certeza que deseja excluir este equipamento?');">
+                        <i class="bi bi-trash me-1"></i> Confirmar Exclusão
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

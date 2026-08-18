@@ -573,6 +573,11 @@
                         <i class="bi bi-people"></i> Usuários
                     </a>
                     {% endif %}
+                    {% if request.user.is_superuser or request.user.perfil.can_manage_users %}
+                    <a href="{% url 'semeq:equipamento_lista' %}" class="{% if request.resolver_match.url_name == 'equipamento_lista' %}active{% endif %}">
+                        <i class="bi bi-gear"></i> Equipamentos
+                    </a>
+                    {% endif %}
                     <a href="{% url 'semeq:configuracoes' %}" class="{% if request.resolver_match.url_name == 'configuracoes' %}active{% endif %}">
                         <i class="bi bi-gear"></i> Configurações
                     </a>

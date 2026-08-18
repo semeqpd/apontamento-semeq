@@ -41,11 +41,11 @@ urlpatterns = [
     path('configuracoes/', views.ConfiguracoesView.as_view(), name='configuracoes'),
     path('configuracoes/tema/', views.ConfiguracoesTemaView.as_view(), name='configuracoes_tema'),
 
-    # Equipamento - DEACTIVATED (modo construção)
-    # DEACTIVATED: path('equipamentos/', views.EquipamentoListView.as_view(), name='equipamento_lista'),
-    # DEACTIVATED: path('equipamentos/novo/', views.EquipamentoCreateView.as_view(), name='equipamento_novo'),
-    # DEACTIVATED: path('equipamentos/<int:pk>/editar/', views.EquipamentoUpdateView.as_view(), name='equipamento_editar'),
-    # DEACTIVATED: path('equipamentos/<int:pk>/excluir/', views.EquipamentoDeleteView.as_view(), name='equipamento_excluir'),
+    # Equipamento
+    path('equipamentos/', views.EquipamentoListView.as_view(), name='equipamento_lista'),
+    path('equipamentos/novo/', views.EquipamentoCreateView.as_view(), name='equipamento_novo'),
+    path('equipamentos/<int:pk>/editar/', views.EquipamentoUpdateView.as_view(), name='equipamento_editar'),
+    path('equipamentos/<int:pk>/excluir/', views.EquipamentoDeleteView.as_view(), name='equipamento_excluir'),
 
     # Times - DEACTIVATED (modo construção)
     # DEACTIVATED: path('times/', views.TimeListView.as_view(), name='time_lista'),
@@ -75,4 +75,5 @@ urlpatterns = [
     # DEACTIVATED: path('password_reset/done/', ...),
     # DEACTIVATED: path('reset/<uidb64>/<token>/', ...),
     # DEACTIVATED: path('reset/done/', ...),
+
 ]

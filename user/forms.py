@@ -10,6 +10,7 @@ from datetime import date, timedelta, time
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -245,22 +246,27 @@ class ApontamentoForm(forms.ModelForm):
             ativo=True
         ).select_related('cliente').order_by('cliente__corporation', 'numero_serie')
         
-        # Cliente queryset: pre-load selected (edit) or posted value (create) for validation
-        cliente_qs = Cliente.objects.none()
-        if self.instance.pk and self.instance.cliente_id:
-            cliente_qs = Cliente.objects.filter(pk=self.instance.cliente_id)
-        elif self.data.get('cliente'):
-            cliente_qs = Cliente.objects.filter(pk=self.data.get('cliente'))
+        # Carregar clientes ativos para o select e manter o selecionado na edição.
+        cliente_qs = Cliente.objects.filter(ativo=True).order_by('corporation', 'plant')
+        cliente_id = self.instance.cliente_id if self.instance.pk else self.data.get('cliente')
+        if cliente_id:
+            cliente_qs = Cliente.objects.filter(
+                Q(ativo=True) | Q(pk=cliente_id)
+            ).order_by('corporation', 'plant')
         self.fields['cliente'].queryset = cliente_qs
         # Remove Django's default empty option ("Selecione um cliente") - TomSelect handles the placeholder
         self.fields['cliente'].empty_label = None
         
-        # Equipamento queryset: pre-load selected (edit) or posted value (create) for validation
-        equipamento_qs = Equipamento.objects.none()
-        if self.instance.pk and self.instance.equipamento_id:
-            equipamento_qs = Equipamento.objects.filter(pk=self.instance.equipamento_id).select_related('cliente')
-        elif self.data.get('equipamento'):
-            equipamento_qs = Equipamento.objects.filter(pk=self.data.get('equipamento')).select_related('cliente')
+        # Carregar equipamentos ativos e manter o selecionado na edição.
+        equipamento_id = self.instance.equipamento_id if self.instance.pk else self.data.get('equipamento')
+        equipamento_qs = Equipamento.objects.filter(ativo=True)
+        if equipamento_id:
+            equipamento_qs = Equipamento.objects.filter(
+                Q(ativo=True) | Q(pk=equipamento_id)
+            )
+        equipamento_qs = equipamento_qs.select_related('cliente').order_by(
+            'cliente__corporation', 'numero_serie'
+        )
         self.fields['equipamento'].queryset = equipamento_qs
         
         # Remover opção vazia "Selecione..."/"- Select an option -" dos selects
@@ -274,8 +280,8 @@ class ApontamentoForm(forms.ModelForm):
                 choices = list(widget.choices)
                 widget.choices = [(v, l) for v, l in choices if v not in (None, '')]
 
-        # Equipamento: opcional, mas usar rótulo explícito "Nenhum" (não "Selecione...")
-        self.fields['equipamento'].empty_label = "Nenhum"
+        # O equipamento é opcional, mas o placeholder não deve parecer uma seleção real.
+        self.fields['equipamento'].empty_label = "Selecione um equipamento"
 
         # Cliente já tem empty_label=None (pré-selecionado na edição)
         # Responsável: para gestor/líder é um select visível -> sem opção vazia
@@ -454,3 +460,29 @@ class UsuarioUpdateForm(UserChangeForm):
                 }
             )
         return user
+
+class EquipamentoForm(forms.ModelForm):
+    class Meta:
+        model = Equipamento
+        fields = ['cliente', 'equipamento_id', 'tipo', 'numero_serie', 'modelo', 'descricao', 'ativo']
+
+        widgets = {
+            'cliente': forms.Select(attrs={'class': 'form-select'}),
+            'equipamento_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
+            'modelo': forms.TextInput(attrs={'class': 'form-control'}),
+            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        equip_id = cleaned_data.get('equipamento_id')
+        if equip_id:
+            qs = Equipamento.objects.filter(equipamento_id=equip_id)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError('Já existe um equipamento com este ID Equipamento.')
+        return cleaned_data

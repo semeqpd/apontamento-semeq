@@ -41,20 +41,7 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
                         <label class="form-label">{{ form.cliente.label }} <span class="text-danger">*</span></label>
-                        {% if object %}
-                        <div id="clienteAtualInfo">
-                            <div class="fw-medium">{{ object.cliente.corporation }} - {{ object.cliente.plant }}</div>
-                            <div class="form-check mt-2">
-                                <input type="checkbox" class="form-check-input" id="alterarClienteCheck">
-                                <label class="form-check-label" for="alterarClienteCheck">Alterar cliente</label>
-                            </div>
-                        </div>
-                        <div id="clienteBuscaWrapper" class="d-none">
-                            {{ form.cliente }}
-                        </div>
-                        {% else %}
                         {{ form.cliente }}
-                        {% endif %}
                         {% if form.cliente.errors %}
                             <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
                         {% endif %}
@@ -239,143 +226,25 @@
     }
 </script>
 
-<!-- Tom Select CSS & JS for autocomplete -->
-<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Cliente autocomplete
-    if (document.getElementById('id_cliente')) {
-        new TomSelect('#id_cliente', {
-            plugins: ['dropdown_input'],
-            valueField: 'pk',
-            labelField: 'corporation',
-            searchField: ['corporation', 'plant', 'corporation_id', 'plant_id', 'city'],
-            preload: 'focus',
-            allowEmptyOption: true,
-            placeholder: 'Digite para buscar cliente...',
-            load: function(query, callback) {
-                if (!query.length) return callback();
-                fetch(`/clientes/autocomplete/?q=${encodeURIComponent(query)}`)
-                    .then(response => response.json())
-                    .then(json => callback(json.results))
-                    .catch(() => callback());
-            },
-            render: {
-                option: function(data, escape) {
-                    // Handle empty/placeholder option
-                    if (!data.corporation || !data.plant) {
-                        return `<div class="text-muted small">${escape(data.text || 'Selecione um cliente')}</div>`;
-                    }
-                    return `<div>
-                        <strong>${escape(data.corporation)} - ${escape(data.plant)}</strong><br>
-                        <small class="text-muted">ID: ${escape(data.corporation_id || '')}/${escape(data.plant_id || '')} | ${escape(data.city || 'N/A')}</small>
-                    </div>`;
-                },
-                item: function(data, escape) {
-                    if (!data.corporation || !data.plant) {
-                        return `<div>${escape(data.text || '')}</div>`;
-                    }
-                    return `<div>${escape(data.corporation)} - ${escape(data.plant)}</div>`;
-                }
-            }
-            // onInitialize removed to preserve pre-selected client value when editing
-        });
-    }
+    const form = document.getElementById('apontamentoForm');
+    if (!form) return;
 
-    // Checkbox "Alterar cliente" — mostra/esconde a busca de cliente na edição
-    const alterarClienteCheck = document.getElementById('alterarClienteCheck');
-    const clienteBuscaWrapper = document.getElementById('clienteBuscaWrapper');
-    const clienteAtualInfo = document.getElementById('clienteAtualInfo');
-    if (alterarClienteCheck && clienteBuscaWrapper && clienteAtualInfo) {
-        alterarClienteCheck.addEventListener('change', function() {
-            if (this.checked) {
-                clienteAtualInfo.classList.add('d-none');
-                clienteBuscaWrapper.classList.remove('d-none');
-                // Inicializa o TomSelect caso ainda não tenha sido inicializado
-                if (document.getElementById('id_cliente') && !document.getElementById('id_cliente').tomselect) {
-                    // O TomSelect será criado abaixo no fluxo normal; aqui apenas exibimos
-                }
-            } else {
-                clienteAtualInfo.classList.remove('d-none');
-                clienteBuscaWrapper.classList.add('d-none');
-                // Reverte a seleção para o cliente atual
-                const clienteSelect = document.getElementById('id_cliente');
-                if (clienteSelect && clienteSelect.tomselect) {
-                    clienteSelect.tomselect.clear();
-                    clienteSelect.tomselect.setValue('{{ object.cliente.pk }}');
-                }
-            }
-        });
-    }
+    form.setAttribute('novalidate', 'true');
 
-    // Equipamento autocomplete
-    if (document.getElementById('id_equipamento')) {
-        new TomSelect('#id_equipamento', {
-            plugins: ['dropdown_input', 'remove_button'],
-            valueField: 'pk',
-            labelField: 'numero_serie',
-            searchField: ['numero_serie', 'modelo', 'tipo'],
-            preload: 'focus',
-            allowEmptyOption: true,
-            placeholder: 'Digite para buscar equipamento...',
-            load: function(query, callback) {
-                if (!query.length) return callback();
-                fetch(`/equipamentos/autocomplete/?q=${encodeURIComponent(query)}`)
-                    .then(response => response.json())
-                    .then(json => callback(json.results))
-                    .catch(() => callback());
-            },
-            render: {
-                option: function(data, escape) {
-                    // Handle empty/placeholder option
-                    if (!data.numero_serie) {
-                        return `<div class="text-muted small">${escape(data.text || 'Selecione um equipamento')}</div>`;
-                    }
-                    return `<div>
-                        <strong>${escape(data.numero_serie)}</strong>
-                        <span class="text-muted ms-2">${escape(data.modelo || '')}</span>
-                        <small class="text-muted d-block">Tipo: ${escape(data.tipo || '')} | Cliente: ${escape(data.cliente__corporation || '')} - ${escape(data.cliente__plant || '')}</small>
-                    </div>`;
-                },
-                item: function(data, escape) {
-                    if (!data.numero_serie) {
-                        return `<div>${escape(data.text || '')}</div>`;
-                    }
-                    return `<div>${escape(data.numero_serie)} ${data.modelo ? '- ' + escape(data.modelo) : ''}</div>`;
-                }
-            },
-            onInitialize: function() {
-                this.setText('');
+    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+    form.querySelectorAll('.form-control, .form-select').forEach(function(input) {
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+            }
+            const errorDiv = this.parentNode.querySelector('.text-danger');
+            if (errorDiv) {
+                errorDiv.remove();
             }
         });
-    }
-    
-    // Prevent browser's native validation from interfering with Django's validation
-    document.getElementById('apontamentoForm').setAttribute('novalidate', 'true');
-    
-    // Ensure only fields with actual errors get the 'is-invalid' class
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('apontamentoForm');
-        if (form) {
-            // Remove any erroneous 'is-invalid' classes on page load
-            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            
-            // Add event listener to clear error styling when user starts typing
-            form.querySelectorAll('.form-control, .form-select').forEach(function(input) {
-                input.addEventListener('input', function() {
-                    if (this.classList.contains('is-invalid')) {
-                        this.classList.remove('is-invalid');
-                    }
-                    // Also clear error message
-                    const errorDiv = this.parentNode.querySelector('.text-danger');
-                    if (errorDiv) {
-                        errorDiv.remove();
-                    }
-                });
-            });
-        }
     });
 });
 </script>

@@ -17,7 +17,7 @@ from datetime import date, timedelta, datetime
 from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
 from .forms import (
     ClienteForm, ClienteImportForm,
-    UsuarioForm, ApontamentoForm, UsuarioUpdateForm
+    UsuarioForm, ApontamentoForm, UsuarioUpdateForm, EquipamentoForm
 )
 from .throttle import rate_limit
 import csv
@@ -46,7 +46,8 @@ class DashboardView(LoginRequiredMixin, View):
         
         # Permissões
         if perfil and perfil.is_lider_or_above() and not perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel__perfil__time=perfil.time)
+            equipe_codigo = perfil.time.nome.lower() if perfil.time else ''
+            qs = qs.filter(equipe=equipe_codigo) if equipe_codigo else qs.none()
         elif not perfil or not perfil.is_gestor_or_above():
             qs = qs.filter(responsavel=request.user)
         
@@ -58,7 +59,13 @@ class DashboardView(LoginRequiredMixin, View):
         
         # Aplicar filtros
         if time_id and perfil and perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel__perfil__time_id=time_id)
+            equipe_nome = Time.objects.filter(
+                pk=time_id, ativo=True
+            ).values_list('nome', flat=True).first()
+            if equipe_nome:
+                qs = qs.filter(equipe=equipe_nome.lower())
+            else:
+                qs = qs.none()
         if usuario_id:
             qs = qs.filter(responsavel_id=usuario_id)
         if data_inicio:
@@ -127,7 +134,7 @@ class DashboardView(LoginRequiredMixin, View):
             else:
                 usuarios = perfil.get_visible_users()
         elif perfil and perfil.is_lider_or_above():
-            times = Time.objects.none()
+            times = Time.objects.filter(pk=perfil.time_id, ativo=True)
             usuarios = perfil.get_visible_users()
         else:
             times = Time.objects.none()
@@ -949,7 +956,11 @@ class EquipamentoAutocompleteView(LoginRequiredMixin, View):
                 Q(cliente__corporation__icontains=q) |
                 Q(cliente__plant__icontains=q)
             )
-        data = list(qs.values('pk', 'numero_serie', 'modelo', 'tipo', 'cliente__corporation', 'cliente__plant')[:50])
+        data = list(qs.values(
+            'pk', 'numero_serie', 'modelo', 'tipo',
+            corporation=F('cliente__corporation'),
+            plant=F('cliente__plant'),
+        )[:50])
         return JsonResponse({'results': data})
 
 
@@ -1168,3 +1179,96 @@ class CustomLogoutView(LogoutView):
     
     def get(self, request, *args, **kwargs):
         return self.post(request, *args, **kwargs)
+
+
+class EquipamentoPermissionMixin(LoginRequiredMixin):
+    def dispatch(self, request, *args, **kwargs):
+        perfil = getattr(request.user, 'perfil', None)
+        if not (request.user.is_superuser or (perfil and perfil.can_manage_equipamentos())):
+            messages.error(request, 'Acesso negado. Você não pode gerenciar equipamentos.')
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class EquipamentoListView(EquipamentoPermissionMixin, ListView):
+    model = Equipamento
+    template_name = 'equipamentos/lista.html'
+    context_object_name = 'equipamentos'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Equipamento.objects.select_related('cliente').all()
+        filters = {
+            'equipamento_id': self.request.GET.get('equipamento_id', '').strip(),
+            'cliente': self.request.GET.get('cliente', '').strip(),
+            'tipo': self.request.GET.get('tipo', '').strip(),
+            'numero_serie': self.request.GET.get('numero_serie', '').strip(),
+            'modelo': self.request.GET.get('modelo', '').strip(),
+            'ativo': self.request.GET.get('ativo', ''),
+        }
+        if filters['equipamento_id']:
+            qs = qs.filter(equipamento_id__icontains=filters['equipamento_id'])
+        if filters['cliente']:
+            qs = qs.filter(
+                Q(cliente__corporation__icontains=filters['cliente']) |
+                Q(cliente__plant__icontains=filters['cliente'])
+            )
+        if filters['tipo']:
+            qs = qs.filter(tipo=filters['tipo'])
+        if filters['numero_serie']:
+            qs = qs.filter(numero_serie__icontains=filters['numero_serie'])
+        if filters['modelo']:
+            qs = qs.filter(modelo__icontains=filters['modelo'])
+        if filters['ativo'] == 'true':
+            qs = qs.filter(ativo=True)
+        elif filters['ativo'] == 'false':
+            qs = qs.filter(ativo=False)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filters'] = {
+            'equipamento_id': self.request.GET.get('equipamento_id', ''),
+            'cliente': self.request.GET.get('cliente', ''),
+            'tipo': self.request.GET.get('tipo', ''),
+            'numero_serie': self.request.GET.get('numero_serie', ''),
+            'modelo': self.request.GET.get('modelo', ''),
+            'ativo': self.request.GET.get('ativo', ''),
+        }
+        context['tipo_choices'] = Equipamento.TIPO_CHOICES
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        context['filter_params'] = params.urlencode()
+        return context
+
+
+class EquipamentoCreateView(EquipamentoPermissionMixin, CreateView):
+    model = Equipamento
+    form_class = EquipamentoForm
+    template_name = 'equipamentos/form.html'
+    success_url = reverse_lazy('semeq:equipamento_lista')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Equipamento criado com sucesso!')
+        return super().form_valid(form)
+
+
+class EquipamentoUpdateView(EquipamentoPermissionMixin, UpdateView):
+    model = Equipamento
+    form_class = EquipamentoForm
+    template_name = 'equipamentos/form.html'
+    success_url = reverse_lazy('semeq:equipamento_lista')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Equipamento atualizado com sucesso!')
+        return super().form_valid(form)
+
+
+class EquipamentoDeleteView(EquipamentoPermissionMixin, DeleteView):
+    model = Equipamento
+    template_name = 'equipamentos/confirm_delete.html'
+    success_url = reverse_lazy('semeq:equipamento_lista')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'Equipamento excluído com sucesso!')
+        return super().delete(request, *args, **kwargs)
