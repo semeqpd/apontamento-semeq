@@ -707,8 +707,8 @@ class ClienteImportView(ClientePermissionMixin, View):
             all_rows = list(sheet.iter_rows(values_only=True))
             if not all_rows:
                 return [], []
-            headers = [str(h or '').strip() for h in all_rows[0]]
-            rows = [[str(c or '').strip() for c in r] for r in all_rows[1:]]
+            headers = [self._fix_encoding(str(h or '')).strip() for h in all_rows[0]]
+            rows = [[self._fix_encoding(str(c or '')).strip() for c in r] for r in all_rows[1:]]
             return headers, rows
         else:
             import io
@@ -749,8 +749,8 @@ class ClienteImportView(ClientePermissionMixin, View):
             all_rows = list(reader)
             if not all_rows:
                 return [], []
-            headers = [str(h or '').strip() for h in all_rows[0]]
-            rows = [[str(c or '').strip() for c in r] for r in all_rows[1:]]
+            headers = [self._fix_encoding(str(h or '')).strip() for h in all_rows[0]]
+            rows = [[self._fix_encoding(str(c or '')).strip() for c in r] for r in all_rows[1:]]
             return headers, rows
     
     def _normalize_row(self, row, headers):
