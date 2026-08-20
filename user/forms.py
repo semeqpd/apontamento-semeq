@@ -180,20 +180,58 @@ class UsuarioForm(UserCreationForm):
 
 
 class ApontamentoForm(forms.ModelForm):
+    """Formulário de Apontamento com seleção de Corporação e Planta separadas.
+    O campo 'cliente' (FK) é preenchido automaticamente baseado na combinação
+    corporacao_id + plant_id selecionados."""
+    
+    corporacao = forms.CharField(
+        label='Corporação',
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'id': 'id_corporacao',
+            'placeholder': 'Digite para buscar corporação...',
+            'autocomplete': 'off',
+        })
+    )
+    corporacao_id = forms.CharField(
+        widget=forms.HiddenInput(attrs={'id': 'id_corporacao_id'}),
+        required=False
+    )
+    planta = forms.CharField(
+        label='Planta/Unidade',
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'id': 'id_planta',
+            'placeholder': 'Selecione uma corporação primeiro...',
+            'autocomplete': 'off',
+            'disabled': 'disabled',
+        })
+    )
+    planta_id = forms.CharField(
+        widget=forms.HiddenInput(attrs={'id': 'id_planta_id'}),
+        required=False
+    )
+
     class Meta:
         model = Apontamento
         fields = [
-            'cliente', 'projeto', 'solicitante', 'ticket', 'equipamento',
+            'corporacao', 'corporacao_id', 'planta', 'planta_id',
+            'projeto', 'solicitante', 'ticket', 'equipamento',
             'prioridade', 'equipe', 'responsavel', 'atividade', 'tipo_problema',
             'status', 'data', 'hora_inicial', 'hora_final',
             'gw_ar', 'desvio', 'descricao'
         ]
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
             'projeto': forms.TextInput(attrs={'class': 'form-control'}),
             'solicitante': forms.TextInput(attrs={'class': 'form-control'}),
             'ticket': forms.TextInput(attrs={'class': 'form-control'}),
-            'equipamento': forms.Select(attrs={'class': 'form-select'}),
+            'equipamento': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_equipamento',
+                'disabled': 'disabled',
+            }),
             'prioridade': forms.Select(attrs={'class': 'form-select'}),
             'equipe': forms.Select(attrs={'class': 'form-select'}),
             'responsavel': forms.Select(attrs={'class': 'form-select'}),
@@ -222,17 +260,14 @@ class ApontamentoForm(forms.ModelForm):
                 responsavel_qs = User.objects.filter(
                     perfil__ativo=True, is_active=True
                 ).select_related('perfil').order_by('first_name', 'last_name')
-                # Admin/Gestor: show select with all users
                 self.fields['responsavel'].widget = forms.Select(attrs={'class': 'form-select'})
             elif perfil and perfil.is_lider_or_above():
                 responsavel_qs = User.objects.filter(
                     perfil__ativo=True, is_active=True, perfil__time=perfil.time
                 ).select_related('perfil').order_by('first_name', 'last_name')
-                # Líder: show select with team users
                 self.fields['responsavel'].widget = forms.Select(attrs={'class': 'form-select'})
             else:
                 responsavel_qs = User.objects.filter(id=user.id)
-                # Colaborador: hide select, auto-set to current user
                 self.fields['responsavel'].widget = forms.HiddenInput()
                 self.fields['responsavel'].initial = user.id
         else:
@@ -241,50 +276,39 @@ class ApontamentoForm(forms.ModelForm):
         
         self.fields['responsavel'].queryset = responsavel_qs
         
-        self.fields['equipamento'].queryset = Equipamento.objects.filter(
-            ativo=True
-        ).select_related('cliente').order_by('cliente__corporation', 'numero_serie')
+        # Equipamento: queryset vazio inicialmente (será preenchido via JS após selecionar planta)
+        self.fields['equipamento'].queryset = Equipamento.objects.none()
+        self.fields['equipamento'].empty_label = "Selecione uma planta primeiro"
         
-        # Cliente queryset: pre-load selected (edit) or posted value (create) for validation
-        cliente_qs = Cliente.objects.none()
+        # Pré-preencher corporação/planta se estiver editando
         if self.instance.pk and self.instance.cliente_id:
-            cliente_qs = Cliente.objects.filter(pk=self.instance.cliente_id)
-        elif self.data.get('cliente'):
-            cliente_qs = Cliente.objects.filter(pk=self.data.get('cliente'))
-        self.fields['cliente'].queryset = cliente_qs
-        # Remove Django's default empty option ("Selecione um cliente") - TomSelect handles the placeholder
-        self.fields['cliente'].empty_label = None
+            cliente = self.instance.cliente
+            self.fields['corporacao'].initial = cliente.corporation
+            self.fields['corporacao_id'].initial = cliente.corporation_id
+            self.fields['planta'].initial = cliente.plant
+            self.fields['planta_id'].initial = cliente.plant_id
+            # Habilita planta e equipamento na edição
+            self.fields['planta'].widget.attrs.pop('disabled', None)
+            self.fields['planta'].widget.attrs['placeholder'] = 'Digite para buscar planta...'
+            self.fields['equipamento'].widget.attrs.pop('disabled', None)
+            # Pré-carregar equipamentos da planta
+            self.fields['equipamento'].queryset = Equipamento.objects.filter(
+                cliente=cliente, ativo=True
+            ).select_related('cliente').order_by('numero_serie')
+            self.fields['equipamento'].empty_label = "Nenhum"
         
-        # Equipamento queryset: pre-load selected (edit) or posted value (create) for validation
-        equipamento_qs = Equipamento.objects.none()
-        if self.instance.pk and self.instance.equipamento_id:
-            equipamento_qs = Equipamento.objects.filter(pk=self.instance.equipamento_id).select_related('cliente')
-        elif self.data.get('equipamento'):
-            equipamento_qs = Equipamento.objects.filter(pk=self.data.get('equipamento')).select_related('cliente')
-        self.fields['equipamento'].queryset = equipamento_qs
-        
-        # Remover opção vazia "Selecione..."/"- Select an option -" dos selects
-        # escolhidos (obrigatórios). Django 6.1 injeta a blank choice no widget.
+        # Remover opção vazia dos selects obrigatórios
         for field_name in ['equipe', 'prioridade', 'atividade', 'tipo_problema', 'status', 'desvio']:
             field = self.fields[field_name]
             field.empty_label = None
-            # Remove o primeiro item vazio (value == '') das choices do widget
             widget = field.widget
             if hasattr(widget, 'choices'):
                 choices = list(widget.choices)
                 widget.choices = [(v, l) for v, l in choices if v not in (None, '')]
-
-        # Equipamento: opcional, mas usar rótulo explícito "Nenhum" (não "Selecione...")
-        self.fields['equipamento'].empty_label = "Nenhum"
-
-        # Cliente já tem empty_label=None (pré-selecionado na edição)
-        # Responsável: para gestor/líder é um select visível -> sem opção vazia
-        if not isinstance(self.fields['responsavel'].widget, forms.HiddenInput):
-            self.fields['responsavel'].empty_label = None
-
+        
         if not self.instance.pk:
             self.fields['data'].initial = date.today()
-
+        
         # Bloquear seleção de datas futuras no datepicker
         self.fields['data'].widget.attrs['max'] = date.today().isoformat()
         
@@ -294,23 +318,49 @@ class ApontamentoForm(forms.ModelForm):
         if user:
             perfil = getattr(user, 'perfil', None)
             if perfil and not perfil.is_gestor_or_above():
-                # Mapeia o Time do perfil para o código de equipe do apontamento
                 time_nome = perfil.time.nome.lower() if perfil.time else ''
-                equipe_codigo = time_nome  # 'pmc' ou 'shd'
-                # Filtra apenas a equipe correspondente
+                equipe_codigo = time_nome
                 equipe_choices = [c for c in equipe_choices if c[0] == equipe_codigo]
-                # Se o mapeamento não encontrou, mantém vazio (não pode escolher)
                 if not equipe_choices and perfil.time:
                     equipe_choices = [(equipe_codigo, perfil.time.nome.upper())]
         self.fields['equipe'].choices = equipe_choices
+        
+        # Responsável: para gestor/líder é um select visível -> sem opção vazia
+        if not isinstance(self.fields['responsavel'].widget, forms.HiddenInput):
+            self.fields['responsavel'].empty_label = None
 
     def clean(self):
         cleaned_data = super().clean()
+        corporacao_id = cleaned_data.get('corporacao_id')
+        planta_id = cleaned_data.get('planta_id')
         hora_inicial = cleaned_data.get('hora_inicial')
         hora_final = cleaned_data.get('hora_final')
         data = cleaned_data.get('data')
         data_fim = cleaned_data.get('data_fim')
         responsavel = cleaned_data.get('responsavel')
+        
+        # Validar se corporação e planta foram selecionadas
+        if not corporacao_id or not planta_id:
+            raise forms.ValidationError(
+                'Selecione uma Corporação e uma Planta válidas.'
+            )
+        
+        # Buscar o cliente correspondente
+        try:
+            cliente = Cliente.objects.get(
+                corporation_id=corporacao_id,
+                plant_id=planta_id,
+                ativo=True
+            )
+            cleaned_data['cliente'] = cliente
+        except Cliente.DoesNotExist:
+            raise forms.ValidationError(
+                'A combinação de Corporação e Planta selecionada não existe ou está inativa.'
+            )
+        except Cliente.MultipleObjectsReturned:
+            raise forms.ValidationError(
+                'Erro: múltiplos clientes encontrados para esta Corporação/Planta. Contate o administrador.'
+            )
         
         # Get user for role-based restrictions
         user = getattr(self, '_user', None)
@@ -326,16 +376,12 @@ class ApontamentoForm(forms.ModelForm):
                 raise forms.ValidationError('Horário final não pode ultrapassar 23:59.')
         
         if data:
-            # Future dates not allowed for anyone
             if data > date.today():
                 raise forms.ValidationError('Data de início não pode ser no futuro. Apenas hoje ou dias anteriores.')
-            # Retroativos permitidos para todos (não há restrição de "hoje ou ontem")
         
-        # End date validation
         if data_fim and data and data_fim < data:
             raise forms.ValidationError('Data de fim não pode ser anterior à data de início.')
         
-        # Time validation for same day
         if data_fim and data and data_fim == data:
             if hora_inicial and hora_final and hora_final <= hora_inicial:
                 raise forms.ValidationError('Hora final deve ser posterior à hora inicial no mesmo dia.')
@@ -356,6 +402,16 @@ class ApontamentoForm(forms.ModelForm):
                     )
         
         return cleaned_data
+
+    def save(self, commit=True):
+        # O cliente foi validado no clean() e está em cleaned_data
+        # Precisamos atribuir à instância antes de salvar
+        if 'cliente' in self.cleaned_data:
+            self.instance.cliente = self.cleaned_data['cliente']
+        # Definir criado_por se não estiver definido (criação)
+        if not self.instance.pk and hasattr(self, '_user') and self._user:
+            self.instance.criado_por = self._user
+        return super().save(commit=commit)
 
 
 class UsuarioUpdateForm(UserChangeForm):

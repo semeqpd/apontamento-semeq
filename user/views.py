@@ -712,17 +712,29 @@ class ClienteImportView(ClientePermissionMixin, View):
             return headers, rows
         else:
             import io
+            import chardet
             content = arquivo.read()
-            # Handle BOM (UTF-8)
-            if content.startswith(b'\xef\xbb\xbf'):
-                content = content[3:]
-                content = content.decode('utf-8')
-            else:
-                # Detectar encoding: tenta UTF-8, senão CP1252/Latin-1 (arquivos Excel legados)
+            
+            # Detect encoding using chardet
+            detected = chardet.detect(content)
+            encoding = detected['encoding'] or 'utf-8'
+            confidence = detected['confidence'] or 0
+            
+            # If confidence is low or encoding is ASCII/ISO-8859-1, try UTF-8 first
+            if confidence < 0.7 or encoding.lower() in ['ascii', 'iso-8859-1']:
                 try:
                     content = content.decode('utf-8')
-                except (UnicodeDecodeError, UnicodeError):
+                except UnicodeDecodeError:
                     content = content.decode('cp1252')
+            else:
+                try:
+                    content = content.decode(encoding)
+                except UnicodeDecodeError:
+                    content = content.decode('cp1252')
+            
+            # Remove BOM if present
+            if content.startswith('\ufeff'):
+                content = content[1:]
             
             # Auto-detect delimiter
             sample = content[:1024]
@@ -933,6 +945,60 @@ class ClienteFilterOptionsView(ClientePermissionMixin, View):
         return JsonResponse({'corporacoes': corporacoes, 'plantas': plantas})
 
 
+class ClienteCorporacoesAutocompleteView(LoginRequiredMixin, View):
+    """Autocomplete para buscar Corporações únicas (para o campo Corporação do Apontamento)."""
+    
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        qs = Cliente.objects.filter(ativo=True).values(
+            'corporation_id', 'corporation'
+        ).distinct().order_by('corporation')
+        
+        if q:
+            qs = qs.filter(
+                Q(corporation__icontains=q) |
+                Q(corporation_id__icontains=q)
+            )
+        
+        data = list(qs[:50])
+        # Formato para TomSelect: value=corporation_id, text=corporation
+        results = [
+            {'value': item['corporation_id'], 'text': item['corporation']}
+            for item in data
+        ]
+        return JsonResponse({'results': results})
+
+
+class ClientePlantasAutocompleteView(LoginRequiredMixin, View):
+    """Autocomplete para buscar Plantas de uma Corporação específica."""
+    
+    def get(self, request):
+        corporacao_id = request.GET.get('corporacao_id', '').strip()
+        q = request.GET.get('q', '').strip()
+        
+        if not corporacao_id:
+            return JsonResponse({'results': []})
+        
+        qs = Cliente.objects.filter(
+            ativo=True, 
+            corporation_id=corporacao_id
+        ).values('plant_id', 'plant').distinct().order_by('plant')
+        
+        if q:
+            qs = qs.filter(
+                Q(plant__icontains=q) |
+                Q(plant_id__icontains=q)
+            )
+        
+        data = list(qs[:50])
+        # Formato para TomSelect: value=plant_id, text=plant
+        results = [
+            {'value': item['plant_id'], 'text': item['plant']}
+            for item in data
+        ]
+        return JsonResponse({'results': results})
+
+
 class ClienteAutocompleteView(LoginRequiredMixin, View):
     """Autocomplete search para o formulário de apontamento (qualquer usuário logado).
     O form de criação exige que colaboradores/líderes possam selecionar cliente/planta."""
@@ -953,11 +1019,16 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
 
 
 class EquipamentoAutocompleteView(LoginRequiredMixin, View):
-    """Autocomplete search for equipamentos."""
+    """Autocomplete search for equipamentos. Filtra por cliente_id se fornecido."""
     
     def get(self, request):
         q = request.GET.get('q', '').strip()
+        cliente_id = request.GET.get('cliente_id', '').strip()
         qs = Equipamento.objects.filter(ativo=True).select_related('cliente')
+        
+        if cliente_id:
+            qs = qs.filter(cliente_id=cliente_id)
+        
         if q:
             qs = qs.filter(
                 Q(numero_serie__icontains=q) |
@@ -966,8 +1037,20 @@ class EquipamentoAutocompleteView(LoginRequiredMixin, View):
                 Q(cliente__corporation__icontains=q) |
                 Q(cliente__plant__icontains=q)
             )
+        
         data = list(qs.values('pk', 'numero_serie', 'modelo', 'tipo', 'cliente__corporation', 'cliente__plant')[:50])
-        return JsonResponse({'results': data})
+        # Formato para TomSelect: value=pk, text=numero_serie
+        results = [
+            {
+                'value': item['pk'],
+                'text': item['numero_serie'],
+                'modelo': item['modelo'] or '',
+                'tipo': item['tipo'] or '',
+                'cliente': f"{item['cliente__corporation'] or ''} - {item['cliente__plant'] or ''}".strip(' -')
+            }
+            for item in data
+        ]
+        return JsonResponse({'results': results})
 
 
 # Usuario Views

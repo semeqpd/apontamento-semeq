@@ -33,6 +33,10 @@
                 </div>
                 {% endif %}
 
+                <!-- Hidden fields for corporacao_id and planta_id -->
+                {{ form.corporacao_id }}
+                {{ form.planta_id }}
+
                 <!-- Seção: Dados Gerais -->
                 <div class="section-title">
                     Dados Gerais
@@ -40,23 +44,18 @@
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
-                        <label class="form-label">{{ form.cliente.label }} <span class="text-danger">*</span></label>
-                        {% if object %}
-                        <div id="clienteAtualInfo">
-                            <div class="fw-medium">{{ object.cliente.corporation }} - {{ object.cliente.plant }}</div>
-                            <div class="form-check mt-2">
-                                <input type="checkbox" class="form-check-input" id="alterarClienteCheck">
-                                <label class="form-check-label" for="alterarClienteCheck">Alterar cliente</label>
-                            </div>
-                        </div>
-                        <div id="clienteBuscaWrapper" class="d-none">
-                            {{ form.cliente }}
-                        </div>
-                        {% else %}
-                        {{ form.cliente }}
+                        <label class="form-label">{{ form.corporacao.label }} <span class="text-danger">*</span></label>
+                        {{ form.corporacao }}
+                        {% if form.corporacao.errors %}
+                            <div class="text-danger small mt-1">{{ form.corporacao.errors }}</div>
                         {% endif %}
-                        {% if form.cliente.errors %}
-                            <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.planta.label }} <span class="text-danger">*</span></label>
+                        {{ form.planta }}
+                        {% if form.planta.errors %}
+                            <div class="text-danger small mt-1">{{ form.planta.errors }}</div>
                         {% endif %}
                     </div>
 
@@ -66,7 +65,7 @@
                         {% if form.projeto.errors %}<div class="text-danger small mt-1">{{ form.projeto.errors }}</div>{% endif %}
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">{{ form.solicitante.label }} <span class="text-danger">*</span></label>
                         {{ form.solicitante }}
                         {% if form.solicitante.errors %}<div class="text-danger small mt-1">{{ form.solicitante.errors }}</div>{% endif %}
@@ -245,98 +244,187 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Cliente autocomplete
-    if (document.getElementById('id_cliente')) {
-        new TomSelect('#id_cliente', {
+    // URLs dos endpoints de autocomplete
+    const urls = {
+        corporacoes: '/clientes/autocomplete/corporacoes/',
+        plantas: '/clientes/autocomplete/plantas/',
+        equipamentos: '/equipamentos/autocomplete/'
+    };
+
+    // Elementos do DOM
+    const corporacaoInput = document.getElementById('id_corporacao');
+    const corporacaoIdInput = document.getElementById('id_corporacao_id');
+    const plantaInput = document.getElementById('id_planta');
+    const plantaIdInput = document.getElementById('id_planta_id');
+    const equipamentoSelect = document.getElementById('id_equipamento');
+    const equipamentoWrapper = equipamentoSelect?.closest('.col-md-3') || equipamentoSelect?.parentElement;
+
+    let corporacaoTomSelect = null;
+    let plantaTomSelect = null;
+    let equipamentoTomSelect = null;
+
+    // --- CORPORAÇÃO ---
+    if (corporacaoInput) {
+        corporacaoTomSelect = new TomSelect('#id_corporacao', {
             plugins: ['dropdown_input'],
-            valueField: 'pk',
-            labelField: 'corporation',
-            searchField: ['corporation', 'plant', 'corporation_id', 'plant_id', 'city'],
+            valueField: 'value',
+            labelField: 'text',
+            searchField: ['text'],
             preload: 'focus',
-            allowEmptyOption: true,
-            placeholder: 'Digite para buscar cliente...',
+            allowEmptyOption: false,
+            placeholder: 'Digite para buscar corporação...',
             load: function(query, callback) {
                 if (!query.length) return callback();
-                fetch(`/clientes/autocomplete/?q=${encodeURIComponent(query)}`)
+                fetch(`${urls.corporacoes}?q=${encodeURIComponent(query)}`)
                     .then(response => response.json())
                     .then(json => callback(json.results))
                     .catch(() => callback());
             },
             render: {
                 option: function(data, escape) {
-                    // Handle empty/placeholder option
-                    if (!data.corporation || !data.plant) {
-                        return `<div class="text-muted small">${escape(data.text || 'Selecione um cliente')}</div>`;
-                    }
-                    return `<div>
-                        <strong>${escape(data.corporation)} - ${escape(data.plant)}</strong><br>
-                        <small class="text-muted">ID: ${escape(data.corporation_id || '')}/${escape(data.plant_id || '')} | ${escape(data.city || 'N/A')}</small>
-                    </div>`;
+                    return `<div><strong>${escape(data.text)}</strong> <small class="text-muted">(${escape(data.value)})</small></div>`;
                 },
                 item: function(data, escape) {
-                    if (!data.corporation || !data.plant) {
-                        return `<div>${escape(data.text || '')}</div>`;
-                    }
-                    return `<div>${escape(data.corporation)} - ${escape(data.plant)}</div>`;
+                    return `<div>${escape(data.text)}</div>`;
+                }
+            },
+            onChange: function(value) {
+                // Atualiza hidden input
+                if (corporacaoIdInput) corporacaoIdInput.value = value || '';
+                
+                // Reseta e habilita planta
+                if (plantaTomSelect) {
+                    plantaTomSelect.clear();
+                    plantaTomSelect.clearOptions();
+                    plantaTomSelect.disable();
+                    plantaInput.disabled = true;
+                    plantaInput.placeholder = 'Selecione uma corporação primeiro...';
+                }
+                
+                // Reseta equipamento
+                if (equipamentoTomSelect) {
+                    equipamentoTomSelect.clear();
+                    equipamentoTomSelect.clearOptions();
+                    equipamentoTomSelect.disable();
+                    equipamentoSelect.disabled = true;
+                }
+
+                if (value) {
+                    // Carrega plantas para a corporação selecionada
+                    if (plantaTomSelect) {
+                        plantaTomSelect.load(function(callback) {
+                            fetch(`${urls.plantas}?corporacao_id=${encodeURIComponent(value)}`)
+                                .then(response => response.json())
+                                .then(json => {
+                                    callback(json.results);
+                                    plantaTomSelect.enable();
+                                    plantaInput.disabled = false;
+                                    plantaInput.placeholder = 'Digite para buscar planta...';
+                                })
+                                .catch(() => callback());
+                        });
                 }
             }
-            // onInitialize removed to preserve pre-selected client value when editing
         });
     }
 
-    // Checkbox "Alterar cliente" — mostra/esconde a busca de cliente na edição
-    const alterarClienteCheck = document.getElementById('alterarClienteCheck');
-    const clienteBuscaWrapper = document.getElementById('clienteBuscaWrapper');
-    const clienteAtualInfo = document.getElementById('clienteAtualInfo');
-    if (alterarClienteCheck && clienteBuscaWrapper && clienteAtualInfo) {
-        alterarClienteCheck.addEventListener('change', function() {
-            if (this.checked) {
-                clienteAtualInfo.classList.add('d-none');
-                clienteBuscaWrapper.classList.remove('d-none');
-                // Inicializa o TomSelect caso ainda não tenha sido inicializado
-                if (document.getElementById('id_cliente') && !document.getElementById('id_cliente').tomselect) {
-                    // O TomSelect será criado abaixo no fluxo normal; aqui apenas exibimos
-                }
-            } else {
-                clienteAtualInfo.classList.remove('d-none');
-                clienteBuscaWrapper.classList.add('d-none');
-                // Reverte a seleção para o cliente atual
-                const clienteSelect = document.getElementById('id_cliente');
-                if (clienteSelect && clienteSelect.tomselect) {
-                    clienteSelect.tomselect.clear();
-                    clienteSelect.tomselect.setValue('{{ object.cliente.pk }}');
-                }
-            }
-        });
-    }
-
-    // Equipamento autocomplete
-    if (document.getElementById('id_equipamento')) {
-        new TomSelect('#id_equipamento', {
-            plugins: ['dropdown_input', 'remove_button'],
-            valueField: 'pk',
-            labelField: 'numero_serie',
-            searchField: ['numero_serie', 'modelo', 'tipo'],
+    // --- PLANTA ---
+    if (plantaInput) {
+        plantaTomSelect = new TomSelect('#id_planta', {
+            plugins: ['dropdown_input'],
+            valueField: 'value',
+            labelField: 'text',
+            searchField: ['text'],
             preload: 'focus',
-            allowEmptyOption: true,
-            placeholder: 'Digite para buscar equipamento...',
+            allowEmptyOption: false,
+            placeholder: 'Selecione uma corporação primeiro...',
             load: function(query, callback) {
-                if (!query.length) return callback();
-                fetch(`/equipamentos/autocomplete/?q=${encodeURIComponent(query)}`)
+                // Não carrega nada até corporação ser selecionada
+                if (!corporacaoIdInput?.value) return callback();
+                const corporacaoId = corporacaoIdInput.value;
+                fetch(`${urls.plantas}?corporacao_id=${encodeURIComponent(corporacaoId)}&q=${encodeURIComponent(query || '')}`)
                     .then(response => response.json())
                     .then(json => callback(json.results))
                     .catch(() => callback());
             },
             render: {
                 option: function(data, escape) {
-                    // Handle empty/placeholder option
+                    return `<div><strong>${escape(data.text)}</strong> <small class="text-muted">(${escape(data.value)})</small></div>`;
+                },
+                item: function(data, escape) {
+                    return `<div>${escape(data.text)}</div>`;
+                }
+            },
+            onChange: function(value) {
+                // Atualiza hidden input
+                if (plantaIdInput) plantaIdInput.value = value || '';
+                
+                // Reseta equipamento
+                if (equipamentoTomSelect) {
+                    equipamentoTomSelect.clear();
+                    equipamentoTomSelect.clearOptions();
+                    equipamentoTomSelect.disable();
+                    equipamentoSelect.disabled = true;
+                }
+
+                if (value && corporacaoIdInput?.value) {
+                    // Busca o cliente (PK) para a combinação corporacao_id + plant_id
+                    // Precisamos fazer uma requisição para obter o PK do cliente
+                    fetch(`/clientes/autocomplete/?q=${encodeURIComponent(corporacaoIdInput.value + ' ' + value)}`)
+                        .then(response => response.json())
+                        .then(json => {
+                            const cliente = json.results.find(r => 
+                                r.corporation_id === corporacaoIdInput.value && r.plant_id === value
+                            );
+                            if (cliente) {
+                                // Carrega equipamentos para este cliente
+                                if (equipamentoTomSelect) {
+                                    equipamentoTomSelect.load(function(callback) {
+                                        fetch(`${urls.equipamentos}?cliente_id=${encodeURIComponent(cliente.value)}`)
+                                            .then(response => response.json())
+                                            .then(json => {
+                                                callback(json.results);
+                                                equipamentoTomSelect.enable();
+                                                equipamentoSelect.disabled = false;
+                                            })
+                                            .catch(() => callback());
+                                    });
+                            }
+                        })
+                        .catch(() => {});
+                }
+            }
+        });
+    }
+
+    // --- EQUIPAMENTO ---
+    if (equipamentoSelect) {
+        equipamentoTomSelect = new TomSelect('#id_equipamento', {
+            plugins: ['dropdown_input', 'remove_button'],
+            valueField: 'value',
+            labelField: 'text',
+            searchField: ['text', 'modelo', 'tipo'],
+            preload: 'focus',
+            allowEmptyOption: true,
+            placeholder: 'Selecione uma planta primeiro...',
+            load: function(query, callback) {
+                const clienteId = document.getElementById('id_cliente_pk')?.value;
+                if (!clienteId) return callback();
+                
+                fetch(`${urls.equipamentos}?cliente_id=${encodeURIComponent(clienteId)}&q=${encodeURIComponent(query || '')}`)
+                    .then(response => response.json())
+                    .then(json => callback(json.results))
+                    .catch(() => callback());
+            },
+            render: {
+                option: function(data, escape) {
                     if (!data.numero_serie) {
-                        return `<div class="text-muted small">${escape(data.text || 'Selecione um equipamento')}</div>`;
+                        return `<div class="text-muted small">${escape(data.text || 'Nenhum equipamento disponível')}</div>`;
                     }
                     return `<div>
                         <strong>${escape(data.numero_serie)}</strong>
-                        <span class="text-muted ms-2">${escape(data.modelo || '')}</span>
-                        <small class="text-muted d-block">Tipo: ${escape(data.tipo || '')} | Cliente: ${escape(data.cliente__corporation || '')} - ${escape(data.cliente__plant || '')}</small>
+                        ${data.modelo ? `<span class="text-muted ms-2">${escape(data.modelo)}</span>` : ''}
+                        <small class="text-muted d-block">${escape(data.cliente || '')}</small>
                     </div>`;
                 },
                 item: function(data, escape) {
@@ -347,11 +435,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             },
             onInitialize: function() {
-                this.setText('');
+                this.disable();
             }
         });
     }
-    
+
+    // --- Helper: buscar PK do cliente quando corporação + planta mudam ---
+    // Adicionamos um campo hidden para armazenar o PK do cliente
+    if (!document.getElementById('id_cliente_pk')) {
+        const hiddenPk = document.createElement('input');
+        hiddenPk.type = 'hidden';
+        hiddenPk.id = 'id_cliente_pk';
+        hiddenPk.name = 'cliente_pk';
+        document.getElementById('apontamentoForm').appendChild(hiddenPk);
+    }
+
+    // Monitorar mudanças na corporação e planta para buscar o cliente PK
+    function atualizarClientePk() {
+        const corporacaoId = corporacaoIdInput?.value;
+        const plantaId = document.getElementById('id_planta_id')?.value;
+        const clientePkInput = document.getElementById('id_cliente_pk');
+        
+        if (corporacaoId && plantaId && clientePkInput) {
+            fetch(`/clientes/autocomplete/?q=${encodeURIComponent(corporacaoId + ' ' + document.getElementById('id_planta').value)}`)
+                .then(response => response.json())
+                .then(json => {
+                    const cliente = json.results.find(r => 
+                        r.corporation_id === corporacaoId && r.plant_id === plantaId
+                    );
+                    if (cliente) {
+                        clientePkInput.value = cliente.pk;
+                    }
+                });
+        }
+    }
+
+    // Observar mudanças
+    if (corporacaoTomSelect) {
+        corporacaoTomSelect.on('change', atualizarClientePk);
+    }
+    if (plantaTomSelect) {
+        plantaTomSelect.on('change', atualizarClientePk);
+    }
+
     // Prevent browser's native validation from interfering with Django's validation
     document.getElementById('apontamentoForm').setAttribute('novalidate', 'true');
     
