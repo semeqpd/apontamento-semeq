@@ -620,6 +620,47 @@ class ClienteDeleteView(ClientePermissionMixin, DeleteView):
     template_name = 'clientes/confirm_delete.html'
     success_url = reverse_lazy('semeq:cliente_lista')
     
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        # Check for related apontamentos
+        self.apontamentos_count = self.object.apontamentos.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        delete_apontamentos = request.POST.get('delete_apontamentos') == 'on'
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Este cliente possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir clientes com apontamentos.'
+                )
+                return redirect('semeq:cliente_lista')
+            
+            if not delete_apontamentos:
+                messages.error(request,
+                    f'Este cliente possui {self.apontamentos_count} apontamento(s). '
+                    'Marque a opção para excluir os apontamentos junto com o cliente.'
+                )
+                return self.get(request)
+            
+            # Admin confirmed - delete apontamentos first
+            self.object.apontamentos.all().delete()
+        
+        messages.success(request, 'Cliente excluído com sucesso!')
+        return super().post(request, *args, **kwargs)
+    
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Cliente excluído com sucesso!')
         return super().delete(request, *args, **kwargs)
@@ -690,14 +731,33 @@ class ClienteImportView(ClientePermissionMixin, View):
         """
         Corrige encoding legado (latin-1/cp1252 armazenado como bytes).
         Converte C1 controls (0x80-0x9F) para equivalentes Unicode via cp1252.
+        Também corrige mojibake parcial onde \x93 foi substituído por vogal.
         """
         if not value:
             return value
+        # Estratégia 1: Fix padrão mojibake (latin-1 -> cp1252)
+        # Corrige UTF-8 bytes lidos como latin-1 (ex: Ã + \x93 -> Ó)
         try:
             fixed = value.encode('latin-1').decode('cp1252')
-            return fixed if fixed != value else value
+            if fixed != value:
+                return fixed
         except (UnicodeEncodeError, UnicodeDecodeError):
-            return value
+            pass
+        
+        # Estratégia 2: Heurística para mojibake parcial (Ã + vogal -> acentuado)
+        # Corrige casos onde \x93 foi substituído por vogal (ex: ÃO -> Ó)
+        import re
+        mojibake_map = {
+            '\u00c3A': 'Á', '\u00c3a': 'á',
+            '\u00c3E': 'É', '\u00c3e': 'é',
+            '\u00c3I': 'Í', '\u00c3i': 'í',
+            '\u00c3O': 'Ó', '\u00c3o': 'ó',
+            '\u00c3U': 'Ú', '\u00c3u': 'ú',
+            '\u00c3C': 'Ç', '\u00c3c': 'ç',
+        }
+        pattern = '|'.join(re.escape(k) for k in mojibake_map.keys())
+        fixed = re.sub(pattern, lambda m: mojibake_map.get(m.group(0), m.group(0)), value)
+        return fixed
     
     def _parse_file(self, arquivo, ext):
         """Parse Excel or CSV file, return (headers, rows)"""
@@ -707,8 +767,41 @@ class ClienteImportView(ClientePermissionMixin, View):
             all_rows = list(sheet.iter_rows(values_only=True))
             if not all_rows:
                 return [], []
-            headers = [self._fix_encoding(str(h or '')).strip() for h in all_rows[0]]
-            rows = [[self._fix_encoding(str(c or '')).strip() for c in r] for r in all_rows[1:]]
+            
+            def fix_xlsx_value(val):
+                """Tenta múltiplas estratégias para corrigir encoding do XLSX"""
+                if val is None:
+                    return ''
+                s = str(val)
+                # Tenta fix padrão (latin-1 -> cp1252)
+                fixed = self._fix_encoding(s)
+                # Se não mudou, tenta outras estratégias
+                if fixed == s:
+                    # Estratégia 1: bytes UTF-8 interpretados como latin-1 -> decode cp1252
+                    try:
+                        fixed = s.encode('latin-1', errors='replace').decode('cp1252')
+                    except:
+                        pass
+                    # Estratégia 2: bytes UTF-8 interpretados como cp1252 -> decode utf-8
+                    if fixed == s:
+                        try:
+                            fixed = s.encode('cp1252', errors='replace').decode('utf-8')
+                        except:
+                            pass
+                    # Estratégia 3: bytes latin-1 interpretados como utf-8
+                    if fixed == s:
+                        try:
+                            fixed = s.encode('utf-8', errors='replace').decode('latin-1')
+                        except:
+                            pass
+                    # Estratégia 4: remove caracteres de controle C1 (0x80-0x9F) comuns em mojibake
+                    if fixed == s:
+                        import re
+                        fixed = re.sub(r'[\x80-\x9F]', '', s)
+                return fixed.strip()
+            
+            headers = [fix_xlsx_value(h) for h in all_rows[0]]
+            rows = [[fix_xlsx_value(c) for c in r] for r in all_rows[1:]]
             return headers, rows
         else:
             import io
