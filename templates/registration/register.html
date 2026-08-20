@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+
+{% block title %}Cadastro - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-7">
+            <div class="card card-dashboard">
+                <div class="card-header">
+                    <div class="header-brand">
+                        <i class="bi bi-person-plus"></i>
+                        <span>Criar Conta</span>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Cadastro restrito:</strong> Apenas emails <strong>@semeq.com</strong> são permitidos no momento.
+                    </div>
+                    
+                    <form method="post" novalidate id="registerForm">
+                        {% csrf_token %}
+                        
+                        <div class="section-title mb-3">Dados de Acesso</div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.username.id_for_label }}" class="form-label">
+                                    {{ form.username.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.username }}
+                                {% if form.username.errors %}
+                                    <div class="text-danger small mt-1">{{ form.username.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    {{ form.email.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ form.email.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6 d-flex flex-column">
+                                <label for="{{ form.password1.id_for_label }}" class="form-label">
+                                    {{ form.password1.label }} <span class="text-danger">*</span>
+                                </label>
+                                <div class="password-input-wrapper">
+                                    {{ form.password1 }}
+                                    <button type="button" class="password-toggle-btn" data-target="#{{ form.password1.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                                {% if form.password1.errors %}
+                                    <div class="text-danger small mt-1">{{ form.password1.errors }}</div>
+                                {% endif %}
+                                <div class="form-text text-nowrap" style="min-height: 18px;">{{ form.password1.help_text }}</div>
+                            </div>
+                            <div class="col-md-6 d-flex flex-column">
+                                <label for="{{ form.password2.id_for_label }}" class="form-label">
+                                    {{ form.password2.label }} <span class="text-danger">*</span>
+                                </label>
+                                <div class="password-input-wrapper">
+                                    {{ form.password2 }}
+                                    <button type="button" class="password-toggle-btn" data-target="#{{ form.password2.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                                {% if form.password2.errors %}
+                                    <div class="text-danger small mt-1">{{ form.password2.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">{{ form.password2.help_text }}</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="password-strength-meter"></div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="section-title mb-3">Informações Pessoais</div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                    {{ form.first_name.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.first_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                    {{ form.last_name.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.last_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-semeq-primary btn-lg">
+                                <i class="bi bi-person-plus me-1"></i> Criar Minha Conta
+                            </button>
+                            <a href="{% url 'semeq:login' %}" class="btn btn-semeq-outline">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Já tenho conta - Fazer Login
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Password strength meter
+document.addEventListener('DOMContentLoaded', function() {
+    const pwd1 = document.getElementById('id_password1');
+    const pwd2 = document.getElementById('id_password2');
+    const meterContainer = document.querySelector('.password-strength-meter');
+    
+    if (pwd1 && meterContainer) {
+        const barra = document.createElement('div');
+        barra.className = 'progress d-none';
+        barra.style.height = '5px';
+        barra.innerHTML = '<div class="progress-bar" role="progressbar" style="width:0%"></div>';
+        meterContainer.appendChild(barra);
+        
+        const msg = document.createElement('div');
+        msg.className = 'form-text small';
+        meterContainer.appendChild(msg);
+        
+        const bar = barra.querySelector('.progress-bar');
+        
+        function avaliarSenha(pwd) {
+            let score = 0;
+            if (!pwd) return { score: 0, cor: '', texto: '' };
+            if (pwd.length >= 8) score++;
+            if (/[A-Z]/.test(pwd)) score++;
+            if (/[a-z]/.test(pwd)) score++;
+            if (/\d/.test(pwd)) score++;
+            if (/[^A-Za-z0-9]/.test(pwd)) score++;
+            if (score <= 1) return { score, cor: '#dc3545', texto: 'Senha fraca' };
+            if (score <= 2) return { score, cor: '#f59e0b', texto: 'Senha regular' };
+            if (score <= 3) return { score, cor: '#10b981', texto: 'Senha boa' };
+            return { score, cor: '#22c55e', texto: 'Senha forte' };
+        }
+        
+        pwd1.addEventListener('input', function() {
+            const r = avaliarSenha(this.value);
+            if (!this.value) {
+                barra.classList.add('d-none');
+                msg.textContent = '';
+                return;
+            }
+            barra.classList.remove('d-none');
+            bar.style.width = (r.score * 20) + '%';
+            bar.style.backgroundColor = r.cor;
+            msg.textContent = r.texto;
+            msg.style.color = r.cor;
+            
+            if (pwd2 && pwd2.value && pwd2.value !== this.value) {
+                pwd2.setCustomValidity('As senhas não coincidem.');
+            } else if (pwd2) {
+                pwd2.setCustomValidity('');
+            }
+        });
+        
+        if (pwd2) {
+            pwd2.addEventListener('input', function() {
+                if (pwd1.value && this.value !== pwd1.value) {
+                    this.setCustomValidity('As senhas não coincidem.');
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
+        }
+    }
+});
+</script>
+{% endblock %}

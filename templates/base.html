@@ -421,6 +421,78 @@
             border-color: var(--semeq-navy);
         }
 
+        /* ============================================================
+           PASSWORD INPUT WRAPPER - Ícone interno mobile-first
+           ============================================================ */
+        /* Torna a div pai a referência de posicionamento */
+        .password-input-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 100%;
+        }
+
+        /* Garante que o input ocupe toda a largura e não sobreponha o texto ao ícone */
+        .password-input-wrapper input[type="password"],
+        .password-input-wrapper input[type="text"] {
+          flex: 1 1 auto;
+          width: 100%;
+          min-width: 0;
+          padding-right: 45px !important; /* Espaço interno para o texto não ficar embaixo do botão */
+          box-sizing: border-box;
+        }
+
+        /* Posiciona o botão absolutamente dentro da div pai */
+        .password-input-wrapper .password-toggle-btn {
+          position: absolute !important;
+          right: 10px !important;       /* Distância da borda direita */
+          top: 50% !important;          /* Centraliza verticalmente */
+          transform: translateY(-50%) !important; /* Ajuste fino de centralização */
+          margin-left: 0 !important;   /* Remove o margin-left de 5% que estava empurrando o botão */
+          height: auto !important;
+          z-index: 2;                  /* Garante que o botão fique acima do input para receber o clique */
+          
+          /* Estilo do botão */
+          background: transparent !important;
+          border: none !important;
+          padding: 0 !important;
+          cursor: pointer !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          min-width: 44px !important;
+          min-height: 44px !important;
+          color: var(--text-muted, #64748b) !important;
+          transition: color 0.15s ease !important;
+        }
+
+        /* Hover */
+        .password-input-wrapper .password-toggle-btn:hover {
+          color: var(--semeq-navy, #0a1033) !important;
+        }
+
+        /* Remove outline/focus do botão - não quer que fique "marcado" ao clicar */
+        .password-input-wrapper .password-toggle-btn:focus,
+        .password-input-wrapper .password-toggle-btn:active {
+          outline: none !important;
+          box-shadow: none !important;
+          color: var(--text-muted, #64748b) !important;
+        }
+
+        /* Focus-visible no wrapper (acessibilidade) - só no input */
+        .password-input-wrapper:focus-within input {
+          border-color: var(--semeq-navy);
+          box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15);
+        }
+
+        /* Ícone tamanho consistente */
+        .password-input-wrapper .password-toggle-btn i {
+          font-size: 1.1rem;
+          line-height: 1;
+        }
+
+        /* Dark mode: variáveis CSS já resolvem automaticamente */
+
         hr {
             border-color: var(--border-color);
             opacity: 0.7;
@@ -635,6 +707,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/password-toggle.js' %}"></script>
     <script>
         // ==================== SEARCHABLE SELECT COMPONENT ====================
         class SearchableSelect {

@@ -61,5 +61,15 @@ urlpatterns = [
         template_name='registration/password_change.html',
         success_url='/'
     ), name='password_change'),
+    
+    # Cadastro Público (@semeq.com)
+    path('cadastro/', views.PublicRegistrationView.as_view(), name='register'),
+    path('cadastro/sucesso/', views.PublicRegistrationDoneView.as_view(), name='register_done'),
+    
+    # Password Reset (@semeq.com)
+    path('senha/esqueci/', views.SemeqPasswordResetView.as_view(), name='password_reset'),
+    path('senha/esqueci/enviado/', views.SemeqPasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('senha/redefinir/<uidb64>/<token>/', views.SemeqPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('senha/redefinido/', views.SemeqPasswordResetCompleteView.as_view(), name='password_reset_complete'),
 
 ]

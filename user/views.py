@@ -5,6 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LogoutView
+from django.contrib.auth import views as auth_views
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.db.models import Q, Count, Sum, Avg, F, ExpressionWrapper, DurationField
@@ -17,7 +18,8 @@ from datetime import date, timedelta, datetime
 from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
 from .forms import (
     ClienteForm, ClienteImportForm,
-    UsuarioForm, ApontamentoForm, UsuarioUpdateForm
+    UsuarioForm, ApontamentoForm, UsuarioUpdateForm,
+    PublicRegistrationForm, SemeqPasswordResetForm
 )
 from .throttle import rate_limit
 import csv
@@ -199,6 +201,21 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
         data_fim = self.request.GET.get('data_fim', '').strip()
         if data_fim:
             qs = qs.filter(data__lte=data_fim)
+        
+        # Time filter (Equipe) - only for gestores
+        time_id = self.request.GET.get('time', '').strip()
+        if time_id and perfil and perfil.is_gestor_or_above():
+            qs = qs.filter(responsavel__perfil__time_id=time_id)
+        
+        # Usuario filter (Colaborador) - respect permission boundaries
+        usuario_id = self.request.GET.get('usuario', '').strip()
+        if usuario_id:
+            if perfil and perfil.is_gestor_or_above():
+                qs = qs.filter(responsavel_id=usuario_id)
+            elif perfil and perfil.is_lider_or_above():
+                qs = qs.filter(responsavel_id=usuario_id, responsavel__perfil__time=perfil.time)
+            else:
+                qs = qs.filter(responsavel_id=usuario_id, responsavel=self.request.user)
         
         return qs.order_by('-data', '-hora_inicial')
     
@@ -1151,6 +1168,64 @@ class ConfiguracoesTemaView(LoginRequiredMixin, View):
             perfil.save()
 
         return JsonResponse({'success': True, 'message': 'Tema atualizado!', 'tema': tema})
+
+
+# =====================================================================
+# PUBLIC REGISTRATION & PASSWORD RESET (apenas @semeq.com)
+# =====================================================================
+
+class PublicRegistrationView(CreateView):
+    """Cadastro público - apenas emails @semeq.com"""
+    form_class = PublicRegistrationForm
+    template_name = 'registration/register.html'
+    success_url = reverse_lazy('semeq:register_done')
+    
+    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        # Se já logado, redireciona para dashboard
+        if request.user.is_authenticated:
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Cadastro realizado com sucesso! Faça login para acessar.')
+        return super().form_valid(form)
+
+
+class PublicRegistrationDoneView(View):
+    """Página de sucesso após cadastro"""
+    def get(self, request):
+        return render(request, 'registration/register_done.html')
+
+
+# Password Reset Views usando formulário customizado @semeq.com
+class SemeqPasswordResetView(auth_views.PasswordResetView):
+    form_class = SemeqPasswordResetForm
+    template_name = 'registration/password_reset.html'
+    email_template_name = 'registration/password_reset_email.html'
+    subject_template_name = 'registration/password_reset_subject.txt'
+    success_url = reverse_lazy('semeq:password_reset_done')
+    
+    @method_decorator(rate_limit(rate='3/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SemeqPasswordResetDoneView(auth_views.PasswordResetDoneView):
+    template_name = 'registration/password_reset_done.html'
+
+
+class SemeqPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+    template_name = 'registration/password_reset_confirm.html'
+    success_url = reverse_lazy('semeq:password_reset_complete')
+    
+    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SemeqPasswordResetCompleteView(auth_views.PasswordResetCompleteView):
+    template_name = 'registration/password_reset_complete.html'
 
 
 # Custom error handlers
