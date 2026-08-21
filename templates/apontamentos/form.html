@@ -305,8 +305,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ===== CLIENTE AUTOCOMPLETE (Fetch API + Debounce) =====
-    const clienteAutocompleteInput = document.getElementById('id_cliente_autocomplete');
-    const clienteHiddenInput = document.getElementById('id_cliente');
     const clienteDropdown = document.getElementById('clienteDropdown');
     let clienteDebounceTimer = null;
     let clienteSelectedId = clienteHiddenInput?.value || '';
