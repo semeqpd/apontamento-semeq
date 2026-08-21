@@ -5,6 +5,24 @@ from django.core.exceptions import ValidationError
 from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
 
 
+class EquipamentoForm(forms.ModelForm):
+    class Meta:
+        model = Equipamento
+        fields = [
+            'equipamento_id', 'cliente', 'tipo', 'numero_serie',
+            'modelo', 'descricao', 'ativo'
+        ]
+        widgets = {
+            'equipamento_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'cliente': forms.Select(attrs={'class': 'form-select'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
+            'modelo': forms.TextInput(attrs={'class': 'form-control'}),
+            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente

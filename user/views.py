@@ -19,8 +19,8 @@ from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
 from .forms import (
     ClienteForm, ClienteImportForm,
     UsuarioForm, ApontamentoForm, UsuarioUpdateForm,
-    PublicRegistrationForm, SemeqPasswordResetForm
-)
+    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm
+    )
 from .throttle import rate_limit
 import csv
 import openpyxl
