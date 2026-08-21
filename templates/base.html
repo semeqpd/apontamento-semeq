@@ -35,6 +35,9 @@
             --text-primary: #e2e8f0;
             --text-muted: #94a3b8;
             --semeq-navy-hover: #1e2a4a;
+            /* Input backgrounds - slightly lighter for visibility */
+            --input-bg: #1e2d4a;
+            --input-border: #3a4f7a;
         }
 
         [data-theme="dark"] body { background-color: var(--bg-body); color: var(--text-primary); }
@@ -43,10 +46,15 @@
         [data-theme="dark"] .table { --bs-table-bg: transparent; --bs-table-color: var(--text-primary); }
         [data-theme="dark"] .table thead th { background-color: var(--bg-body); color: var(--text-muted); }
         [data-theme="dark"] .table tbody td { color: var(--text-primary); }
-        [data-theme="dark"] .form-control, [data-theme="dark"] .form-select {
-            background-color: var(--bg-body);
-            color: var(--text-primary);
-            border-color: var(--border-color);
+        [data-theme="dark"] .form-control, 
+        [data-theme="dark"] .form-select,
+        [data-theme="dark"] .form-control:focus,
+        [data-theme="dark"] .form-select:focus,
+        [data-theme="dark"] textarea.form-control,
+        [data-theme="dark"] input.form-control {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--input-border) !important;
         }
         /* Dropdown nativo: options legiveis ao abrir (fundo claro + texto escuro) */
         [data-theme="dark"] select option,
@@ -59,14 +67,141 @@
             background-color: #dbeafe;
             color: #1e3a8a;
         }
+        /* Select value display (closed state) - garantir contraste */
+        [data-theme="dark"] select.form-select,
+        [data-theme="dark"] .form-select:not([multiple]) {
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+        }
+        [data-theme="dark"] .form-select:not([multiple]) option:checked {
+            color: #1e293b !important;
+        }
         /* Placeholder no dark mode: cinza claro para diferenciar do texto digitado (azul) */
         [data-theme="dark"] .form-control::placeholder,
         [data-theme="dark"] .form-select::placeholder {
             color: var(--text-muted);
             opacity: 1;
         }
+        /* Select closed state - usar input-bg para visibilidade */
+        [data-theme="dark"] select.form-select,
+        [data-theme="dark"] .form-select:not([multiple]) {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--input-border) !important;
+        }
+        [data-theme="dark"] .form-select:not([multiple]) option:checked {
+            color: #1e293b !important;
+        }
         [data-theme="dark"] .form-label { color: var(--text-primary); }
+        /* Autocomplete wrapper (cliente) - dark mode */
+        [data-theme="dark"] .autocomplete-wrapper input {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--input-border) !important;
+        }
+        [data-theme="dark"] .autocomplete-dropdown {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+        }
+        [data-theme="dark"] .autocomplete-dropdown .dropdown-item {
+            color: var(--text-primary) !important;
+        }
+        [data-theme="dark"] .autocomplete-dropdown .dropdown-item:hover {
+            background-color: var(--semeq-navy-hover) !important;
+            color: var(--text-primary) !important;
+        }
         [data-theme="dark"] .ts-control, [data-theme="dark"] .ts-dropdown { background-color: var(--card-bg); color: var(--text-primary); }
+        /* TomSelect input text visibility in dark mode */
+        [data-theme="dark"] .ts-control input {
+            color: var(--text-primary) !important;
+            background-color: transparent !important;
+        }
+        [data-theme="dark"] .ts-control input::placeholder {
+            color: var(--text-muted) !important;
+        }
+        /* TomSelect selected items display */
+        [data-theme="dark"] .ts-control .item {
+            background-color: var(--semeq-navy) !important;
+            color: var(--text-primary) !important;
+        }
+        [data-theme="dark"] .ts-control .item .remove {
+            color: var(--text-muted) !important;
+        }
+        [data-theme="dark"] .ts-control .item .remove:hover {
+            color: var(--text-primary) !important;
+        }
+        /* TomSelect dropdown options in dark mode */
+        [data-theme="dark"] .ts-dropdown .option {
+            background-color: var(--card-bg) !important;
+            color: var(--text-primary) !important;
+        }
+        [data-theme="dark"] .ts-dropdown .option:hover,
+        [data-theme="dark"] .ts-dropdown .option.active {
+            background-color: var(--semeq-navy-hover) !important;
+            color: var(--text-primary) !important;
+        }
+        /* TomSelect control styling in dark mode */
+        [data-theme="dark"] .ts-control {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        [data-theme="dark"] .ts-control:focus {
+            border-color: var(--semeq-navy) !important;
+            box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15) !important;
+        }
+        /* TomSelect dropdown in dark mode */
+        [data-theme="dark"] .ts-dropdown {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+        }
+        /* TomSelect multi-select tag removal button */
+        [data-theme="dark"] .ts-control .item {
+            background-color: var(--semeq-navy) !important;
+            color: var(--text-primary) !important;
+        }
+        [data-theme="dark"] .ts-control .item .remove {
+            color: var(--text-muted) !important;
+        }
+        [data-theme="dark"] .ts-control .item .remove:hover {
+            color: var(--text-primary) !important;
+        }
+        /* Native select - selected value visibility in closed state */
+        [data-theme="dark"] select.form-select:not([multiple]) {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e2e8f0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+        }
+        /* Searchable Select Component - dark mode */
+        [data-theme="dark"] .searchable-select-wrapper { position: relative; }
+        [data-theme="dark"] .searchable-select-input {
+            background-color: var(--input-bg) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--input-border) !important;
+        }
+        [data-theme="dark"] .searchable-select-input:focus {
+            border-color: var(--semeq-navy) !important;
+            box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15) !important;
+        }
+        [data-theme="dark"] .searchable-select-dropdown {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+        }
+        [data-theme="dark"] .searchable-select-item {
+            color: var(--text-primary) !important;
+            background-color: transparent !important;
+        }
+        [data-theme="dark"] .searchable-select-item:hover,
+        [data-theme="dark"] .searchable-select-item.highlighted {
+            color: var(--text-primary) !important;
+            background-color: var(--semeq-navy-hover) !important;
+        }
+        [data-theme="dark"] .searchable-select-item.selected {
+            color: #ffffff !important;
+            background-color: var(--semeq-navy) !important;
+        }
+        [data-theme="dark"] .searchable-select-empty {
+            color: var(--text-muted) !important;
+        }
         /* Corrigir cabecalho table-light, grupo bg-light e total table-secondary */
         [data-theme="dark"] .table .table-light,
         [data-theme="dark"] table.table thead.table-light th,
@@ -148,9 +283,86 @@
         [data-theme="dark"] .home-title i,
         [data-theme="dark"] .home-logo i { color: #ffffff !important; }
 
+        /* ============================================================
+           DARK MODE: Força TODO texto a usar variáveis CSS (sem cinza escuro)
+           ============================================================ */
+        [data-theme="dark"] .fw-medium,
+        [data-theme="dark"] .fw-semibold,
+        [data-theme="dark"] .fw-bold,
+        [data-theme="dark"] .fw-normal,
+        [data-theme="dark"] .fw-light,
+        [data-theme="dark"] p,
+        [data-theme="dark"] span,
+        [data-theme="dark"] div,
+        [data-theme="dark"] td,
+        [data-theme="dark"] th,
+        [data-theme="dark"] li,
+        [data-theme="dark"] label,
+        [data-theme="dark"] small,
+        [data-theme="dark"] .form-label,
+        [data-theme="dark"] .card-body,
+        [data-theme="dark"] .card-text,
+        [data-theme="dark"] .text-body,
+        [data-theme="dark"] .text-body-secondary,
+        [data-theme="dark"] .text-body-tertiary {
+            color: var(--text-primary) !important;
+        }
+        [data-theme="dark"] .text-muted,
+        [data-theme="dark"] .text-secondary,
+        [data-theme="dark"] small.text-muted,
+        [data-theme="dark"] .form-text,
+        [data-theme="dark"] .card-metric h6 {
+            color: var(--text-muted) !important;
+        }
+        /* Exceções: badges coloridos mantêm seu contraste */
+        [data-theme="dark"] .badge.bg-danger,
+        [data-theme="dark"] .badge.bg-success,
+        [data-theme="dark"] .badge.bg-warning,
+        [data-theme="dark"] .badge.bg-info,
+        [data-theme="dark"] .badge.bg-primary,
+        [data-theme="dark"] .badge.bg-secondary,
+        [data-theme="dark"] .badge.bg-light,
+        [data-theme="dark"] .badge.bg-dark {
+            color: inherit !important;
+        }
+        [data-theme="dark"] .badge.text-dark,
+        [data-theme="dark"] .badge.bg-warning.text-dark,
+        [data-theme="dark"] .badge.bg-info.text-dark {
+            color: #1e293b !important;
+        }
+
 [data-theme="dark"] .badge-subtle-success { background-color: #134e3a; color: #d1fae5; }
         [data-theme="dark"] .badge-subtle-warning { background-color: #3b2f10; color: #fef3c7; }
         [data-theme="dark"] .badge-subtle-primary { background-color: #1e3a5f; color: #dbeafe; }
+
+        /* ============================================================
+           DARK MODE: Dropdown menus (Exportar, filtros, etc.)
+           ============================================================ */
+        [data-theme="dark"] .dropdown-menu {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+        }
+        [data-theme="dark"] .dropdown-item {
+            color: var(--text-primary) !important;
+            background-color: transparent !important;
+        }
+        [data-theme="dark"] .dropdown-item:hover,
+        [data-theme="dark"] .dropdown-item:focus {
+            color: var(--text-primary) !important;
+            background-color: var(--semeq-navy-hover) !important;
+        }
+        [data-theme="dark"] .dropdown-item.active,
+        [data-theme="dark"] .dropdown-item:active {
+            color: #ffffff !important;
+            background-color: var(--semeq-navy) !important;
+        }
+        [data-theme="dark"] .dropdown-divider {
+            border-top-color: var(--border-color) !important;
+        }
+        [data-theme="dark"] .dropdown-header {
+            color: var(--text-muted) !important;
+        }
 
         body {
             background-color: var(--bg-body);
@@ -404,6 +616,12 @@
             transition: all 0.2s ease-in-out;
         }
 
+        /* Remove seta do dropdown em filtros de tabela */
+        .table-filter-row .form-select {
+            background-image: none !important;
+            padding-right: 0.85rem !important;
+        }
+
         .form-control:focus, .form-select:focus {
             border-color: var(--semeq-navy);
             box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15);
@@ -420,6 +638,78 @@
             background-color: var(--semeq-navy);
             border-color: var(--semeq-navy);
         }
+
+        /* ============================================================
+           PASSWORD INPUT WRAPPER - Ícone interno mobile-first
+           ============================================================ */
+        /* Torna a div pai a referência de posicionamento */
+        .password-input-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 100%;
+        }
+
+        /* Garante que o input ocupe toda a largura e não sobreponha o texto ao ícone */
+        .password-input-wrapper input[type="password"],
+        .password-input-wrapper input[type="text"] {
+          flex: 1 1 auto;
+          width: 100%;
+          min-width: 0;
+          padding-right: 45px !important; /* Espaço interno para o texto não ficar embaixo do botão */
+          box-sizing: border-box;
+        }
+
+        /* Posiciona o botão absolutamente dentro da div pai */
+        .password-input-wrapper .password-toggle-btn {
+          position: absolute !important;
+          right: 10px !important;       /* Distância da borda direita */
+          top: 50% !important;          /* Centraliza verticalmente */
+          transform: translateY(-50%) !important; /* Ajuste fino de centralização */
+          margin-left: 0 !important;   /* Remove o margin-left de 5% que estava empurrando o botão */
+          height: auto !important;
+          z-index: 2;                  /* Garante que o botão fique acima do input para receber o clique */
+          
+          /* Estilo do botão */
+          background: transparent !important;
+          border: none !important;
+          padding: 0 !important;
+          cursor: pointer !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          min-width: 44px !important;
+          min-height: 44px !important;
+          color: var(--text-muted, #64748b) !important;
+          transition: color 0.15s ease !important;
+        }
+
+        /* Hover */
+        .password-input-wrapper .password-toggle-btn:hover {
+          color: var(--semeq-navy, #0a1033) !important;
+        }
+
+        /* Remove outline/focus do botão - não quer que fique "marcado" ao clicar */
+        .password-input-wrapper .password-toggle-btn:focus,
+        .password-input-wrapper .password-toggle-btn:active {
+          outline: none !important;
+          box-shadow: none !important;
+          color: var(--text-muted, #64748b) !important;
+        }
+
+        /* Focus-visible no wrapper (acessibilidade) - só no input */
+        .password-input-wrapper:focus-within input {
+          border-color: var(--semeq-navy);
+          box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15);
+        }
+
+        /* Ícone tamanho consistente */
+        .password-input-wrapper .password-toggle-btn i {
+          font-size: 1.1rem;
+          line-height: 1;
+        }
+
+        /* Dark mode: variáveis CSS já resolvem automaticamente */
 
         hr {
             border-color: var(--border-color);
@@ -586,15 +876,15 @@
                     </a>
                 </div>
 
-                <!-- Toggle Tema na Sidebar -->
-                <div class="p-3 mt-auto" style="border-top: 1px solid rgba(255,255,255,0.08);">
+                <!-- botao tema escuro -->
+               <!-- <div class="p-3 mt-auto" style="border-top: 1px solid rgba(255,255,255,0.08);">
                     <div class="form-check form-switch mb-0">
                         <input class="form-check-input" type="checkbox" id="sidebarTemaToggle" {% if request.user.perfil.tema_preferido == 'dark' %}checked{% endif %}>
                         <label class="form-check-label text-white small" for="sidebarTemaToggle">
                             <i class="bi bi-moon-stars me-2"></i> Tema Escuro
                         </label>
                     </div>
-                </div>
+                </div>-->
             </div>
 
             <!-- CONTEÚDO PRINCIPAL -->
@@ -640,6 +930,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/password-toggle.js' %}"></script>
     <script>
         // ==================== SEARCHABLE SELECT COMPONENT ====================
         class SearchableSelect {

@@ -99,6 +99,9 @@ if DB_ENGINE == 'postgres':
             'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
             'PORT': os.environ.get('DJANGO_DB_PORT', '5432'),
             'CONN_MAX_AGE': 60,
+            'OPTIONS': {
+                'client_encoding': 'UTF8',
+            },
         }
     }
 else:
@@ -139,6 +142,10 @@ TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
 
 USE_TZ = True
+
+# Encoding settings
+DEFAULT_CHARSET = 'utf-8'
+FILE_CHARSET = 'utf-8'
 
 
 # Static files (CSS, JavaScript, Images)

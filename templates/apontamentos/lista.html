@@ -111,7 +111,7 @@
                             <th>Responsável</th>
                             <th>Projeto</th>
                             <th>Solicitante</th>
-                            <th>Equipamento</th>
+                            <!-- <th>Equipamento</th> -->
                             <th>Prioridade</th>
                             <th>Status</th>
                             <th class="text-end">Ações</th>
@@ -134,7 +134,7 @@
                             <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
                             <td>{{ a.projeto|truncatechars:30 }}</td>
                             <td>{{ a.solicitante }}</td>
-                            <td>{{ a.equipamento|default:"—" }}</td>
+                            <!--<td>{{ a.equipamento|default:"—" }}</td>-->
                             <td>
                                 {% if a.prioridade == 'critica' %}
                                 <span class="badge bg-danger">{{ a.get_prioridade_display }}</span>

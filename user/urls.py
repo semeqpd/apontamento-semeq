@@ -29,6 +29,9 @@ urlpatterns = [
     path('clientes/exportar/', views.ClienteExportView.as_view(), name='cliente_exportar'),
     path('clientes/filtro-opcoes/', views.ClienteFilterOptionsView.as_view(), name='cliente_filtro_opcoes'),
     path('clientes/autocomplete/', views.ClienteAutocompleteView.as_view(), name='cliente_autocomplete'),
+    path('clientes/buscar/', views.ClienteBuscaView.as_view(), name='cliente_buscar'),
+    path('clientes/autocomplete/corporacoes/', views.ClienteCorporacoesAutocompleteView.as_view(), name='cliente_autocomplete_corporacoes'),
+    path('clientes/autocomplete/plantas/', views.ClientePlantasAutocompleteView.as_view(), name='cliente_autocomplete_plantas'),
     path('equipamentos/autocomplete/', views.EquipamentoAutocompleteView.as_view(), name='equipamento_autocomplete'),
 
     # Usuario
@@ -53,14 +56,6 @@ urlpatterns = [
     # DEACTIVATED: path('times/<int:pk>/editar/', views.TimeUpdateView.as_view(), name='time_editar'),
     # DEACTIVATED: path('times/<int:pk>/excluir/', views.TimeDeleteView.as_view(), name='time_excluir'),
 
-    # Configurações - DEACTIVATED
-    # DEACTIVATED: path('configuracoes/', views.ConfiguracoesView, name='configuracoes'),
-
-    # Password Reset - DEACTIVATED (modo construção)
-    # DEACTIVATED: path('password_reset/', auth_views.PasswordResetView.as_view(...), name='password_reset'),
-    # DEACTIVATED: path('password_reset/done/', ...),
-    # DEACTIVATED: path('reset/<uidb64>/<token>/', ...),
-    # DEACTIVATED: path('reset/done/', ...),
 
     # Auth - MANTER ATIVO (necessário para login/logout)
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
@@ -69,11 +64,15 @@ urlpatterns = [
         template_name='registration/password_change.html',
         success_url='/'
     ), name='password_change'),
-
-    # Password Reset - DEACTIVATED (modo construção)
-    # DEACTIVATED: path('password_reset/', auth_views.PasswordResetView.as_view(...), name='password_reset'),
-    # DEACTIVATED: path('password_reset/done/', ...),
-    # DEACTIVATED: path('reset/<uidb64>/<token>/', ...),
-    # DEACTIVATED: path('reset/done/', ...),
+    
+    # Cadastro Público (@semeq.com)
+    path('cadastro/', views.PublicRegistrationView.as_view(), name='register'),
+    path('cadastro/sucesso/', views.PublicRegistrationDoneView.as_view(), name='register_done'),
+    
+    # Password Reset (@semeq.com)
+    path('senha/esqueci/', views.SemeqPasswordResetView.as_view(), name='password_reset'),
+    path('senha/esqueci/enviado/', views.SemeqPasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('senha/redefinir/<uidb64>/<token>/', views.SemeqPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('senha/redefinido/', views.SemeqPasswordResetCompleteView.as_view(), name='password_reset_complete'),
 
 ]

@@ -16,11 +16,11 @@
             {% if preview %}
                 <!-- Preview Mode -->
                 <div class="alert alert-info">
-                    <h5 class="alert-heading"><i class="bi bi-eye me-1"></i> Preview da Importação</h5>
+                    <h5 class="alert-heading"><i class="bi bi-eye me-1"></i>Importação</h5>
                     <p class="mb-1"><strong>{{ total_rows }}</strong> linhas encontradas no arquivo.</p>
-                    <p class="mb-0">Mostrando as primeiras 5 linhas. Confira os dados antes de confirmar.</p>
+                    <h5 class="mb-0">Confirmar importação?</h5>
                 </div>
-
+<!-- 
                 <div class="table-responsive mb-4">
                     <table class="table table-sm table-bordered">
                         <thead class="table-light">
@@ -40,7 +40,7 @@
                             {% endfor %}
                         </tbody>
                     </table>
-                </div>
+                </div> -->
 
                 <form method="post">
                     {% csrf_token %}

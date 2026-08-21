@@ -5,6 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LogoutView
+from django.contrib.auth import views as auth_views
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.db.models import Q, Count, Sum, Avg, F, ExpressionWrapper, DurationField
@@ -17,7 +18,8 @@ from datetime import date, timedelta, datetime
 from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
 from .forms import (
     ClienteForm, ClienteImportForm,
-    UsuarioForm, ApontamentoForm, UsuarioUpdateForm, EquipamentoForm
+    UsuarioForm, ApontamentoForm, UsuarioUpdateForm,
+    PublicRegistrationForm, SemeqPasswordResetForm
 )
 from .throttle import rate_limit
 import csv
@@ -206,6 +208,21 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
         data_fim = self.request.GET.get('data_fim', '').strip()
         if data_fim:
             qs = qs.filter(data__lte=data_fim)
+        
+        # Time filter (Equipe) - only for gestores
+        time_id = self.request.GET.get('time', '').strip()
+        if time_id and perfil and perfil.is_gestor_or_above():
+            qs = qs.filter(responsavel__perfil__time_id=time_id)
+        
+        # Usuario filter (Colaborador) - respect permission boundaries
+        usuario_id = self.request.GET.get('usuario', '').strip()
+        if usuario_id:
+            if perfil and perfil.is_gestor_or_above():
+                qs = qs.filter(responsavel_id=usuario_id)
+            elif perfil and perfil.is_lider_or_above():
+                qs = qs.filter(responsavel_id=usuario_id, responsavel__perfil__time=perfil.time)
+            else:
+                qs = qs.filter(responsavel_id=usuario_id, responsavel=self.request.user)
         
         return qs.order_by('-data', '-hora_inicial')
     
@@ -423,11 +440,14 @@ class ApontamentoExportView(LoginRequiredMixin, View):
         writer.writerow([
             'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
             'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
-            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo Total',
-            'GW no Ar', 'Desvio', 'Descrição'
+            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
+            'GW no Ar', '>18h', 'Desvio', 'Descrição'
         ])
         
         for a in qs:
+            tempo_min = a.tempo_minutos
+            if not tempo_min and a.tempo_total:
+                tempo_min = int(a.tempo_total.total_seconds() / 60)
             writer.writerow([
                 a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
                 a.solicitante, str(a.equipamento) if a.equipamento else '',
@@ -435,9 +455,12 @@ class ApontamentoExportView(LoginRequiredMixin, View):
                 a.responsavel.get_full_name() or a.responsavel.username,
                 a.get_atividade_display(), a.get_tipo_problema_display(),
                 a.get_status_display(), a.data.strftime('%d/%m/%Y'),
-                a.hora_inicial.strftime('%H:%M'), a.hora_final.strftime('%H:%M'),
-                str(a.tempo_total) if a.tempo_total else '',
-                'Sim' if a.gw_ar else 'Não', a.get_desvio_display(), a.descricao
+                a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
+                a.hora_final.strftime('%H:%M') if a.hora_final else '',
+                tempo_min if tempo_min else '',
+                'Sim' if a.gw_ar else 'Não',
+                'Sim' if a.apos_18h else 'Não',
+                a.get_desvio_display(), a.descricao
             ])
         return response
     
@@ -449,12 +472,15 @@ class ApontamentoExportView(LoginRequiredMixin, View):
         headers = [
             'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
             'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
-            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo Total',
-            'GW no Ar', 'Desvio', 'Descrição'
+            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
+            'GW no Ar', '>18h', 'Desvio', 'Descrição'
         ]
         ws.append(headers)
         
         for a in qs:
+            tempo_min = a.tempo_minutos
+            if not tempo_min and a.tempo_total:
+                tempo_min = int(a.tempo_total.total_seconds() / 60)
             ws.append([
                 a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
                 a.solicitante, str(a.equipamento) if a.equipamento else '',
@@ -462,9 +488,12 @@ class ApontamentoExportView(LoginRequiredMixin, View):
                 a.responsavel.get_full_name() or a.responsavel.username,
                 a.get_atividade_display(), a.get_tipo_problema_display(),
                 a.get_status_display(), a.data.strftime('%d/%m/%Y'),
-                a.hora_inicial.strftime('%H:%M'), a.hora_final.strftime('%H:%M'),
-                str(a.tempo_total) if a.tempo_total else '',
-                'Sim' if a.gw_ar else 'Não', a.get_desvio_display(), a.descricao
+                a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
+                a.hora_final.strftime('%H:%M') if a.hora_final else '',
+                tempo_min if tempo_min else '',
+                'Sim' if a.gw_ar else 'Não',
+                'Sim' if a.apos_18h else 'Não',
+                a.get_desvio_display(), a.descricao
             ])
         
         response = HttpResponse(
@@ -610,6 +639,47 @@ class ClienteDeleteView(ClientePermissionMixin, DeleteView):
     template_name = 'clientes/confirm_delete.html'
     success_url = reverse_lazy('semeq:cliente_lista')
     
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        # Check for related apontamentos
+        self.apontamentos_count = self.object.apontamentos.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        delete_apontamentos = request.POST.get('delete_apontamentos') == 'on'
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Este cliente possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir clientes com apontamentos.'
+                )
+                return redirect('semeq:cliente_lista')
+            
+            if not delete_apontamentos:
+                messages.error(request,
+                    f'Este cliente possui {self.apontamentos_count} apontamento(s). '
+                    'Marque a opção para excluir os apontamentos junto com o cliente.'
+                )
+                return self.get(request)
+            
+            # Admin confirmed - delete apontamentos first
+            self.object.apontamentos.all().delete()
+        
+        messages.success(request, 'Cliente excluído com sucesso!')
+        return super().post(request, *args, **kwargs)
+    
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Cliente excluído com sucesso!')
         return super().delete(request, *args, **kwargs)
@@ -678,17 +748,127 @@ class ClienteImportView(ClientePermissionMixin, View):
     @staticmethod
     def _fix_encoding(value):
         """
-        Corrige encoding legado (latin-1/cp1252 armazenado como bytes).
-        Converte C1 controls (0x80-0x9F) para equivalentes Unicode via cp1252.
+        Corrige encoding legado (latin-1/cp1252/utf-8 mal interpretado).
+        
+        Padrões de mojibake comuns em PT-BR:
+        - UTF-8 bytes interpretados como latin-1:
+          * Ó (UTF-8: C3 93) -> Ã + " (U+00C3 U+0093) 
+          * Í (UTF-8: C3 8D) -> Ã + \x8d (U+00C3 U+008D)
+          * í (UTF-8: C3 AD) -> Ã + \xad (U+00C3 U+00AD)
+          * ç (UTF-8: C3 A7) -> Ã + § (U+00C3 U+00A7)
+        - Dupla corrupção: UTF-8 -> latin-1 -> replacement char
+          * Í (C3 8D) -> Ã + \x8d -> substituição \x8d -> � -> Ã + �
+        - Padrão parcial: Ã (U+00C3) + vogal/consoante -> acentuado
+        - Controle C1 (0x80-0x9F) após Ã (U+00C3) -> acentuado
         """
         if not value:
             return value
+        
+        # Only process strings
+        if not isinstance(value, str):
+            return value
+        
+        import re
+        
+        # Estratégia 1 (MOVIDA PARA CIMA): Fix mojibake onde Ã (U+00C3) é seguido por controle C1 (0x80-0x9F)
+        # Mapeia Ã + controle C1 para o caractere acentuado correspondente
+        # UTF-8: C3 80-9F -> latin-1: Ã + controle C1
+        # Ex: C3 81 (Á) -> Ã + \x81; C3 8D (Í) -> Ã + \x8d; C3 AD (í) -> Ã + \xad
+        # Esta deve rodar ANTES das estratégias latin-1/utf-8 para evitar corrupção intermediária
+        c1_to_accented = {
+            '\u00c3\x81': 'Á', '\u00c3\x82': 'Â', '\u00c3\x83': 'Ã', '\u00c3\x84': 'Ä',
+            '\u00c3\x85': 'Å', '\u00c3\x86': 'Æ', '\u00c3\x87': 'Ç', '\u00c3\x88': 'È',
+            '\u00c3\x89': 'É', '\u00c3\x8a': 'Ê', '\u00c3\x8b': 'Ë', '\u00c3\x8c': 'Ì',
+            '\u00c3\x8d': 'Í', '\u00c3\x8e': 'Î', '\u00c3\x8f': 'Ï', '\u00c3\x90': 'Ð',
+            '\u00c3\x91': 'Ñ', '\u00c3\x92': 'Ò', '\u00c3\x93': 'Ó', '\u00c3\x94': 'Ô',
+            '\u00c3\x95': 'Õ', '\u00c3\x96': 'Ö', '\u00c3\x97': '×', '\u00c3\x98': 'Ø',
+            '\u00c3\x99': 'Ú', '\u00c3\x9a': 'Ú', '\u00c3\x9b': 'Û', '\u00c3\x9c': 'Ü',
+            '\u00c3\x9d': 'Ý', '\u00c3\x9e': 'Þ', '\u00c3\x9f': 'ß',
+            '\u00c3\xa1': 'á', '\u00c3\xa2': 'â', '\u00c3\xa3': 'ã', '\u00c3\xa4': 'ä',
+            '\u00c3\xa5': 'å', '\u00c3\xa6': 'æ', '\u00c3\xa7': 'ç', '\u00c3\xa8': 'è',
+            '\u00c3\xa9': 'é', '\u00c3\xaa': 'ê', '\u00c3\xab': 'ë', '\u00c3\xac': 'ì',
+            '\u00c3\xad': 'í', '\u00c3\xae': 'î', '\u00c3\xaf': 'ï', '\u00c3\xb0': 'ð',
+            '\u00c3\xb1': 'ñ', '\u00c3\xb2': 'ò', '\u00c3\xb3': 'ó', '\u00c3\xb4': 'ô',
+            '\u00c3\xb5': 'õ', '\u00c3\xb6': 'ö', '\u00c3\xb7': '÷', '\u00c3\xb8': 'ø',
+            '\u00c3\xb9': 'ù', '\u00c3\xba': 'ú', '\u00c3\xbb': 'û', '\u00c3\xbc': 'ü',
+            '\u00c3\xbd': 'ý', '\u00c3\xbe': 'þ', '\u00c3\xbf': 'ÿ',
+        }
+        pattern = '|'.join(re.escape(k) for k in c1_to_accented.keys())
+        fixed = re.sub(pattern, lambda m: c1_to_accented.get(m.group(0), m.group(0)), value)
+        if fixed != value:
+            return fixed
+        
+        # Estratégia 2: Fix mojibake parcial onde bytes de continuação foram substituídos
+        # Padrão: Ã (U+00C3) + vogal/consoante -> caractere acentuado
+        mojibake_map = {
+            '\u00c3A': 'Á', '\u00c3a': 'á',
+            '\u00c3E': 'É', '\u00c3e': 'é',
+            '\u00c3I': 'Í', '\u00c3i': 'í',
+            '\u00c3O': 'Ó', '\u00c3o': 'ó',
+            '\u00c3U': 'Ú', '\u00c3u': 'ú',
+            '\u00c3C': 'Ç', '\u00c3c': 'ç',
+            # Smart quote mojibake (Excel/openpyxl converts 0x93/0x94 to U+201C/U+201D)
+            '\u00c3\u201c': 'Ó', '\u00c3\u201d': 'Ó',  # Ã + " / Ã + "
+            '\u00e3\u201c': 'ó', '\u00e3\u201d': 'ó',  # ã + " / ã + "
+            '\u00c3\u2018': 'Á', '\u00c3\u2019': 'Á',  # Ã + ' / Ã + '
+            '\u00e3\u2018': 'á', '\u00e3\u2019': 'á',  # ã + ' / ã + '
+            '\u00c3\u201e': 'Í',  # Ã + "
+            '\u00e3\u201e': 'í',  # ã + "
+            '\u00c3\u201a': 'É',  # Ã + '
+            '\u00e3\u201a': 'é',  # ã + '
+        }
+        pattern = '|'.join(re.escape(k) for k in mojibake_map.keys())
+        fixed = re.sub(pattern, lambda m: mojibake_map.get(m.group(0), m.group(0)), value)
+        if fixed != value:
+            return fixed
+        
+        # Estratégia 3: Fix padrão mojibake (latin-1 -> cp1252)
+        # Corrige UTF-8 bytes lidos como latin-1 (ex: Ã + \x93 -> Ó)
         try:
             fixed = value.encode('latin-1').decode('cp1252')
-            return fixed if fixed != value else value
+            if fixed != value:
+                return fixed
         except (UnicodeEncodeError, UnicodeDecodeError):
-            return value
-    
+            pass
+        
+        # Estratégia 4: Reconstrói bytes UTF-8 originais a partir da interpretação latin-1
+        # Quando UTF-8 (ex: C3 8D para Í) é lido como latin-1, vira Ã (C3) + \x8d (controle)
+        # Se houver caracteres de controle C1 (0x80-0x9F), tenta reconstruir UTF-8
+        try:
+            latin1_bytes = value.encode('latin-1')
+            fixed = latin1_bytes.decode('utf-8')
+            if fixed != value:
+                return fixed
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
+        
+        # Estratégia 5: Dupla corrupção - replacement char (U+FFFD) + controle C1
+        # Ex: Í (C3 8D) -> Ã + \x8d -> substituição \x8d -> � -> Ã + �
+        # Tenta: substitui � (U+FFFD) por byte 0x80-0x9F correspondente e reconverte
+        if '\ufffd' in value:
+            try:
+                # Tenta diferentes bytes de continuação comuns em PT-BR
+                for continuation_byte in range(0x80, 0xA0):  # 0x80-0x9F
+                    test_value = value.replace('\ufffd', chr(continuation_byte))
+                    try:
+                        test_bytes = test_value.encode('latin-1')
+                        fixed = test_bytes.decode('utf-8')
+                        if fixed != value and not any(ord(c) in range(0x80, 0xA0) for c in fixed):
+                            return fixed
+                    except (UnicodeEncodeError, UnicodeDecodeError):
+                        continue
+            except:
+                pass
+        
+        # Estratégia 6: Remove caracteres de controle C1 (0x80-0x9F) restantes
+        try:
+            fixed = re.sub(r'[\x80-\x9F]', '', value)
+            if fixed != value:
+                return fixed
+        except:
+            pass
+        
+        return value
     def _parse_file(self, arquivo, ext):
         """Parse Excel or CSV file, return (headers, rows)"""
         if ext in ['xlsx', 'xls']:
@@ -697,22 +877,67 @@ class ClienteImportView(ClientePermissionMixin, View):
             all_rows = list(sheet.iter_rows(values_only=True))
             if not all_rows:
                 return [], []
-            headers = [str(h or '').strip() for h in all_rows[0]]
-            rows = [[str(c or '').strip() for c in r] for r in all_rows[1:]]
+            
+            def fix_xlsx_value(val):
+                """Tenta múltiplas estratégias para corrigir encoding do XLSX"""
+                if val is None:
+                    return ''
+                s = str(val)
+                # Tenta fix padrão (latin-1 -> cp1252)
+                fixed = self._fix_encoding(s)
+                # Se não mudou, tenta outras estratégias
+                if fixed == s:
+                    # Estratégia 1: bytes UTF-8 interpretados como latin-1 -> decode cp1252
+                    try:
+                        fixed = s.encode('latin-1', errors='replace').decode('cp1252')
+                    except:
+                        pass
+                    # Estratégia 2: bytes UTF-8 interpretados como cp1252 -> decode utf-8
+                    if fixed == s:
+                        try:
+                            fixed = s.encode('cp1252', errors='replace').decode('utf-8')
+                        except:
+                            pass
+                    # Estratégia 3: bytes latin-1 interpretados como utf-8
+                    if fixed == s:
+                        try:
+                            fixed = s.encode('utf-8', errors='replace').decode('latin-1')
+                        except:
+                            pass
+                    # Estratégia 4: remove caracteres de controle C1 (0x80-0x9F) comuns em mojibake
+                    if fixed == s:
+                        import re
+                        fixed = re.sub(r'[\x80-\x9F]', '', s)
+                return fixed.strip()
+            
+            headers = [fix_xlsx_value(h) for h in all_rows[0]]
+            rows = [[fix_xlsx_value(c) for c in r] for r in all_rows[1:]]
             return headers, rows
         else:
             import io
+            import chardet
             content = arquivo.read()
-            # Handle BOM (UTF-8)
-            if content.startswith(b'\xef\xbb\xbf'):
-                content = content[3:]
-                content = content.decode('utf-8')
-            else:
-                # Detectar encoding: tenta UTF-8, senão CP1252/Latin-1 (arquivos Excel legados)
+            
+            # Detect encoding using chardet
+            detected = chardet.detect(content)
+            encoding = detected['encoding'] or 'utf-8'
+            confidence = detected['confidence'] or 0
+            
+            # If confidence is low or encoding is ASCII/ISO-8859-1, try UTF-8 first
+            if confidence < 0.7 or encoding.lower() in ['ascii', 'iso-8859-1']:
                 try:
                     content = content.decode('utf-8')
-                except (UnicodeDecodeError, UnicodeError):
+                except UnicodeDecodeError:
                     content = content.decode('cp1252')
+            else:
+                try:
+                    content = content.decode(encoding)
+                except UnicodeDecodeError:
+                    content = content.decode('cp1252')
+            
+            # Remove BOM if present
+            if content.startswith('\ufeff'):
+                content = content[1:]
             
             # Auto-detect delimiter
             sample = content[:1024]
@@ -727,8 +952,8 @@ class ClienteImportView(ClientePermissionMixin, View):
             all_rows = list(reader)
             if not all_rows:
                 return [], []
-            headers = [str(h or '').strip() for h in all_rows[0]]
-            rows = [[str(c or '').strip() for c in r] for r in all_rows[1:]]
+            headers = [self._fix_encoding(str(h or '')).strip() for h in all_rows[0]]
+            rows = [[self._fix_encoding(str(c or '')).strip() for c in r] for r in all_rows[1:]]
             return headers, rows
     
     def _normalize_row(self, row, headers):
@@ -923,6 +1148,60 @@ class ClienteFilterOptionsView(ClientePermissionMixin, View):
         return JsonResponse({'corporacoes': corporacoes, 'plantas': plantas})
 
 
+class ClienteCorporacoesAutocompleteView(LoginRequiredMixin, View):
+    """Autocomplete para buscar Corporações únicas (para o campo Corporação do Apontamento)."""
+    
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        qs = Cliente.objects.filter(ativo=True).values(
+            'corporation_id', 'corporation'
+        ).distinct().order_by('corporation')
+        
+        if q:
+            qs = qs.filter(
+                Q(corporation__icontains=q) |
+                Q(corporation_id__icontains=q)
+            )
+        
+        data = list(qs[:50])
+        # Formato para TomSelect: value=corporation_id, text=corporation
+        results = [
+            {'value': item['corporation_id'], 'text': item['corporation']}
+            for item in data
+        ]
+        return JsonResponse({'results': results})
+
+
+class ClientePlantasAutocompleteView(LoginRequiredMixin, View):
+    """Autocomplete para buscar Plantas de uma Corporação específica."""
+    
+    def get(self, request):
+        corporacao_id = request.GET.get('corporacao_id', '').strip()
+        q = request.GET.get('q', '').strip()
+        
+        if not corporacao_id:
+            return JsonResponse({'results': []})
+        
+        qs = Cliente.objects.filter(
+            ativo=True, 
+            corporation_id=corporacao_id
+        ).values('plant_id', 'plant').distinct().order_by('plant')
+        
+        if q:
+            qs = qs.filter(
+                Q(plant__icontains=q) |
+                Q(plant_id__icontains=q)
+            )
+        
+        data = list(qs[:50])
+        # Formato para TomSelect: value=plant_id, text=plant
+        results = [
+            {'value': item['plant_id'], 'text': item['plant']}
+            for item in data
+        ]
+        return JsonResponse({'results': results})
+
+
 class ClienteAutocompleteView(LoginRequiredMixin, View):
     """Autocomplete search para o formulário de apontamento (qualquer usuário logado).
     O form de criação exige que colaboradores/líderes possam selecionar cliente/planta."""
@@ -938,16 +1217,62 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
                 Q(plant_id__icontains=q) |
                 Q(city__icontains=q)
             )
+        # Retornar formato esperado pelo TomSelect: value e text
         data = list(qs.values('pk', 'corporation_id', 'corporation', 'plant_id', 'plant', 'city')[:50])
-        return JsonResponse({'results': data})
+        results = []
+        for item in data:
+            value = str(item['pk'])
+            text = f"{item['corporation']} - {item['plant']}"
+            results.append({
+                'value': value,
+                'text': text,
+                'corporation_id': item['corporation_id'],
+                'corporation': item['corporation'],
+                'plant_id': item['plant_id'],
+                'plant': item['plant'],
+                'city': item['city'],
+            })
+        return JsonResponse({'results': results}, json_dumps_params={'ensure_ascii': False})
 
 
-class EquipamentoAutocompleteView(LoginRequiredMixin, View):
-    """Autocomplete search for equipamentos."""
+class ClienteBuscaView(LoginRequiredMixin, View):
+    """
+    Autocomplete simples para busca de clientes via Fetch API.
+    Retorna: [{"id": 1, "nome": "Corporação - Planta"}, ...]
+    """
     
     def get(self, request):
         q = request.GET.get('q', '').strip()
+        qs = Cliente.objects.filter(ativo=True)
+        if q:
+            qs = qs.filter(
+                Q(corporation__icontains=q) |
+                Q(plant__icontains=q) |
+                Q(corporation_id__icontains=q) |
+                Q(plant_id__icontains=q) |
+                Q(city__icontains=q)
+            )
+        # Mais resultados no foco vazio (navegação), menos na busca filtrada
+        limit = 30 if not q else 10
+        data = list(qs.values('pk', 'corporation', 'plant')[:limit])
+        results = [
+            {'id': item['pk'], 'nome': f"{item['corporation']} - {item['plant']}"}
+            for item in data
+        ]
+        return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
+
+
+class EquipamentoAutocompleteView(LoginRequiredMixin, View):
+    """Autocomplete search for equipamentos. Filtra por cliente_id se fornecido."""
+    
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        cliente_id = request.GET.get('cliente_id', '').strip()
         qs = Equipamento.objects.filter(ativo=True).select_related('cliente')
+        
+        if cliente_id:
+            qs = qs.filter(cliente_id=cliente_id)
+        
         if q:
             qs = qs.filter(
                 Q(numero_serie__icontains=q) |
@@ -956,12 +1281,20 @@ class EquipamentoAutocompleteView(LoginRequiredMixin, View):
                 Q(cliente__corporation__icontains=q) |
                 Q(cliente__plant__icontains=q)
             )
-        data = list(qs.values(
-            'pk', 'numero_serie', 'modelo', 'tipo',
-            corporation=F('cliente__corporation'),
-            plant=F('cliente__plant'),
-        )[:50])
-        return JsonResponse({'results': data})
+        
+        data = list(qs.values('pk', 'numero_serie', 'modelo', 'tipo', 'cliente__corporation', 'cliente__plant')[:50])
+        # Formato para TomSelect: value=pk, text=numero_serie
+        results = [
+            {
+                'value': item['pk'],
+                'text': item['numero_serie'],
+                'modelo': item['modelo'] or '',
+                'tipo': item['tipo'] or '',
+                'cliente': f"{item['cliente__corporation'] or ''} - {item['cliente__plant'] or ''}".strip(' -')
+            }
+            for item in data
+        ]
+        return JsonResponse({'results': results})
 
 
 # Usuario Views
@@ -1162,6 +1495,64 @@ class ConfiguracoesTemaView(LoginRequiredMixin, View):
             perfil.save()
 
         return JsonResponse({'success': True, 'message': 'Tema atualizado!', 'tema': tema})
+
+
+# =====================================================================
+# PUBLIC REGISTRATION & PASSWORD RESET (apenas @semeq.com)
+# =====================================================================
+
+class PublicRegistrationView(CreateView):
+    """Cadastro público - apenas emails @semeq.com"""
+    form_class = PublicRegistrationForm
+    template_name = 'registration/register.html'
+    success_url = reverse_lazy('semeq:register_done')
+    
+    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        # Se já logado, redireciona para dashboard
+        if request.user.is_authenticated:
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Cadastro realizado com sucesso! Faça login para acessar.')
+        return super().form_valid(form)
+
+
+class PublicRegistrationDoneView(View):
+    """Página de sucesso após cadastro"""
+    def get(self, request):
+        return render(request, 'registration/register_done.html')
+
+
+# Password Reset Views usando formulário customizado @semeq.com
+class SemeqPasswordResetView(auth_views.PasswordResetView):
+    form_class = SemeqPasswordResetForm
+    template_name = 'registration/password_reset.html'
+    email_template_name = 'registration/password_reset_email.html'
+    subject_template_name = 'registration/password_reset_subject.txt'
+    success_url = reverse_lazy('semeq:password_reset_done')
+    
+    @method_decorator(rate_limit(rate='3/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SemeqPasswordResetDoneView(auth_views.PasswordResetDoneView):
+    template_name = 'registration/password_reset_done.html'
+
+
+class SemeqPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+    template_name = 'registration/password_reset_confirm.html'
+    success_url = reverse_lazy('semeq:password_reset_complete')
+    
+    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SemeqPasswordResetCompleteView(auth_views.PasswordResetCompleteView):
+    template_name = 'registration/password_reset_complete.html'
 
 
 # Custom error handlers

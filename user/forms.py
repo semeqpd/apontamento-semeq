@@ -1,352 +1,398 @@
 from django import forms
+from django.contrib.auth.forms import UserCreationForm, PasswordResetForm
 from django.contrib.auth.models import User
-from django.contrib.auth import password_validation as password_validation
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm, PasswordResetForm, SetPasswordForm
-from django.contrib.auth.tokens import default_token_generator
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
-import csv
-import openpyxl
-from datetime import date, timedelta, time
-from django.utils import timezone
 from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
-from django.db.models import Q
-
-User = get_user_model()
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
 
 
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['corporation_id', 'corporation', 'plant_id', 'plant',
-                  'unat', 'city', 'state_province', 'country', 'region',
-                  'business', 'zone', 'ativo']
+        fields = [
+            'corporation_id', 'corporation', 'plant_id', 'plant',
+            'unat', 'city', 'state_province', 'country', 'region', 'business', 'zone', 'ativo'
+        ]
         widgets = {
-            'corporation_id': forms.TextInput(attrs={'class': 'form-control'}),
-            'corporation': forms.TextInput(attrs={'class': 'form-control'}),
-            'plant_id': forms.TextInput(attrs={'class': 'form-control'}),
-            'plant': forms.TextInput(attrs={'class': 'form-control'}),
-            'unat': forms.TextInput(attrs={'class': 'form-control'}),
-            'city': forms.TextInput(attrs={'class': 'form-control'}),
-            'state_province': forms.TextInput(attrs={'class': 'form-control'}),
-            'country': forms.TextInput(attrs={'class': 'form-control'}),
-            'region': forms.TextInput(attrs={'class': 'form-control'}),
-            'business': forms.TextInput(attrs={'class': 'form-control'}),
-            'zone': forms.TextInput(attrs={'class': 'form-control'}),
+            'corporation_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: BR001'}),
+            'corporation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SEMEQ Brasil'}),
+            'plant_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SP001'}),
+            'plant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
+            'unat': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: UNAT SP'}),
+            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
+            'state_province': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SP'}),
+            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Brasil'}),
+            'region': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Sudeste'}),
+            'business': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Oil & Gas'}),
+            'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
-        labels = {
-            'corporation_id': 'ID Corporação',
-            'corporation': 'Corporação',
-            'plant_id': 'ID Planta',
-            'plant': 'Planta',
-            'unat': 'UNAT',
-            'city': 'Cidade',
-            'state_province': 'Estado/Província',
-            'country': 'País',
-            'region': 'Região',
-            'business': 'Negócio',
-            'zone': 'Zona',
-        }
+
+    def clean_corporation_id(self):
+        corp_id = self.cleaned_data['corporation_id'].strip().upper()
+        if not corp_id:
+            raise ValidationError('ID Corporação é obrigatório.')
+        return corp_id
+
+    def clean_plant_id(self):
+        plant_id = self.cleaned_data['plant_id'].strip().upper()
+        if not plant_id:
+            raise ValidationError('ID Planta é obrigatório.')
+        return plant_id
 
     def clean(self):
         cleaned_data = super().clean()
         corp_id = cleaned_data.get('corporation_id')
         plant_id = cleaned_data.get('plant_id')
+        
         if corp_id and plant_id:
             qs = Cliente.objects.filter(corporation_id=corp_id, plant_id=plant_id)
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                raise forms.ValidationError('Já existe um cliente com este ID Corporação e ID Planta.')
+                raise ValidationError(
+                    'Já existe um cliente com esta combinação de Corporation ID e Plant ID.'
+                )
         return cleaned_data
 
 
 class ClienteImportForm(forms.Form):
     arquivo = forms.FileField(
-        label='Arquivo Excel (.xlsx) ou CSV (.csv)',
-        help_text='Colunas esperadas: CORPORATION_ID, CORPORATION, PLANT_ID, PLANT, UNAT, CITY, STATE_PROVINCE, COUNTRY, REGION, BUSINESS, ZONE',
-        required=False,
-        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls,.csv'})
+        label='Arquivo (CSV ou Excel)',
+        help_text='Colunas esperadas: corporation_id, corporation, plant_id, plant, unat, city, state_province, country, region, business, zone',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv,.xlsx,.xls'})
     )
     atualizar_existentes = forms.BooleanField(
         label='Atualizar clientes existentes',
         required=False,
         initial=True,
-        help_text='Se marcado, atualiza clientes com mesmo corporation_id + plant_id. Se desmarcado, pula duplicados.',
+        help_text='Se marcado, atualiza clientes com mesmo corporation_id + plant_id. Se desmarcado, ignora duplicados.',
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
     )
 
     def clean_arquivo(self):
-        arquivo = self.cleaned_data.get('arquivo')
-        if not arquivo:
-            raise forms.ValidationError('Selecione um arquivo para importar.')
+        arquivo = self.cleaned_data['arquivo']
         ext = arquivo.name.lower().split('.')[-1]
-        if ext not in ['xlsx', 'xls', 'csv']:
-            raise forms.ValidationError('Formato não suportado. Use .xlsx, .xls ou .csv')
+        if ext not in ['csv', 'xlsx', 'xls']:
+            raise ValidationError('Formato inválido. Use CSV ou Excel (.xlsx, .xls).')
         return arquivo
 
 
-class UsuarioForm(UserCreationForm):
-    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'class': 'form-control'}))
-    first_name = forms.CharField(label='Nome', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    last_name = forms.CharField(label='Sobrenome', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    role = forms.ChoiceField(
-        label='Função',
-        choices=PerfilUsuario.ROLE_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-select'})
+class UsuarioForm(forms.ModelForm):
+    password = forms.CharField(
+        label='Senha',
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+        help_text='Mínimo 8 caracteres.'
     )
-    time = forms.ModelChoiceField(
-        label='Time/Equipe',
-        queryset=None,
-        required=False,
-        empty_label='Sem equipe',
+    password_confirm = forms.CharField(
+        label='Confirmar Senha',
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+    )
+    role = forms.ChoiceField(
+        choices=PerfilUsuario.ROLE_CHOICES,
+        label='Função',
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     telefone = forms.CharField(
         label='Telefone',
+        max_length=20,
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'})
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(11) 99999-9999'})
     )
-    is_active = forms.BooleanField(
+    time = forms.ModelChoiceField(
+        queryset=Time.objects.filter(ativo=True),
+        label='Time',
+        required=False,
+        empty_label='--- Selecione ---',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: joao.silva'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: João'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Silva'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Ex: joao@empresa.com'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user and not user.is_superuser:
+            # Non-admin cannot create admin users
+            self.fields['role'].choices = [c for c in PerfilUsuario.ROLE_CHOICES if c[0] != 'admin']
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip().lower()
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise ValidationError('Este nome de usuário já está em uso.')
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise ValidationError('Este e-mail já está cadastrado.')
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        password_confirm = cleaned_data.get('password_confirm')
+        
+        if password and password_confirm:
+            if password != password_confirm:
+                raise ValidationError({'password_confirm': 'As senhas não coincidem.'})
+            if len(password) < 8:
+                raise ValidationError({'password': 'A senha deve ter no mínimo 8 caracteres.'})
+        return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password'])
+        if commit:
+            user.save()
+            PerfilUsuario.objects.create(
+                user=user,
+                role=self.cleaned_data['role'],
+                telefone=self.cleaned_data['telefone'],
+                time=self.cleaned_data['time'],
+            )
+        return user
+
+
+class UsuarioUpdateForm(forms.ModelForm):
+    role = forms.ChoiceField(
+        choices=PerfilUsuario.ROLE_CHOICES,
+        label='Função',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    telefone = forms.CharField(
+        label='Telefone',
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(11) 99999-9999'})
+    )
+    time = forms.ModelChoiceField(
+        queryset=Time.objects.filter(ativo=True),
+        label='Time',
+        required=False,
+        empty_label='--- Selecione ---',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    ativo = forms.BooleanField(
         label='Ativo',
         required=False,
-        initial=True,
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
     )
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'password1', 'password2')
+        fields = ['username', 'first_name', 'last_name', 'email', 'is_active']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
-            'password1': forms.PasswordInput(attrs={'class': 'form-control'}),
-            'password2': forms.PasswordInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, **kwargs):
+        self.request_user = kwargs.pop('request_user', None)
         super().__init__(*args, **kwargs)
-        from .models import Time
-        self.fields['time'].queryset = Time.objects.filter(ativo=True)
-        # Reorder fields to put password2 right after password1
-        field_order = ['username', 'email', 'first_name', 'last_name', 'password1', 'password2', 'role', 'time', 'telefone', 'is_active']
-        self.order_fields(field_order)
-        # Aplicar validações padrão de senha e reduzir help text
-        password = self.fields['password1']
-        password.help_text = 'Mínimo de 8 caracteres, com letras e números.'
-        self.fields['password2'].help_text = 'Repita a senha para confirmação.'
-        # Garantir que os inputs de senha tenham a mesma classe dos demais (form-control)
-        for field_name in ['password1', 'password2']:
-            widget = self.fields[field_name].widget
-            existing = widget.attrs.get('class', '')
-            widget.attrs['class'] = (existing + ' form-control').strip()
-
-    def clean_password2(self):
-        from django.contrib.auth import password_validation as pv
-        password1 = self.cleaned_data.get('password1')
-        password2 = self.cleaned_data.get('password2')
-        if password1 and password2 and password1 != password2:
-            raise forms.ValidationError('As senhas não coincidem.')
-        if password2:
-            pv.validate_password(password2, user=self.instance)
-            # Regra extra: não igual ao username
-            username = self.data.get('username', '') or (self.instance.username if self.instance else '')
-            if username and password2 == username:
-                raise forms.ValidationError('A senha não pode ser igual ao nome de usuário.')
-        return password2
-
-    def _validate_password_for_user(self, value):
-        username = self.data.get('username', '') or (self.instance.username if self.instance else '')
-        if username and value == username:
-            raise forms.ValidationError('A senha não pode ser igual ao nome de usuário.')
+        
+        # Get or create perfil
+        perfil, _ = PerfilUsuario.objects.get_or_create(user=self.instance)
+        
+        # Set initial values from perfil
+        self.fields['role'].initial = perfil.role
+        self.fields['telefone'].initial = perfil.telefone
+        self.fields['time'].initial = perfil.time
+        self.fields['ativo'].initial = perfil.ativo
+        
+        # Non-superusers cannot edit admin users or promote to admin
+        if self.request_user and not self.request_user.is_superuser:
+            target_perfil = getattr(self.instance, 'perfil', None)
+            if target_perfil and target_perfil.is_admin():
+                # Disable all fields for admin users
+                for field in self.fields.values():
+                    field.disabled = True
+            else:
+                # Cannot promote to admin
+                self.fields['role'].choices = [c for c in PerfilUsuario.ROLE_CHOICES if c[0] != 'admin']
+        
+        # Users cannot edit themselves (prevent privilege escalation)
+        if self.request_user and self.request_user == self.instance:
+            self.fields['role'].disabled = True
+            self.fields['is_active'].disabled = True
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.email = self.cleaned_data['email']
-        user.first_name = self.cleaned_data['first_name']
-        user.last_name = self.cleaned_data['last_name']
-        user.is_active = self.cleaned_data['is_active']
         if commit:
             user.save()
-            PerfilUsuario.objects.update_or_create(
-                user=user,
-                defaults={
-                    'role': self.cleaned_data['role'],
-                    'time': self.cleaned_data['time'],
-                    'telefone': self.cleaned_data['telefone'],
-                    'ativo': self.cleaned_data['is_active'],
-                }
-            )
+            perfil, _ = PerfilUsuario.objects.get_or_create(user=user)
+            perfil.role = self.cleaned_data['role']
+            perfil.telefone = self.cleaned_data['telefone']
+            perfil.time = self.cleaned_data['time']
+            perfil.ativo = self.cleaned_data['ativo']
+            perfil.save()
         return user
 
 
 class ApontamentoForm(forms.ModelForm):
+    # Extra field: checkbox to allow changing the planta
+    alterar_planta = forms.BooleanField(
+        label='Alterar planta',
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input', 'id': 'id_alterar_planta'}),
+        help_text='Marque para alterar a planta do apontamento'
+    )
+
     class Meta:
         model = Apontamento
         fields = [
             'cliente', 'projeto', 'solicitante', 'ticket', 'equipamento',
             'prioridade', 'equipe', 'responsavel', 'atividade', 'tipo_problema',
             'status', 'data', 'hora_inicial', 'hora_final',
+            'apos_18h',
             'gw_ar', 'desvio', 'descricao'
         ]
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
-            'projeto': forms.TextInput(attrs={'class': 'form-control'}),
-            'solicitante': forms.TextInput(attrs={'class': 'form-control'}),
-            'ticket': forms.TextInput(attrs={'class': 'form-control'}),
-            'equipamento': forms.Select(attrs={'class': 'form-select'}),
+            'cliente': forms.Select(attrs={'class': 'form-select cliente-select', 'id': 'id_cliente'}),
+            'projeto': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome/ID do projeto'}),
+            'solicitante': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do solicitante'}),
+            'ticket': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: INC123456'}),
+            'equipamento': forms.Select(attrs={'class': 'form-select equipamento-select'}),
             'prioridade': forms.Select(attrs={'class': 'form-select'}),
             'equipe': forms.Select(attrs={'class': 'form-select'}),
-            'responsavel': forms.Select(attrs={'class': 'form-select'}),
+            'responsavel': forms.Select(attrs={'class': 'form-select responsavel-select'}),
             'atividade': forms.Select(attrs={'class': 'form-select'}),
             'tipo_problema': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
-            'data': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'max': ''}),
             'hora_inicial': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'hora_final': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'gw_ar': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'apos_18h': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'desvio': forms.Select(attrs={'class': 'form-select'}),
-            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Descreva o apontamento...'}),
         }
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Guarda o usuário para uso no clean()
-        self._user = user
+        # Set default values
+        from datetime import date
+        self.fields['data'].initial = date.today()
         
-        # Filtrar responsáveis baseado nas permissões do usuário
-        if user:
-            perfil = user.perfil if hasattr(user, 'perfil') else None
-            if perfil and perfil.is_gestor_or_above():
-                responsavel_qs = User.objects.filter(
-                    perfil__ativo=True, is_active=True
-                ).select_related('perfil').order_by('first_name', 'last_name')
-                # Admin/Gestor: show select with all users
-                self.fields['responsavel'].widget = forms.Select(attrs={'class': 'form-select'})
-            elif perfil and perfil.is_lider_or_above():
-                responsavel_qs = User.objects.filter(
-                    perfil__ativo=True, is_active=True, perfil__time=perfil.time
-                ).select_related('perfil').order_by('first_name', 'last_name')
-                # Líder: show select with team users
-                self.fields['responsavel'].widget = forms.Select(attrs={'class': 'form-select'})
-            else:
-                responsavel_qs = User.objects.filter(id=user.id)
-                # Colaborador: hide select, auto-set to current user
-                self.fields['responsavel'].widget = forms.HiddenInput()
-                self.fields['responsavel'].initial = user.id
+        # If editing existing instance, disable cliente by default (unless alterar_planta is checked)
+        if self.instance and self.instance.pk:
+            self.fields['cliente'].disabled = True
+            # Store original cliente for reference
+            self.original_cliente = self.instance.cliente
+            # Set initial for alterar_planta based on POST data or leave as False
         else:
-            responsavel_qs = User.objects.none()
-            self.fields['responsavel'].widget = forms.HiddenInput()
+            self.original_cliente = None
         
-        self.fields['responsavel'].queryset = responsavel_qs
-        
-        self.fields['equipamento'].queryset = Equipamento.objects.filter(
-            ativo=True
-        ).select_related('cliente').order_by('cliente__corporation', 'numero_serie')
-        
-        # Carregar clientes ativos para o select e manter o selecionado na edição.
-        cliente_qs = Cliente.objects.filter(ativo=True).order_by('corporation', 'plant')
-        cliente_id = self.instance.cliente_id if self.instance.pk else self.data.get('cliente')
-        if cliente_id:
-            cliente_qs = Cliente.objects.filter(
-                Q(ativo=True) | Q(pk=cliente_id)
-            ).order_by('corporation', 'plant')
-        self.fields['cliente'].queryset = cliente_qs
-        # Remove Django's default empty option ("Selecione um cliente") - TomSelect handles the placeholder
-        self.fields['cliente'].empty_label = None
-        
-        # Carregar equipamentos ativos e manter o selecionado na edição.
-        equipamento_id = self.instance.equipamento_id if self.instance.pk else self.data.get('equipamento')
-        equipamento_qs = Equipamento.objects.filter(ativo=True)
-        if equipamento_id:
-            equipamento_qs = Equipamento.objects.filter(
-                Q(ativo=True) | Q(pk=equipamento_id)
-            )
-        equipamento_qs = equipamento_qs.select_related('cliente').order_by(
-            'cliente__corporation', 'numero_serie'
-        )
-        self.fields['equipamento'].queryset = equipamento_qs
-        
-        # Remover opção vazia "Selecione..."/"- Select an option -" dos selects
-        # escolhidos (obrigatórios). Django 6.1 injeta a blank choice no widget.
-        for field_name in ['equipe', 'prioridade', 'atividade', 'tipo_problema', 'status', 'desvio']:
-            field = self.fields[field_name]
-            field.empty_label = None
-            # Remove o primeiro item vazio (value == '') das choices do widget
-            widget = field.widget
-            if hasattr(widget, 'choices'):
-                choices = list(widget.choices)
-                widget.choices = [(v, l) for v, l in choices if v not in (None, '')]
-
-        # O equipamento é opcional, mas o placeholder não deve parecer uma seleção real.
-        self.fields['equipamento'].empty_label = "Selecione um equipamento"
-
-        # Cliente já tem empty_label=None (pré-selecionado na edição)
-        # Responsável: para gestor/líder é um select visível -> sem opção vazia
-        if not isinstance(self.fields['responsavel'].widget, forms.HiddenInput):
-            self.fields['responsavel'].empty_label = None
-
-        if not self.instance.pk:
-            self.fields['data'].initial = date.today()
-
-        # Bloquear seleção de datas futuras no datepicker
-        self.fields['data'].widget.attrs['max'] = date.today().isoformat()
-        
-        # Filtrar equipes: admin/gestor escolhem qualquer (PMC/SHD);
-        # líder/colaborador ficam restritos à equipe do próprio perfil
-        equipe_choices = [c for c in self.fields['equipe'].choices if c[0] in ['pmc', 'shd']]
-        if user:
-            perfil = getattr(user, 'perfil', None)
+        # If user is not admin/gestor, hide/limit responsavel field
+        if self.user:
+            perfil = getattr(self.user, 'perfil', None)
             if perfil and not perfil.is_gestor_or_above():
-                # Mapeia o Time do perfil para o código de equipe do apontamento
-                time_nome = perfil.time.nome.lower() if perfil.time else ''
-                equipe_codigo = time_nome  # 'pmc' ou 'shd'
-                # Filtra apenas a equipe correspondente
-                equipe_choices = [c for c in equipe_choices if c[0] == equipe_codigo]
-                # Se o mapeamento não encontrou, mantém vazio (não pode escolher)
-                if not equipe_choices and perfil.time:
-                    equipe_choices = [(equipe_codigo, perfil.time.nome.upper())]
-        self.fields['equipe'].choices = equipe_choices
+                # Colaborador/Líder: só pode apontar para si mesmo
+                self.fields['responsavel'].queryset = User.objects.filter(id=self.user.id)
+                self.fields['responsavel'].initial = self.user
+                self.fields['responsavel'].widget = forms.HiddenInput()
+                self.fields['responsavel'].required = False
+            elif perfil and perfil.is_lider_or_above() and not perfil.is_gestor_or_above():
+                # Líder: pode apontar para usuários do seu time
+                qs = User.objects.filter(
+                    perfil__time=perfil.time, perfil__ativo=True
+                ).select_related('perfil')
+                self.fields['responsavel'].queryset = qs
+                self.fields['responsavel'].initial = qs.first()
+            else:
+                # Gestor/Admin: pode apontar para qualquer usuário ativo
+                qs = User.objects.filter(
+                    perfil__ativo=True
+                ).select_related('perfil').order_by('first_name', 'last_name')
+                self.fields['responsavel'].queryset = qs
+                self.fields['responsavel'].initial = qs.first()
+        
+        # Cliente queryset
+        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('corporation', 'plant')
+        self.fields['cliente'].required = False
+        
+        # Equipamento queryset (filtered by cliente via JS)
+        self.fields['equipamento'].queryset = Equipamento.objects.filter(ativo=True).select_related('cliente')
+
+        # Remove empty_label from ModelChoiceFields so first option is selected by default
+        for field_name in ['responsavel', 'equipamento']:
+            if field_name in self.fields and hasattr(self.fields[field_name], 'empty_label'):
+                self.fields[field_name].empty_label = None
+
+        # For ChoiceFields (CharField with choices), remove blank choice by setting choices directly
+        from .models import Apontamento
+        choice_fields = {
+            'equipe': Apontamento.EQUIPE_CHOICES,
+            'atividade': Apontamento.ATIVIDADE_CHOICES,
+            'tipo_problema': Apontamento.TIPO_PROBLEMA_CHOICES,
+            'status': Apontamento.STATUS_CHOICES,
+            'prioridade': Apontamento.PRIORIDADE_CHOICES,
+            'desvio': Apontamento.DESVIO_CHOICES,
+        }
+        for field_name, choices in choice_fields.items():
+            if field_name in self.fields:
+                self.fields[field_name].choices = choices
+                # Set initial to first choice if no default exists on model
+                if not self.fields[field_name].initial and choices:
+                    self.fields[field_name].initial = choices[0][0]
 
     def clean(self):
         cleaned_data = super().clean()
         hora_inicial = cleaned_data.get('hora_inicial')
         hora_final = cleaned_data.get('hora_final')
         data = cleaned_data.get('data')
-        data_fim = cleaned_data.get('data_fim')
         responsavel = cleaned_data.get('responsavel')
+        alterar_planta = cleaned_data.get('alterar_planta', False)
         
-        # Get user for role-based restrictions
-        user = getattr(self, '_user', None)
-        perfil = user.perfil if user and hasattr(user, 'perfil') else None
+        # Handle cliente field logic
+        if self.instance.pk and not alterar_planta:
+            # Not changing plant: always use original cliente (ignore form data)
+            cleaned_data['cliente'] = self.instance.cliente
+        elif alterar_planta:
+            # Changing plant: get cliente from raw form data (not from cleaned_data which has instance value)
+            cliente_raw = self.data.get('cliente')
+            if not cliente_raw:
+                self.add_error('cliente', 'Selecione uma planta ao alterar a planta.')
+            else:
+                try:
+                    from .models import Cliente
+                    cliente = Cliente.objects.get(pk=cliente_raw)
+                    if cliente == self.instance.cliente:
+                        self.add_error('cliente', 'Selecione uma planta diferente da atual.')
+                    else:
+                        cleaned_data['cliente'] = cliente
+                except (Cliente.DoesNotExist, ValueError):
+                    self.add_error('cliente', 'Planta selecionada inválida.')
         
-        if hora_inicial and hora_final:
+        # Require time fields
+        has_times = hora_inicial and hora_final
+        
+        if not has_times:
+            raise ValidationError(
+                'Preencha Hora Inicial e Hora Final.'
+            )
+        
+        if has_times:
             if hora_final <= hora_inicial:
-                raise forms.ValidationError(
-                    'Horário final deve ser posterior ao horário inicial. '
-                    'Apontamentos não podem ultrapassar meia-noite.'
-                )
-            if hora_final > time(23, 59):
-                raise forms.ValidationError('Horário final não pode ultrapassar 23:59.')
+                raise ValidationError({
+                    'hora_final': 'Hora final deve ser posterior à hora inicial.'
+                })
         
-        if data:
-            # Future dates not allowed for anyone
-            if data > date.today():
-                raise forms.ValidationError('Data de início não pode ser no futuro. Apenas hoje ou dias anteriores.')
-            # Retroativos permitidos para todos (não há restrição de "hoje ou ontem")
-        
-        # End date validation
-        if data_fim and data and data_fim < data:
-            raise forms.ValidationError('Data de fim não pode ser anterior à data de início.')
-        
-        # Time validation for same day
-        if data_fim and data and data_fim == data:
-            if hora_inicial and hora_final and hora_final <= hora_inicial:
-                raise forms.ValidationError('Hora final deve ser posterior à hora inicial no mesmo dia.')
-        
-        if data and responsavel:
+        # Check for overlapping apontamentos for same responsavel + data
+        if responsavel and data:
             qs = Apontamento.objects.filter(
                 responsavel=responsavel,
                 data=data
@@ -354,135 +400,91 @@ class ApontamentoForm(forms.ModelForm):
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             
-            for ap in qs:
-                if (hora_inicial < ap.hora_final and hora_final > ap.hora_inicial):
-                    raise forms.ValidationError(
-                        f'Conflito de horário: {responsavel.get_full_name()} já tem apontamento '
-                        f"({ap.hora_inicial}-{ap.hora_final}) neste dia."
-                    )
+            # Check overlap only if we have time fields
+            if has_times:
+                for ap in qs:
+                    if ap.hora_inicial and ap.hora_final:
+                        if not (hora_final <= ap.hora_inicial or hora_inicial >= ap.hora_final):
+                            raise ValidationError(
+                                f'Já existe apontamento para {responsavel.get_full_name() or responsavel.username} '
+                                f'neste horário ({ap.hora_inicial}-{ap.hora_final}).'
+                            )
         
         return cleaned_data
 
 
-class UsuarioUpdateForm(UserChangeForm):
-    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'class': 'form-control'}))
-    first_name = forms.CharField(label='Nome', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    last_name = forms.CharField(label='Sobrenome', required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    role = forms.ChoiceField(
-        label='Função',
-        choices=PerfilUsuario.ROLE_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-select'})
+class PublicRegistrationForm(UserCreationForm):
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'seu@email.com'})
     )
-    time = forms.ModelChoiceField(
-        label='Time/Equipe',
-        queryset=None,
-        required=False,
-        empty_label='Sem equipe',
-        widget=forms.Select(attrs={'class': 'form-select'})
+    first_name = forms.CharField(
+        max_length=30,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome'})
+    )
+    last_name = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Sobrenome'})
     )
     telefone = forms.CharField(
-        label='Telefone',
+        max_length=20,
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'})
-    )
-    is_active = forms.BooleanField(
-        label='Ativo',
-        required=False,
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
-    )
-    # Password fields (only for admin)
-    password1 = forms.CharField(
-        label='Nova Senha',
-        required=False,
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
-        help_text='Deixe em branco para não alterar a senha.'
-    )
-    password2 = forms.CharField(
-        label='Confirmar Nova Senha',
-        required=False,
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
-        help_text='Digite a mesma senha novamente para confirmação.'
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(11) 99999-9999'})
     )
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'is_active')
+        fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2']
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome de usuário'}),
         }
 
     def __init__(self, *args, **kwargs):
-        self.request_user = kwargs.pop('request_user', None)
         super().__init__(*args, **kwargs)
-        self.fields.pop('password', None)
-        from .models import Time
-        self.fields['time'].queryset = Time.objects.filter(ativo=True)
-        if self.instance and hasattr(self.instance, 'perfil'):
-            self.fields['role'].initial = self.instance.perfil.role
-            self.fields['time'].initial = self.instance.perfil.time
-            self.fields['telefone'].initial = self.instance.perfil.telefone
-            self.fields['is_active'].initial = self.instance.perfil.ativo
-        
-        # Remove password fields if not admin
-        if not (self.request_user and (self.request_user.is_superuser or 
-             hasattr(self.request_user, 'perfil') and self.request_user.perfil.is_admin())):
-            self.fields.pop('password1', None)
-            self.fields.pop('password2', None)
+        self.fields['password1'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Senha'})
+        self.fields['password2'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Confirmar senha'})
 
-    def clean_password2(self):
-        password1 = self.cleaned_data.get('password1')
-        password2 = self.cleaned_data.get('password2')
-        if password1 or password2:
-            if password1 != password2:
-                raise forms.ValidationError('As senhas não coincidem.')
-            if len(password1) < 8:
-                raise forms.ValidationError('A senha deve ter pelo menos 8 caracteres.')
-        return password2
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValidationError('Este e-mail já está cadastrado.')
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
-        user.is_active = self.cleaned_data['is_active']
-        password1 = self.cleaned_data.get('password1')
-        if password1:
-            user.set_password(password1)
+        user.is_active = False  # Requires admin approval
         if commit:
             user.save()
-            PerfilUsuario.objects.update_or_create(
+            PerfilUsuario.objects.create(
                 user=user,
-                defaults={
-                    'role': self.cleaned_data['role'],
-                    'time': self.cleaned_data['time'],
-                    'telefone': self.cleaned_data['telefone'],
-                    'ativo': self.cleaned_data['is_active'],
-                }
+                role='usuario',
+                telefone=self.cleaned_data['telefone'],
+                ativo=False,  # Inactive until approved
             )
         return user
 
-class EquipamentoForm(forms.ModelForm):
-    class Meta:
-        model = Equipamento
-        fields = ['cliente', 'equipamento_id', 'tipo', 'numero_serie', 'modelo', 'descricao', 'ativo']
 
-        widgets = {
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
-            'equipamento_id': forms.TextInput(attrs={'class': 'form-control'}),
-            'tipo': forms.Select(attrs={'class': 'form-select'}),
-            'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
-            'modelo': forms.TextInput(attrs={'class': 'form-control'}),
-            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
+class SemeqPasswordResetForm(PasswordResetForm):
+    email = forms.EmailField(
+        label='E-mail',
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Digite seu e-mail cadastrado',
+            'autocomplete': 'email'
+        })
+    )
 
-    def clean(self):
-        cleaned_data = super().clean()
-        equip_id = cleaned_data.get('equipamento_id')
-        if equip_id:
-            qs = Equipamento.objects.filter(equipamento_id=equip_id)
-            if self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise forms.ValidationError('Já existe um equipamento com este ID Equipamento.')
-        return cleaned_data
+    def get_users(self, email):
+        """Override to only return active users with perfil ativo"""
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+        return UserModel._default_manager.filter(
+            email__iexact=email,
+            is_active=True,
+            perfil__ativo=True
+        )

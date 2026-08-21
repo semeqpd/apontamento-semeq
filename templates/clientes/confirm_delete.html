@@ -19,10 +19,36 @@
                 <small>ID Corporação: {{ object.corporation_id }} | ID Planta: {{ object.plant_id }}</small>
             </div>
 
+            {% if apontamentos_count > 0 %}
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Este cliente possui {{ apontamentos_count }} apontamento(s) associado(s).</strong>
+            </div>
+            
+            {% if is_admin %}
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="delete_apontamentos" id="delete_apontamentos">
+                <label class="form-check-label" for="delete_apontamentos">
+                    <strong>Excluir também todos os {{ apontamentos_count }} apontamento(s) associado(s)</strong>
+                </label>
+                <div class="form-text text-danger">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Esta ação é irreversível. Os apontamentos serão permanentemente removidos.
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted small">
+                <i class="bi bi-info-circle me-1"></i>
+                Apenas administradores podem excluir clientes com apontamentos. 
+                Entre em contato com um administrador para prosseguir.
+            </p>
+            {% endif %}
+            {% else %}
             <p class="text-muted small">
                 <i class="bi bi-info-circle me-1"></i>
                 Esta ação não pode ser desfeita. Equipamentos associados a este cliente impedirão a exclusão.
             </p>
+            {% endif %}
 
             <form method="post">
                 {% csrf_token %}
