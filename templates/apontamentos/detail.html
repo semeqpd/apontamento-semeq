@@ -28,23 +28,23 @@
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
                     <label class="form-label text-muted small">Cliente</label>
-                    <div class="fw-medium">{{ apontamento.cliente.corporation }} - {{ apontamento.cliente.plant }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.cliente.corporation }} - {{ apontamento.cliente.plant }}</div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label text-muted small">Projeto</label>
-                    <div class="fw-medium">{{ apontamento.projeto }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.projeto }}</div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label text-muted small">Solicitante</label>
-                    <div class="fw-medium">{{ apontamento.solicitante }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.solicitante }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Ticket</label>
-                    <div class="fw-medium">{{ apontamento.ticket }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.ticket }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Equipamento</label>
-                    <div class="fw-medium">{{ apontamento.equipamento|default:"—" }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.equipamento|default:"—" }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Prioridade</label>
@@ -75,15 +75,15 @@
             <div class="row g-3 mb-4">
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Responsável</label>
-                    <div class="fw-medium">{{ apontamento.responsavel.get_full_name|default:apontamento.responsavel.username }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.responsavel.get_full_name|default:apontamento.responsavel.username }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Atividade</label>
-                    <div class="fw-medium">{{ apontamento.get_atividade_display }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.get_atividade_display }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Tipo do Problema</label>
-                    <div class="fw-medium">{{ apontamento.get_tipo_problema_display }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.get_tipo_problema_display }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Status</label>
@@ -101,7 +101,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Data</label>
-                    <div class="fw-medium">{{ apontamento.data|date:"d/m/Y" }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.data|date:"d/m/Y" }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Horário</label>
@@ -123,7 +123,7 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted small">Desvio</label>
-                    <div class="fw-medium">{{ apontamento.get_desvio_display }}</div>
+                    <div class="fw-medium text-dark">{{ apontamento.get_desvio_display }}</div>
                 </div>
             </div>
 
@@ -134,7 +134,7 @@
                 Descrição do Apontamento
             </div>
             <div class="mb-4">
-                <div class="p-3 bg-light rounded">
+                <div class="p-3 bg-light rounded text-dark">
                     {{ apontamento.descricao|linebreaks }}
                 </div>
             </div>
@@ -146,13 +146,13 @@
             </div>
             <div class="row g-3 text-muted small">
                 <div class="col-md-6">
-                    <strong>Criado por:</strong> {{ apontamento.criado_por.get_full_name|default:apontamento.criado_por.username }}
+                    <strong class="text-dark">Criado por:</strong> {{ apontamento.criado_por.get_full_name|default:apontamento.criado_por.username }}
                 </div>
                 <div class="col-md-6">
-                    <strong>Criado em:</strong> {{ apontamento.criado_em|date:"d/m/Y H:i" }}
+                    <strong class="text-dark">Criado em:</strong> {{ apontamento.criado_em|date:"d/m/Y H:i" }}
                 </div>
                 <div class="col-md-6">
-                    <strong>Atualizado em:</strong> {{ apontamento.atualizado_em|date:"d/m/Y H:i" }}
+                    <strong class="text-dark">Atualizado em:</strong> {{ apontamento.atualizado_em|date:"d/m/Y H:i" }}
                 </div>
             </div>
         </div>

@@ -212,6 +212,8 @@ class Apontamento(models.Model):
     
     gw_ar = models.BooleanField(default=False, verbose_name="GW no Ar")
     desvio = models.CharField(max_length=20, choices=DESVIO_CHOICES, default='nenhum', verbose_name="Desvio")
+    apos_18h = models.BooleanField(default=False, verbose_name="Trabalho após 18h")
+    tempo_minutos = models.PositiveIntegerField(null=True, blank=True, verbose_name="Tempo (minutos)")
     
     descricao = models.TextField(verbose_name="Descrição do Apontamento")
     
@@ -235,7 +237,12 @@ class Apontamento(models.Model):
 
     def save(self, *args, **kwargs):
         # Calcula tempo total
-        if self.hora_inicial and self.hora_final:
+        if self.tempo_minutos:
+            # Se tempo_minutos foi preenchido, usa ele
+            from datetime import timedelta
+            self.tempo_total = timedelta(minutes=self.tempo_minutos)
+        elif self.hora_inicial and self.hora_final:
+            # Senão, calcula a partir das horas
             from datetime import datetime
             inicio = datetime.combine(self.data, self.hora_inicial)
             fim = datetime.combine(self.data, self.hora_final)

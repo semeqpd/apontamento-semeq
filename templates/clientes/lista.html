@@ -6,23 +6,6 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">Clientes</h2>
     <div class="d-flex gap-2">
-        <div class="btn-group">
-            <button type="button" class="btn btn-semeq-outline dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-download me-1"></i> Exportar
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                    <a class="dropdown-item" href="{% url 'semeq:cliente_exportar' %}?formato=csv&q={{ filters.q }}&corporation_id={{ filters.corporation_id }}&plant_id={{ filters.plant_id }}&city={{ filters.city }}&state={{ filters.state }}&country={{ filters.country }}&ativo={{ filters.ativo }}">
-                        <i class="bi bi-filetype-csv me-2"></i> CSV
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="{% url 'semeq:cliente_exportar' %}?formato=xlsx&q={{ filters.q }}&corporation_id={{ filters.corporation_id }}&plant_id={{ filters.plant_id }}&city={{ filters.city }}&state={{ filters.state }}&country={{ filters.country }}&ativo={{ filters.ativo }}">
-                        <i class="bi bi-filetype-xlsx me-2"></i> Excel (XLSX)
-                    </a>
-                </li>
-            </ul>
-        </div>
         <a href="{% url 'semeq:cliente_importar' %}" class="btn btn-semeq-outline">
             <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar Excel/CSV
         </a>
@@ -30,7 +13,7 @@
             <i class="bi bi-plus-lg me-1"></i> Novo Cliente
         </a>
         {% if request.user.is_superuser or request.user.perfil.is_admin %}
-        <form method="post" action="{% url 'semeq:cliente_excluir_todos' %}" onsubmit="return confirm('⚠️ TEM CERTEZA ABSOLUTA?\\n\\nIsso remove TODOS os clientes, equipamentos e apontamentos.\\n\\nEsta ação NÃO pode ser desfeita.\\n\\nDigite OK para confirmar.');">
+        <form method="post" action="{% url 'semeq:cliente_excluir_todos' %}" onsubmit="return confirm('⚠️ TEM CERTEZA ABSOLUTA?\n\nIsso remove TODOS os clientes, equipamentos e apontamentos.\n\nEsta ação NÃO pode ser desfeita.\n\nDigite OK para confirmar.');">
             {% csrf_token %}
             <button type="submit" class="btn btn-danger" title="Excluir TODOS os clientes (Admin)">
                 <i class="bi bi-trash3 me-1"></i> Excluir Todos
@@ -183,8 +166,7 @@
         <div class="text-center py-5">
             <i class="bi bi-building fs-1 text-muted mb-3"></i>
             <h5 class="text-muted">Nenhum cliente encontrado com estes filtros</h5>
-            <p class="text-muted small">Ajuste os filtros acima ou limpe para ver todos os clientes.</p>
-            <div class="d-flex justify-content-center gap-2 flex-wrap mt-3">
+            <p class="text-muted small">Ajuste os filtros acima ou limpe para ver todos os clientes.</            <div class="d-flex justify-content-center gap-2 flex-wrap mt-3">
                 <button type="button" class="btn btn-semeq-secondary" id="btnLimparFiltrosEmpty">
                     <i class="bi bi-x-lg me-1"></i> Limpar filtros
                 </button>
@@ -289,14 +271,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const queryString = params.toString();
         window.location.href = queryString ? `?${queryString}` : window.location.pathname;
     }
-
+    
     // LIMPAR button - navigate to clean URL
     if (btnLimpar) {
         btnLimpar.addEventListener('click', function() {
             window.location.href = window.location.pathname;
         });
     }
-
+    
     // LIMPAR button (empty state) - navigate to clean URL
     const btnLimparFiltrosEmpty = document.getElementById('btnLimparFiltrosEmpty');
     if (btnLimparFiltrosEmpty) {
@@ -304,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = window.location.pathname;
         });
     }
-
+    
     // Busca em tempo real (debounce) em todos os campos de texto
     let filterTimeout;
     document.querySelectorAll('.table-filter-row input[type="text"]').forEach(input => {
@@ -313,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
             filterTimeout = setTimeout(aplicarFiltros, 350);
         });
     });
-
+    
     // Auto-submit ao mudar selects (estado, país, ativo)
     document.querySelectorAll('.table-filter-row select').forEach(sel => {
         sel.addEventListener('change', function() {
@@ -321,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
             filterTimeout = setTimeout(aplicarFiltros, 350);
         });
     });
-
+    
     // Enter nos campos de texto tambem aplica
     document.querySelectorAll('.table-filter-row input[type="text"]').forEach(input => {
         input.addEventListener('keypress', function(e) {

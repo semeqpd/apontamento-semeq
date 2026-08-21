@@ -433,11 +433,14 @@ class ApontamentoExportView(LoginRequiredMixin, View):
         writer.writerow([
             'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
             'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
-            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo Total',
-            'GW no Ar', 'Desvio', 'Descrição'
+            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
+            'GW no Ar', '>18h', 'Desvio', 'Descrição'
         ])
         
         for a in qs:
+            tempo_min = a.tempo_minutos
+            if not tempo_min and a.tempo_total:
+                tempo_min = int(a.tempo_total.total_seconds() / 60)
             writer.writerow([
                 a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
                 a.solicitante, str(a.equipamento) if a.equipamento else '',
@@ -445,9 +448,12 @@ class ApontamentoExportView(LoginRequiredMixin, View):
                 a.responsavel.get_full_name() or a.responsavel.username,
                 a.get_atividade_display(), a.get_tipo_problema_display(),
                 a.get_status_display(), a.data.strftime('%d/%m/%Y'),
-                a.hora_inicial.strftime('%H:%M'), a.hora_final.strftime('%H:%M'),
-                str(a.tempo_total) if a.tempo_total else '',
-                'Sim' if a.gw_ar else 'Não', a.get_desvio_display(), a.descricao
+                a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
+                a.hora_final.strftime('%H:%M') if a.hora_final else '',
+                tempo_min if tempo_min else '',
+                'Sim' if a.gw_ar else 'Não',
+                'Sim' if a.apos_18h else 'Não',
+                a.get_desvio_display(), a.descricao
             ])
         return response
     
@@ -459,12 +465,15 @@ class ApontamentoExportView(LoginRequiredMixin, View):
         headers = [
             'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
             'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
-            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo Total',
-            'GW no Ar', 'Desvio', 'Descrição'
+            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
+            'GW no Ar', '>18h', 'Desvio', 'Descrição'
         ]
         ws.append(headers)
         
         for a in qs:
+            tempo_min = a.tempo_minutos
+            if not tempo_min and a.tempo_total:
+                tempo_min = int(a.tempo_total.total_seconds() / 60)
             ws.append([
                 a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
                 a.solicitante, str(a.equipamento) if a.equipamento else '',
@@ -472,9 +481,12 @@ class ApontamentoExportView(LoginRequiredMixin, View):
                 a.responsavel.get_full_name() or a.responsavel.username,
                 a.get_atividade_display(), a.get_tipo_problema_display(),
                 a.get_status_display(), a.data.strftime('%d/%m/%Y'),
-                a.hora_inicial.strftime('%H:%M'), a.hora_final.strftime('%H:%M'),
-                str(a.tempo_total) if a.tempo_total else '',
-                'Sim' if a.gw_ar else 'Não', a.get_desvio_display(), a.descricao
+                a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
+                a.hora_final.strftime('%H:%M') if a.hora_final else '',
+                tempo_min if tempo_min else '',
+                'Sim' if a.gw_ar else 'Não',
+                'Sim' if a.apos_18h else 'Não',
+                a.get_desvio_display(), a.descricao
             ])
         
         response = HttpResponse(
@@ -729,13 +741,81 @@ class ClienteImportView(ClientePermissionMixin, View):
     @staticmethod
     def _fix_encoding(value):
         """
-        Corrige encoding legado (latin-1/cp1252 armazenado como bytes).
-        Converte C1 controls (0x80-0x9F) para equivalentes Unicode via cp1252.
-        Também corrige mojibake parcial onde \x93 foi substituído por vogal.
+        Corrige encoding legado (latin-1/cp1252/utf-8 mal interpretado).
+        
+        Padrões de mojibake comuns em PT-BR:
+        - UTF-8 bytes interpretados como latin-1:
+          * Ó (UTF-8: C3 93) -> Ã + " (U+00C3 U+0093) 
+          * Í (UTF-8: C3 8D) -> Ã + \x8d (U+00C3 U+008D)
+          * í (UTF-8: C3 AD) -> Ã + \xad (U+00C3 U+00AD)
+          * ç (UTF-8: C3 A7) -> Ã + § (U+00C3 U+00A7)
+        - Dupla corrupção: UTF-8 -> latin-1 -> replacement char
+          * Í (C3 8D) -> Ã + \x8d -> substituição \x8d -> � -> Ã + �
+        - Padrão parcial: Ã (U+00C3) + vogal/consoante -> acentuado
+        - Controle C1 (0x80-0x9F) após Ã (U+00C3) -> acentuado
         """
         if not value:
             return value
-        # Estratégia 1: Fix padrão mojibake (latin-1 -> cp1252)
+        
+        # Only process strings
+        if not isinstance(value, str):
+            return value
+        
+        import re
+        
+        # Estratégia 1 (MOVIDA PARA CIMA): Fix mojibake onde Ã (U+00C3) é seguido por controle C1 (0x80-0x9F)
+        # Mapeia Ã + controle C1 para o caractere acentuado correspondente
+        # UTF-8: C3 80-9F -> latin-1: Ã + controle C1
+        # Ex: C3 81 (Á) -> Ã + \x81; C3 8D (Í) -> Ã + \x8d; C3 AD (í) -> Ã + \xad
+        # Esta deve rodar ANTES das estratégias latin-1/utf-8 para evitar corrupção intermediária
+        c1_to_accented = {
+            '\u00c3\x81': 'Á', '\u00c3\x82': 'Â', '\u00c3\x83': 'Ã', '\u00c3\x84': 'Ä',
+            '\u00c3\x85': 'Å', '\u00c3\x86': 'Æ', '\u00c3\x87': 'Ç', '\u00c3\x88': 'È',
+            '\u00c3\x89': 'É', '\u00c3\x8a': 'Ê', '\u00c3\x8b': 'Ë', '\u00c3\x8c': 'Ì',
+            '\u00c3\x8d': 'Í', '\u00c3\x8e': 'Î', '\u00c3\x8f': 'Ï', '\u00c3\x90': 'Ð',
+            '\u00c3\x91': 'Ñ', '\u00c3\x92': 'Ò', '\u00c3\x93': 'Ó', '\u00c3\x94': 'Ô',
+            '\u00c3\x95': 'Õ', '\u00c3\x96': 'Ö', '\u00c3\x97': '×', '\u00c3\x98': 'Ø',
+            '\u00c3\x99': 'Ú', '\u00c3\x9a': 'Ú', '\u00c3\x9b': 'Û', '\u00c3\x9c': 'Ü',
+            '\u00c3\x9d': 'Ý', '\u00c3\x9e': 'Þ', '\u00c3\x9f': 'ß',
+            '\u00c3\xa1': 'á', '\u00c3\xa2': 'â', '\u00c3\xa3': 'ã', '\u00c3\xa4': 'ä',
+            '\u00c3\xa5': 'å', '\u00c3\xa6': 'æ', '\u00c3\xa7': 'ç', '\u00c3\xa8': 'è',
+            '\u00c3\xa9': 'é', '\u00c3\xaa': 'ê', '\u00c3\xab': 'ë', '\u00c3\xac': 'ì',
+            '\u00c3\xad': 'í', '\u00c3\xae': 'î', '\u00c3\xaf': 'ï', '\u00c3\xb0': 'ð',
+            '\u00c3\xb1': 'ñ', '\u00c3\xb2': 'ò', '\u00c3\xb3': 'ó', '\u00c3\xb4': 'ô',
+            '\u00c3\xb5': 'õ', '\u00c3\xb6': 'ö', '\u00c3\xb7': '÷', '\u00c3\xb8': 'ø',
+            '\u00c3\xb9': 'ù', '\u00c3\xba': 'ú', '\u00c3\xbb': 'û', '\u00c3\xbc': 'ü',
+            '\u00c3\xbd': 'ý', '\u00c3\xbe': 'þ', '\u00c3\xbf': 'ÿ',
+        }
+        pattern = '|'.join(re.escape(k) for k in c1_to_accented.keys())
+        fixed = re.sub(pattern, lambda m: c1_to_accented.get(m.group(0), m.group(0)), value)
+        if fixed != value:
+            return fixed
+        
+        # Estratégia 2: Fix mojibake parcial onde bytes de continuação foram substituídos
+        # Padrão: Ã (U+00C3) + vogal/consoante -> caractere acentuado
+        mojibake_map = {
+            '\u00c3A': 'Á', '\u00c3a': 'á',
+            '\u00c3E': 'É', '\u00c3e': 'é',
+            '\u00c3I': 'Í', '\u00c3i': 'í',
+            '\u00c3O': 'Ó', '\u00c3o': 'ó',
+            '\u00c3U': 'Ú', '\u00c3u': 'ú',
+            '\u00c3C': 'Ç', '\u00c3c': 'ç',
+            # Smart quote mojibake (Excel/openpyxl converts 0x93/0x94 to U+201C/U+201D)
+            '\u00c3\u201c': 'Ó', '\u00c3\u201d': 'Ó',  # Ã + " / Ã + "
+            '\u00e3\u201c': 'ó', '\u00e3\u201d': 'ó',  # ã + " / ã + "
+            '\u00c3\u2018': 'Á', '\u00c3\u2019': 'Á',  # Ã + ' / Ã + '
+            '\u00e3\u2018': 'á', '\u00e3\u2019': 'á',  # ã + ' / ã + '
+            '\u00c3\u201e': 'Í',  # Ã + "
+            '\u00e3\u201e': 'í',  # ã + "
+            '\u00c3\u201a': 'É',  # Ã + '
+            '\u00e3\u201a': 'é',  # ã + '
+        }
+        pattern = '|'.join(re.escape(k) for k in mojibake_map.keys())
+        fixed = re.sub(pattern, lambda m: mojibake_map.get(m.group(0), m.group(0)), value)
+        if fixed != value:
+            return fixed
+        
+        # Estratégia 3: Fix padrão mojibake (latin-1 -> cp1252)
         # Corrige UTF-8 bytes lidos como latin-1 (ex: Ã + \x93 -> Ó)
         try:
             fixed = value.encode('latin-1').decode('cp1252')
@@ -744,21 +824,44 @@ class ClienteImportView(ClientePermissionMixin, View):
         except (UnicodeEncodeError, UnicodeDecodeError):
             pass
         
-        # Estratégia 2: Heurística para mojibake parcial (Ã + vogal -> acentuado)
-        # Corrige casos onde \x93 foi substituído por vogal (ex: ÃO -> Ó)
-        import re
-        mojibake_map = {
-            '\u00c3A': 'Á', '\u00c3a': 'á',
-            '\u00c3E': 'É', '\u00c3e': 'é',
-            '\u00c3I': 'Í', '\u00c3i': 'í',
-            '\u00c3O': 'Ó', '\u00c3o': 'ó',
-            '\u00c3U': 'Ú', '\u00c3u': 'ú',
-            '\u00c3C': 'Ç', '\u00c3c': 'ç',
-        }
-        pattern = '|'.join(re.escape(k) for k in mojibake_map.keys())
-        fixed = re.sub(pattern, lambda m: mojibake_map.get(m.group(0), m.group(0)), value)
-        return fixed
-    
+        # Estratégia 4: Reconstrói bytes UTF-8 originais a partir da interpretação latin-1
+        # Quando UTF-8 (ex: C3 8D para Í) é lido como latin-1, vira Ã (C3) + \x8d (controle)
+        # Se houver caracteres de controle C1 (0x80-0x9F), tenta reconstruir UTF-8
+        try:
+            latin1_bytes = value.encode('latin-1')
+            fixed = latin1_bytes.decode('utf-8')
+            if fixed != value:
+                return fixed
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
+        
+        # Estratégia 5: Dupla corrupção - replacement char (U+FFFD) + controle C1
+        # Ex: Í (C3 8D) -> Ã + \x8d -> substituição \x8d -> � -> Ã + �
+        # Tenta: substitui � (U+FFFD) por byte 0x80-0x9F correspondente e reconverte
+        if '\ufffd' in value:
+            try:
+                # Tenta diferentes bytes de continuação comuns em PT-BR
+                for continuation_byte in range(0x80, 0xA0):  # 0x80-0x9F
+                    test_value = value.replace('\ufffd', chr(continuation_byte))
+                    try:
+                        test_bytes = test_value.encode('latin-1')
+                        fixed = test_bytes.decode('utf-8')
+                        if fixed != value and not any(ord(c) in range(0x80, 0xA0) for c in fixed):
+                            return fixed
+                    except (UnicodeEncodeError, UnicodeDecodeError):
+                        continue
+            except:
+                pass
+        
+        # Estratégia 6: Remove caracteres de controle C1 (0x80-0x9F) restantes
+        try:
+            fixed = re.sub(r'[\x80-\x9F]', '', value)
+            if fixed != value:
+                return fixed
+        except:
+            pass
+        
+        return value
     def _parse_file(self, arquivo, ext):
         """Parse Excel or CSV file, return (headers, rows)"""
         if ext in ['xlsx', 'xls']:
@@ -1107,8 +1210,49 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
                 Q(plant_id__icontains=q) |
                 Q(city__icontains=q)
             )
+        # Retornar formato esperado pelo TomSelect: value e text
         data = list(qs.values('pk', 'corporation_id', 'corporation', 'plant_id', 'plant', 'city')[:50])
-        return JsonResponse({'results': data})
+        results = []
+        for item in data:
+            value = str(item['pk'])
+            text = f"{item['corporation']} - {item['plant']}"
+            results.append({
+                'value': value,
+                'text': text,
+                'corporation_id': item['corporation_id'],
+                'corporation': item['corporation'],
+                'plant_id': item['plant_id'],
+                'plant': item['plant'],
+                'city': item['city'],
+            })
+        return JsonResponse({'results': results}, json_dumps_params={'ensure_ascii': False})
+
+
+class ClienteBuscaView(LoginRequiredMixin, View):
+    """
+    Autocomplete simples para busca de clientes via Fetch API.
+    Retorna: [{"id": 1, "nome": "Corporação - Planta"}, ...]
+    """
+    
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        qs = Cliente.objects.filter(ativo=True)
+        if q:
+            qs = qs.filter(
+                Q(corporation__icontains=q) |
+                Q(plant__icontains=q) |
+                Q(corporation_id__icontains=q) |
+                Q(plant_id__icontains=q) |
+                Q(city__icontains=q)
+            )
+        # Mais resultados no foco vazio (navegação), menos na busca filtrada
+        limit = 30 if not q else 10
+        data = list(qs.values('pk', 'corporation', 'plant')[:limit])
+        results = [
+            {'id': item['pk'], 'nome': f"{item['corporation']} - {item['plant']}"}
+            for item in data
+        ]
+        return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
 class EquipamentoAutocompleteView(LoginRequiredMixin, View):

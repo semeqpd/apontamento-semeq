@@ -29,6 +29,7 @@ urlpatterns = [
     path('clientes/exportar/', views.ClienteExportView.as_view(), name='cliente_exportar'),
     path('clientes/filtro-opcoes/', views.ClienteFilterOptionsView.as_view(), name='cliente_filtro_opcoes'),
     path('clientes/autocomplete/', views.ClienteAutocompleteView.as_view(), name='cliente_autocomplete'),
+    path('clientes/buscar/', views.ClienteBuscaView.as_view(), name='cliente_buscar'),
     path('clientes/autocomplete/corporacoes/', views.ClienteCorporacoesAutocompleteView.as_view(), name='cliente_autocomplete_corporacoes'),
     path('clientes/autocomplete/plantas/', views.ClientePlantasAutocompleteView.as_view(), name='cliente_autocomplete_plantas'),
     path('equipamentos/autocomplete/', views.EquipamentoAutocompleteView.as_view(), name='equipamento_autocomplete'),
