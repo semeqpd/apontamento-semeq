@@ -8,18 +8,17 @@ class ClienteResource(resources.ModelResource):
     class Meta:
         model = Cliente
         fields = (
-            'id', 'corporation_id', 'corporation', 'plant_id', 'plant',
-            'zone'
+            'id', 'corporation','plant', 'zone'
         )
         export_order = fields
-        import_id_fields = ('corporation_id', 'plant_id')
+        # import_id_fields = ('corporation_id', 'plant_id')
 
 
 @admin.register(Cliente)
 class ClienteAdmin(ImportExportModelAdmin):
     resource_class = ClienteResource
     list_display = ('corporation', 'plant', 'criado_em')
-    search_fields = ('corporation_id', 'corporation', 'plant_id', 'plant')
+    search_fields = ('corporation','plant')
     ordering = ('corporation', 'plant')
     list_per_page = 25
 

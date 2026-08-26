@@ -94,9 +94,7 @@ class Time(models.Model):
 
 
 class Cliente(models.Model):
-    corporation_id = models.CharField(max_length=50, verbose_name="ID Corporação")
     corporation = models.CharField(max_length=200, verbose_name="Corporação")
-    plant_id = models.CharField(max_length=50, verbose_name="ID Planta")
     plant = models.CharField(max_length=200, verbose_name="Planta")
     # unat = models.CharField(max_length=200, blank=True, verbose_name="UNAT")
     # city = models.CharField(max_length=100, blank=True, verbose_name="Cidade")
@@ -114,8 +112,6 @@ class Cliente(models.Model):
         verbose_name_plural = "Clientes"
         ordering = ['corporation', 'plant']
         indexes = [
-            models.Index(fields=['corporation_id']),
-            models.Index(fields=['plant_id']),
             models.Index(fields=['corporation']),
         ]
 

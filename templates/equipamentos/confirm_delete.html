@@ -23,16 +23,10 @@
                 <div class="card-body">
                     <dl class="row mb-0">
                         <dt class="col-sm-3 text-muted small">ID Equipamento</dt>
-                        <dd class="col-sm-9 fw-bold">{{ object.equipamento_id }}</dd>
-                        
-                        <dt class="col-sm-3 text-muted small">Cliente</dt>
-                        <dd class="col-sm-9">{{ object.cliente.corporation }} - {{ object.cliente.plant }}</dd>
+                        <dd class="col-sm-9 fw-bold">{{ object.id }}</dd>
                         
                         <dt class="col-sm-3 text-muted small">Tipo</dt>
                         <dd class="col-sm-9">{{ object.get_tipo_display }}</dd>
-                        
-                        <dt class="col-sm-3 text-muted small">Nº Série</dt>
-                        <dd class="col-sm-9">{{ object.numero_serie }}</dd>
                         
                         <dt class="col-sm-3 text-muted small">Modelo</dt>
                         <dd class="col-sm-9">{{ object.modelo|default:"-" }}</dd>

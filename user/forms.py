@@ -23,41 +23,27 @@ class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         fields = [
-            'corporation_id', 'corporation', 'plant_id', 'plant',
-            'zone'
+            'corporation',  'plant', 'zone'
         ]
         widgets = {
-            'corporation_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: BR001'}),
             'corporation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SEMEQ Brasil'}),
-            'plant_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SP001'}),
             'plant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
             'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'})
         }
 
-    def clean_corporation_id(self):
-        corp_id = self.cleaned_data['corporation_id'].strip().upper()
-        if not corp_id:
-            raise ValidationError('ID Corporação é obrigatório.')
-        return corp_id
-
-    def clean_plant_id(self):
-        plant_id = self.cleaned_data['plant_id'].strip().upper()
-        if not plant_id:
-            raise ValidationError('ID Planta é obrigatório.')
-        return plant_id
 
     def clean(self):
         cleaned_data = super().clean()
-        corp_id = cleaned_data.get('corporation_id')
-        plant_id = cleaned_data.get('plant_id')
+        corp =  cleaned_data.get('corporation')
+        plant = cleaned_data.get('plant')
         
-        if corp_id and plant_id:
-            qs = Cliente.objects.filter(corporation_id=corp_id, plant_id=plant_id)
+        if corp and plant:
+            qs = Cliente.objects.filter(corporation=corp, plant=plant)
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise ValidationError(
-                    'Já existe um cliente com esta combinação de Corporation ID e Plant ID.'
+                    'Já existe um cliente com esta combinação de Corporação e Planta.'
                 )
         return cleaned_data
 
