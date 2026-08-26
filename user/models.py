@@ -98,14 +98,14 @@ class Cliente(models.Model):
     corporation = models.CharField(max_length=200, verbose_name="Corporação")
     plant_id = models.CharField(max_length=50, verbose_name="ID Planta")
     plant = models.CharField(max_length=200, verbose_name="Planta")
-    unat = models.CharField(max_length=200, blank=True, verbose_name="UNAT")
-    city = models.CharField(max_length=100, blank=True, verbose_name="Cidade")
-    state_province = models.CharField(max_length=50, blank=True, verbose_name="Estado/Província")
-    country = models.CharField(max_length=100, blank=True, verbose_name="País")
-    region = models.CharField(max_length=100, blank=True, verbose_name="Região")
-    business = models.CharField(max_length=200, blank=True, verbose_name="Negócio")
+    # unat = models.CharField(max_length=200, blank=True, verbose_name="UNAT")
+    # city = models.CharField(max_length=100, blank=True, verbose_name="Cidade")
+    # state_province = models.CharField(max_length=50, blank=True, verbose_name="Estado/Província")
+    # country = models.CharField(max_length=100, blank=True, verbose_name="País")
+    # region = models.CharField(max_length=100, blank=True, verbose_name="Região")
+    # business = models.CharField(max_length=200, blank=True, verbose_name="Negócio")
     zone = models.CharField(max_length=50, blank=True, verbose_name="Zona")
-    ativo = models.BooleanField(default=True)
+    # ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -135,24 +135,19 @@ class Equipamento(models.Model):
         ('controlador', 'Controlador'),
         ('outro', 'Outro'),
     ]
-    equipamento_id = models.CharField(max_length=50, verbose_name="ID Equipamento",  null=True,
-    blank=True)
-    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='cliente')
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name="Tipo")
-    numero_serie = models.CharField(max_length=100, unique=True, verbose_name="Nº Série")
     modelo = models.CharField(max_length=100, blank=True, verbose_name="Modelo")
     descricao = models.TextField(blank=True, verbose_name="Descrição")
-    ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Equipamento"
         verbose_name_plural = "Equipamentos"
-        ordering = ['cliente', 'tipo', 'numero_serie']
+        ordering = ['tipo', 'modelo']
 
     def __str__(self):
-        return f"{self.get_tipo_display()} - {self.numero_serie} ({self.cliente})"
+        return f"{self.get_tipo_display()} - {self.modelo or self.id}"
 
 
 class Apontamento(models.Model):

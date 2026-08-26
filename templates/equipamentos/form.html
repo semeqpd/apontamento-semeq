@@ -26,24 +26,9 @@
                 <div class="section-title">Identificação</div>
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
-                        {{ form.cliente.label_tag }}
-                        {{ form.cliente }}
-                        {% for error in form.cliente.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="col-md-6">
-                        {{ form.equipamento_id.label_tag }}
-                        {{ form.equipamento_id }}
-                        {% for error in form.equipamento_id.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="col-md-6">
                         {{ form.tipo.label_tag }}
                         {{ form.tipo }}
                         {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="col-md-6">
-                        {{ form.numero_serie.label_tag }}
-                        {{ form.numero_serie }}
-                        {% for error in form.numero_serie.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
                 </div>
 
@@ -53,12 +38,6 @@
                         {{ form.modelo.label_tag }}
                         {{ form.modelo }}
                         {% for error in form.modelo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="col-md-6 d-flex align-items-end">
-                        <div class="form-check mb-2">
-                            {{ form.ativo }}
-                            {{ form.ativo.label_tag }}
-                        </div>
                     </div>
                     <div class="col-12">
                         {{ form.descricao.label_tag }}

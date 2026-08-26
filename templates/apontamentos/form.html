@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.equipamentoTomSelect.addOption({
                             value: '__outro__',
                             text: '➕ Outro equipamento (não listado)',
-                            numero_serie: '',
+                            equipamento_id: '',
                             modelo: '',
                             tipo: '',
                             cliente: ''
@@ -475,23 +475,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (data.value === '__outro__') {
                             return `<div class="text-primary fw-bold"><i class="bi bi-plus-circle me-1"></i>${escape(data.text)}</div>`;
                         }
-                        if (!data.numero_serie) {
+                        if (!data.equipamento_id) {
                             return `<div class="text-muted small">${escape(data.text || 'Nenhum equipamento disponível')}</div>`;
                         }
                         return `<div>
-                            <strong>${escape(data.numero_serie)}</strong>
+                            <strong>${escape(data.equipamento_id)}</strong>
                             ${data.modelo ? `<span class="text-muted ms-2">${escape(data.modelo)}</span>` : ''}
-                            <small class="text-muted d-block">${escape(data.cliente || '')}</small>
                         </div>`;
                     },
                     item: function(data, escape) {
                         if (data.value === '__outro__') {
                             return `<div>${escape(data.text)}</div>`;
                         }
-                        if (!data.numero_serie) {
+                        if (!data.equipamento_id) {
                             return `<div>${escape(data.text || '')}</div>`;
                         }
-                        return `<div>${escape(data.numero_serie)} ${data.modelo ? '- ' + escape(data.modelo) : ''}</div>`;
+                        return `<div>${escape(data.equipamento_id)} ${data.modelo ? '- ' + escape(data.modelo) : ''}</div>`;
                     },
                 },
                 onChange: function(value) {

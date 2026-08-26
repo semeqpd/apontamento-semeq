@@ -9,17 +9,13 @@ class EquipamentoForm(forms.ModelForm):
     class Meta:
         model = Equipamento
         fields = [
-            'equipamento_id', 'cliente', 'tipo', 'numero_serie',
-            'modelo', 'descricao', 'ativo'
+            'tipo',
+            'modelo', 'descricao',
         ]
         widgets = {
-            'equipamento_id': forms.TextInput(attrs={'class': 'form-control'}),
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
             'tipo': forms.Select(attrs={'class': 'form-select'}),
-            'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
             'modelo': forms.TextInput(attrs={'class': 'form-control'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
@@ -28,21 +24,14 @@ class ClienteForm(forms.ModelForm):
         model = Cliente
         fields = [
             'corporation_id', 'corporation', 'plant_id', 'plant',
-            'unat', 'city', 'state_province', 'country', 'region', 'business', 'zone', 'ativo'
+            'zone'
         ]
         widgets = {
             'corporation_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: BR001'}),
             'corporation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SEMEQ Brasil'}),
             'plant_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SP001'}),
             'plant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
-            'unat': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: UNAT SP'}),
-            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
-            'state_province': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SP'}),
-            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Brasil'}),
-            'region': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Sudeste'}),
-            'business': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Oil & Gas'}),
-            'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'})
         }
 
     def clean_corporation_id(self):
@@ -339,11 +328,11 @@ class ApontamentoForm(forms.ModelForm):
                 self.fields['responsavel'].initial = qs.first()
         
         # Cliente queryset
-        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('corporation', 'plant')
+        self.fields['cliente'].queryset = Cliente.objects.all().order_by('corporation', 'plant')
         self.fields['cliente'].required = False
         
         # Equipamento queryset (filtered by cliente via JS)
-        self.fields['equipamento'].queryset = Equipamento.objects.filter(ativo=True).select_related('cliente')
+        self.fields['equipamento'].queryset = Equipamento.objects.all().order_by('tipo', 'modelo')
 
         # Remove empty_label from ModelChoiceFields so first option is selected by default
         for field_name in ['responsavel', 'equipamento']:

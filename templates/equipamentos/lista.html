@@ -17,17 +17,13 @@
             <table class="table table-hover align-middle mb-0" id="equipamentosTable">
                 <thead class="table-light">
                     <tr>
-                        <th>ID Equipamento</th>
-                        <th>Cliente</th>
+                        <th>Dispositivos</th>
                         <th>Tipo</th>
-                        <th>Nº Série</th>
                         <th>Modelo</th>
-                        <th>Status</th>
                         <th class="text-end">Ações</th>
                     </tr>
                     <tr class="table-filter-row">
-                        <th><input type="text" class="form-control form-control-sm" name="equipamento_id" value="{{ filters.equipamento_id }}" placeholder="Filtrar..."></th>
-                        <th><input type="text" class="form-control form-control-sm" name="cliente" value="{{ filters.cliente }}" placeholder="Filtrar..."></th>
+                        <th><input type="text" class="form-control form-control-sm" name="descricao" value="{{ filters.descricao }}" placeholder="Filtrar..."></th>
                         <th>
                             <select class="form-select form-select-sm" name="tipo">
                                 <option value="">Todos</option>
@@ -36,15 +32,7 @@
                                 {% endfor %}
                             </select>
                         </th>
-                        <th><input type="text" class="form-control form-control-sm" name="numero_serie" value="{{ filters.numero_serie }}" placeholder="Filtrar..."></th>
                         <th><input type="text" class="form-control form-control-sm" name="modelo" value="{{ filters.modelo }}" placeholder="Filtrar..."></th>
-                        <th>
-                            <select class="form-select form-select-sm" name="ativo">
-                                <option value="">Todos</option>
-                                <option value="true" {% if filters.ativo == 'true' %}selected{% endif %}>Ativos</option>
-                                <option value="false" {% if filters.ativo == 'false' %}selected{% endif %}>Inativos</option>
-                            </select>
-                        </th>
                         <th class="text-end">
                             <button type="button" class="btn btn-semeq-outline btn-sm" id="btnLimpar" title="Limpar filtros">
                                 <i class="bi bi-x-lg"></i>
@@ -55,18 +43,9 @@
                 <tbody>
                     {% for equipamento in equipamentos %}
                     <tr>
-                        <td class="fw-monospace small">{{ equipamento.equipamento_id }}</td>
-                        <td>{{ equipamento.cliente }}</td>
+                        <td class="fw-monospace small">{{ equipamento.descricao }}</td>
                         <td>{{ equipamento.get_tipo_display }}</td>
-                        <td>{{ equipamento.numero_serie }}</td>
                         <td>{{ equipamento.modelo|default:"-" }}</td>
-                        <td>
-                            {% if equipamento.ativo %}
-                            <span class="badge badge-subtle-success px-2 py-1">Ativo</span>
-                            {% else %}
-                            <span class="badge bg-secondary px-2 py-1">Inativo</span>
-                            {% endif %}
-                        </td>
                         <td class="text-end">
                             <div class="btn-group btn-group-sm">
                                 <a href="{% url 'semeq:equipamento_editar' equipamento.pk %}" class="btn btn-outline-primary" title="Editar">
