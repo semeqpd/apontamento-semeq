@@ -55,9 +55,18 @@ class DashboardView(LoginRequiredMixin, View):
         
         # Se não houver datas informadas, mostra a semana atual (segunda a domingo)
         if not data_inicio and not data_fim:
-            seg = date.today() - timedelta(days=date.today().weekday())
-            dom = seg + timedelta(days=6)
-            qs = qs.filter(data__range=[seg, dom])
+            
+            date_start_this_month = str(date.today().year) +'-'+ str(date.today().month)  + '-01'
+            date_end_this_month =  str(date.today().year) +'-'+ str(date.today().month + 1)  + '-01'
+            # seg = date.today() - timedelta(days=date.today().weekday())
+            # dom = seg + timedelta(days=6)
+            data = qs.filter(data__gte=date_start_this_month, data__lte=date_end_this_month)
+
+            if data.count() < 10 and qs.count() >= 10:
+                qs =  qs.order_by('-criado_em')[:10]
+
+            else:
+                qs = data
         
         # Aplicar filtros
         if time_id and perfil and perfil.is_gestor_or_above():
