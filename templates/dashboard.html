@@ -55,6 +55,7 @@
                     {% endfor %}
                 </select>
             </div>
+            {% if perfil.is_gestor_or_above %}
             <div class="col-md-2">
                 <label class="form-label">Prioridade</label>
                 <select name="prioridade" class="form-select">
@@ -64,6 +65,7 @@
                     {% endfor %}
                 </select>
             </div>
+            {% endif%}
             <div class="col-md-12 col-auto">
                 <div class="d-flex gap-2 flex-wrap">
                     <button type="button" class="btn btn-semeq-secondary" onclick="window.location.href='{% url 'semeq:dashboard' %}'">
@@ -129,53 +131,6 @@
                     </div>
                     <i class="bi bi-award icon-card text-danger"></i>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- AÇÕES RÁPIDAS -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card card-dashboard">
-            <div class="card-header">
-                <strong class="text-dark small text-uppercase" style="letter-spacing: 0.5px;">Ações Rápidas</strong>
-            </div>
-            <div class="card-body d-flex flex-wrap gap-2">
-                <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
-                    <i class="bi bi-plus-circle me-1"></i>
-Novo Apontamento
-                </a>
-
-                <!-- DESATIVADO (modo construção): Exportar
-                <div class="btn-group">
-                    <button type="button" class="btn btn-semeq-outline dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-file-earmark-excel me-1"></i> Exportar
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item" href="#" disabled>
-                                <i class="bi bi-filetype-csv me-2"></i> CSV
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" disabled>
-                                <i class="bi bi-filetype-xlsx me-2"></i> Excel (XLSX)
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                -->
-
-                <!-- DESATIVADO (modo construção): Indicadores e Pesquisar
-                <a href="#" class="btn btn-semeq-outline" disabled>
-                    <i class="bi bi-bar-chart me-1"></i> Indicadores
-                </a>
-
-                <a href="#" class="btn btn-semeq-outline" disabled>
-                    <i class="bi bi-search me-1"></i> Pesquisar Apontamento
-                </a>
-                -->
             </div>
         </div>
     </div>
