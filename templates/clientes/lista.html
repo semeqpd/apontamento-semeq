@@ -31,55 +31,22 @@
             <table class="table table-hover align-middle mb-0" id="clientesTable">
                 <thead class="table-light">
                     <tr>
-                        <th>ID Corporação</th>
                         <th>Corporação</th>
-                        <th>ID Planta</th>
                         <th>Planta</th>
-                        <th>Cidade</th>
-                        <th>Estado</th>
-                        <th>País</th>
-                        <th>Status</th>
+                        <th>Zona</th>
                         <th class="text-end">Ações</th>
                     </tr>
                     <!-- Linha de Filtros por Coluna -->
                     <tr class="table-filter-row">
                         <th>
-                            <input type="text" class="form-control form-control-sm" name="corporation_id" value="{{ filters.corporation_id }}" placeholder="Filtrar...">
-                        </th>
-                        <th>
                             <input type="text" class="form-control form-control-sm" name="corporation" value="{{ filters.corporation }}" placeholder="Filtrar...">
                         </th>
-                        <th>
-                            <input type="text" class="form-control form-control-sm" name="plant_id" value="{{ filters.plant_id }}" placeholder="Filtrar...">
-                        </th>
+                      
                         <th>
                             <input type="text" class="form-control form-control-sm" name="plant" value="{{ filters.plant }}" placeholder="Filtrar...">
                         </th>
-                        <th>
-                            <input type="text" class="form-control form-control-sm" name="city" value="{{ filters.city }}" placeholder="Filtrar...">
-                        </th>
-                        <th>
-                            <select class="form-select form-select-sm" name="state" id="id_state_filter">
-                                <option value="">Todos</option>
-                                {% for s in states %}
-                                <option value="{{ s }}" {% if filters.state == s %}selected{% endif %}>{{ s }}</option>
-                                {% endfor %}
-                            </select>
-                        </th>
-                        <th>
-                            <select class="form-select form-select-sm" name="country" id="id_country_filter">
-                                <option value="">Todos</option>
-                                {% for c in countries %}
-                                <option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ c }}</option>
-                                {% endfor %}
-                            </select>
-                        </th>
-                        <th>
-                            <select class="form-select form-select-sm" name="ativo" id="id_ativo_filter">
-                                <option value="">Todos</option>
-                                <option value="true" {% if filters.ativo == 'true' %}selected{% endif %}>Ativos</option>
-                                <option value="false" {% if filters.ativo == 'false' %}selected{% endif %}>Inativos</option>
-                            </select>
+                         <th>
+                            <input type="text" class="form-control form-control-sm" name="zone" value="{{ filters.zone }}" placeholder="Filtrar...">
                         </th>
                         <th>
                             <div class="d-flex gap-1">
@@ -93,20 +60,9 @@
                 <tbody>
                     {% for cliente in clientes %}
                     <tr>
-                        <td class="fw-monospace small">{{ cliente.corporation_id }}</td>
                         <td class="fw-semibold">{{ cliente.corporation }}</td>
-                        <td class="fw-monospace small">{{ cliente.plant_id }}</td>
                         <td>{{ cliente.plant }}</td>
-                        <td>{{ cliente.city|default:"-" }}</td>
-                        <td>{{ cliente.state_province|default:"-" }}</td>
-                        <td>{{ cliente.country|default:"-" }}</td>
-                        <td>
-                            {% if cliente.ativo %}
-                            <span class="badge badge-subtle-success px-2 py-1">Ativo</span>
-                            {% else %}
-                            <span class="badge bg-secondary px-2 py-1">Inativo</span>
-                            {% endif %}
-                        </td>
+                        <td class="fw-monospace small">{{ cliente.zone }}</td>
                         <td class="text-end">
                             <div class="btn-group btn-group-sm">
                                 <a href="{% url 'semeq:cliente_editar' cliente.pk %}" class="btn btn-outline-primary" title="Editar">
@@ -183,81 +139,8 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Elements from table header filter row only
-    const tableStateSelect = document.getElementById('id_state_filter');
-    const tableCityInput = document.querySelector('input[name="city"]');
     const btnLimpar = document.getElementById('btnLimpar');
-    
-    // Helper to build URL for filter options API
-    function buildFilterUrl(field, parentField = '', parentValue = '') {
-        const params = new URLSearchParams();
-        params.set('field', field);
-        if (parentField && parentValue) {
-            params.set('parent_field', parentField);
-            params.set('parent_value', parentValue);
-        }
-        return `{% url 'semeq:cliente_filtro_opcoes' %}?${params.toString()}`;
-    }
-    
-    // Helper to populate select options
-    function populateSelect(select, options, valueKey, labelKey, selectedValue) {
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">Todas</option>';
-        
-        options.forEach(opt => {
-            const value = valueKey ? opt[valueKey] : opt;
-            const label = labelKey ? opt[labelKey] : opt;
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = label;
-            if (value === (selectedValue || currentValue)) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-    }
-    
-    // ESTADO -> CIDADES (cascading for table header)
-    // When state changes, show matching cities as datalist for the city input
-    if (tableStateSelect && tableCityInput) {
-        tableStateSelect.addEventListener('change', function() {
-            const stateValue = this.value;
-            
-            // Fetch cities for this state and create a datalist
-            if (stateValue) {
-                fetch(buildFilterUrl('cidades', 'state', stateValue))
-                    .then(response => response.json())
-                    .then(data => {
-                        // Create or update datalist for city input
-                        let datalist = document.getElementById('city-datalist');
-                        if (!datalist) {
-                            datalist = document.createElement('datalist');
-                            datalist.id = 'city-datalist';
-                            document.body.appendChild(datalist);
-                            tableCityInput.setAttribute('list', 'city-datalist');
-                        }
-                        datalist.innerHTML = '';
-                        (data.options || []).forEach(city => {
-                            const option = document.createElement('option');
-                            option.value = city;
-                            datalist.appendChild(option);
-                        });
-                    })
-                    .catch(() => {
-                        // On error, remove datalist
-                        const datalist = document.getElementById('city-datalist');
-                        if (datalist) datalist.remove();
-                        tableCityInput.removeAttribute('list');
-                    });
-            } else {
-                // No state selected, remove datalist
-                const datalist = document.getElementById('city-datalist');
-                if (datalist) datalist.remove();
-                tableCityInput.removeAttribute('list');
-            }
-        });
-    }
-    
+
     // FILTRAR button - collect all filter values and navigate
     // Aplica os filtros navegando para a query string montada
     function aplicarFiltros() {

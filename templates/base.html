@@ -851,6 +851,9 @@
                         <i class="bi bi-building"></i> Clientes
                     </a>
                     {% endif %}
+                     <a href="{% url 'semeq:status_lista' %}" class="{% if request.resolver_match.url_name == 'status_lista' %}active{% endif %}">
+                        <i class="bi bi-building"></i> Status
+                    </a>
                     <!-- DESATIVADO (modo construção): Equipamentos
                     {% if request.user.is_superuser or request.user.perfil.is_lider_or_above %}
                     <a href="#" class="{% if request.resolver_match.url_name == 'equipamento_lista' %}active{% endif %}">

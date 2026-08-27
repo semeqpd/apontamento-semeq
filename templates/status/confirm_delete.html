@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Excluir Status - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 600px;">
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <div class="header-brand">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Confirmar Exclusão</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <p class="lead">Tem certeza que deseja excluir este status?</p>
+            
+            <div class="alert alert-warning">
+                <strong>{{ object.status }}</strong>
+            </div>
+
+            <p class="text-muted small">
+                <i class="bi bi-info-circle me-1"></i>
+                Esta ação não pode ser desfeita. O status será removido permanentemente.
+            </p>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="{% url 'semeq:status_lista' %}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i> Sim, Excluir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

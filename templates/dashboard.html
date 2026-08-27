@@ -55,6 +55,7 @@
                     {% endfor %}
                 </select>
             </div>
+            {% if perfil.is_gestor_or_above %}
             <div class="col-md-2">
                 <label class="form-label">Prioridade</label>
                 <select name="prioridade" class="form-select">
@@ -64,6 +65,7 @@
                     {% endfor %}
                 </select>
             </div>
+            {% endif%}
             <div class="col-md-12 col-auto">
                 <div class="d-flex gap-2 flex-wrap">
                     <button type="button" class="btn btn-semeq-secondary" onclick="window.location.href='{% url 'semeq:dashboard' %}'">
@@ -129,16 +131,6 @@
                     </div>
                     <i class="bi bi-award icon-card text-danger"></i>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- AÇÕES RÁPIDAS -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card card-dashboard">
-            <div class="card-body d-flex flex-wrap gap-2">
             </div>
         </div>
     </div>

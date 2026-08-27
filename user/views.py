@@ -18,11 +18,11 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import date, timedelta, datetime
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken, Status
 from .forms import (
     ClienteForm, ClienteImportForm,
     UsuarioForm, ApontamentoForm, UsuarioUpdateForm,
-    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm, EmailLoginForm
+    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm, EmailLoginForm, StatusForm
     )
 from .throttle import rate_limit
 import csv
@@ -60,9 +60,18 @@ class DashboardView(LoginRequiredMixin, View):
         
         # Se não houver datas informadas, mostra a semana atual (segunda a domingo)
         if not data_inicio and not data_fim:
-            seg = date.today() - timedelta(days=date.today().weekday())
-            dom = seg + timedelta(days=6)
-            qs = qs.filter(data__range=[seg, dom])
+            
+            date_start_this_month = str(date.today().year) +'-'+ str(date.today().month)  + '-01'
+            date_end_this_month =  str(date.today().year) +'-'+ str(date.today().month + 1)  + '-01'
+            # seg = date.today() - timedelta(days=date.today().weekday())
+            # dom = seg + timedelta(days=6)
+            data = qs.filter(data__gte=date_start_this_month, data__lte=date_end_this_month)
+
+            if data.count() < 10 and qs.count() >= 10:
+                qs =  qs.order_by('-criado_em')[:10]
+
+            else:
+                qs = data
         
         # Aplicar filtros
         if time_id and perfil and perfil.is_gestor_or_above():
@@ -531,48 +540,21 @@ class ClienteListView(LoginRequiredMixin, ListView):
         if q:
             qs = qs.filter(
                 Q(corporation__icontains=q) |
-                Q(plant__icontains=q) |
-                Q(corporation_id__icontains=q) |
-                Q(plant_id__icontains=q) |
-                Q(city__icontains=q)
+                Q(plant__icontains=q) 
             )
         
         # Specific field filters
-        corporation_id = self.request.GET.get('corporation_id', '').strip()
-        if corporation_id:
-            qs = qs.filter(corporation_id=corporation_id)
-        
         corporation = self.request.GET.get('corporation', '').strip()
         if corporation:
             qs = qs.filter(corporation__icontains=corporation)
-        
-        plant_id = self.request.GET.get('plant_id', '').strip()
-        if plant_id:
-            qs = qs.filter(plant_id=plant_id)
-        
+    
         plant = self.request.GET.get('plant', '').strip()
         if plant:
             qs = qs.filter(plant__icontains=plant)
-        
-        city = self.request.GET.get('city', '').strip()
-        if city:
-            qs = qs.filter(city__icontains=city)
-        
-        state = self.request.GET.get('state', '').strip()
-        if state:
-            qs = qs.filter(state_province=state)
-        
-        country = self.request.GET.get('country', '').strip()
-        if country:
-            qs = qs.filter(country=country)
-        
-        # Status filter (default to active only)
-        ativo = self.request.GET.get('ativo', 'true')
-        if ativo == 'true':
-            qs = qs.filter(ativo=True)
-        elif ativo == 'false':
-            qs = qs.filter(ativo=False)
-        # ativo == 'all' or empty -> no filter
+
+        zone = self.request.GET.get('zone', '').strip()
+        if zone:
+            qs = qs.filter(zone__icontains=zone)
         
         return qs.order_by('corporation', 'plant')
     
@@ -582,22 +564,13 @@ class ClienteListView(LoginRequiredMixin, ListView):
         # Pass current filter values to template
         context['filters'] = {
             'q': self.request.GET.get('q', ''),
-            'corporation_id': self.request.GET.get('corporation_id', ''),
             'corporation': self.request.GET.get('corporation', ''),
-            'plant_id': self.request.GET.get('plant_id', ''),
             'plant': self.request.GET.get('plant', ''),
-            'city': self.request.GET.get('city', ''),
-            'state': self.request.GET.get('state', ''),
-            'country': self.request.GET.get('country', ''),
-            'ativo': self.request.GET.get('ativo', 'true'),
+            'zone': self.request.GET.get('zone', ''),
         }
         
         # Get distinct values for dropdowns (from base queryset without filters)
         base_qs = Cliente.objects.all()
-        
-        # Static lists for dropdowns
-        context['states'] = list(base_qs.exclude(state_province='').values_list('state_province', flat=True).distinct().order_by('state_province'))
-        context['countries'] = list(base_qs.exclude(country='').values_list('country', flat=True).distinct().order_by('country'))
         
         # Build filter params for pagination (exclude 'page')
         params = self.request.GET.copy()
@@ -965,8 +938,7 @@ class ClienteImportView(ClientePermissionMixin, View):
         """Map row values by header name (case-insensitive)"""
         row_dict = {}
         header_lower = {h.lower(): i for i, h in enumerate(headers)}
-        for key in ['corporation_id', 'corporation', 'plant_id', 'plant', 'unat', 
-                    'city', 'state_province', 'country', 'region', 'business', 'zone']:
+        for key in ['corporation', 'plant', 'zone']:
             idx = header_lower.get(key.lower())
             row_dict[key] = row[idx] if idx is not None and idx < len(row) else ''
         return row_dict
@@ -991,37 +963,18 @@ class ClienteImportView(ClientePermissionMixin, View):
             
             for i, row_data in enumerate(rows, start=2):
                 try:
-                    corp_id = row_data.get('corporation_id', '')
                     corp = self._fix_encoding(row_data.get('corporation', ''))
-                    plant_id = row_data.get('plant_id', '')
                     plant = self._fix_encoding(row_data.get('plant', ''))
-                    unat = self._fix_encoding(row_data.get('unat', ''))
-                    city = self._fix_encoding(row_data.get('city', ''))
-                    state = self._fix_encoding(row_data.get('state_province', ''))
-                    country = self._fix_encoding(row_data.get('country', ''))
-                    region = self._fix_encoding(row_data.get('region', ''))
-                    business = self._fix_encoding(row_data.get('business', ''))
                     zone = self._fix_encoding(row_data.get('zone', ''))
                     
-                    if not corp_id or not plant_id:
-                        erros.append(f'Linha {i}: corporation_id e plant_id são obrigatórios')
+                    if not corp or not plant or not zone:
+                        erros.append(f'Linha {i}: Corporação e Planta e Zona são obrigatórios')
                         continue
                     
                     obj, created = Cliente.objects.update_or_create(
-                        corporation_id=corp_id,
-                        plant_id=plant_id,
-                        defaults={
-                            'corporation': corp,
-                            'plant': plant,
-                            'unat': unat,
-                            'city': city,
-                            'state_province': state,
-                            'country': country,
-                            'region': region,
-                            'business': business,
-                            'zone': zone,
-                            'ativo': True,
-                        }
+                        corporation=corp,
+                        plant=plant,
+                        zone=zone
                     )
                     if created:
                         criados += 1
@@ -1078,7 +1031,7 @@ class ClienteImportProcessView(LoginRequiredMixin, View):
 
 class ClienteExportView(ClientePermissionMixin, View):
     def get(self, request):
-        qs = Cliente.objects.filter(ativo=True).order_by('corporation', 'plant')
+        qs = Cliente.objects.all().order_by('corporation', 'plant')
         
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="clientes_{date.today()}.csv"'
@@ -1086,14 +1039,12 @@ class ClienteExportView(ClientePermissionMixin, View):
         
         writer = csv.writer(response, delimiter=';')
         writer.writerow([
-            'CORPORATION_ID', 'CORPORATION', 'PLANT_ID', 'PLANT', 'UNAT',
-            'CITY', 'STATE_PROVINCE', 'COUNTRY', 'REGION', 'BUSINESS', 'ZONE'
+            'corporation', 'plant', 'zone'
         ])
         
         for c in qs:
             writer.writerow([
-                c.corporation_id, c.corporation, c.plant_id, c.plant, c.unat,
-                c.city, c.state_province, c.country, c.region, c.business, c.zone
+                c.corporation, c.plant, c.zone
             ])
         return response
 
@@ -1106,50 +1057,23 @@ class ClienteFilterOptionsView(ClientePermissionMixin, View):
         parent_field = request.GET.get('parent_field', '')
         parent_value = request.GET.get('parent_value', '')
         
-        qs = Cliente.objects.filter(ativo=True)
+        qs = Cliente.objects.all()
         
         if field == 'corporacoes':
             # All corporations
-            data = list(qs.values('corporation_id', 'corporation').distinct().order_by('corporation'))
+            data = list(qs.values('corporation').distinct().order_by('corporation'))
             return JsonResponse({'options': data})
         
         elif field == 'plantas':
             # Plants, optionally filtered by corporation_id
             if parent_field == 'corporation_id' and parent_value:
                 qs = qs.filter(corporation_id=parent_value)
-            data = list(qs.values('plant_id', 'plant').distinct().order_by('plant')[:200])
+            data = list(qs.values('plant').distinct().order_by('plant')[:200])
             return JsonResponse({'options': data})
-        
-        elif field == 'cidades':
-            # Cities, optionally filtered by state
-            if parent_field == 'state' and parent_value:
-                qs = qs.filter(state_province=parent_value)
-            data = list(qs.exclude(city='').values_list('city', flat=True).distinct().order_by('city')[:200])
-            return JsonResponse({'options': data})
-        
-        elif field == 'estados':
-            # All states
-            data = list(qs.exclude(state_province='').values_list('state_province', flat=True).distinct().order_by('state_province'))
-            return JsonResponse({'options': data})
-        
-        elif field == 'paises':
-            # All countries
-            data = list(qs.exclude(country='').values_list('country', flat=True).distinct().order_by('country'))
-            return JsonResponse({'options': data})
-        
-        elif field == 'regioes':
-            # All regions
-            data = list(qs.exclude(region='').values_list('region', flat=True).distinct().order_by('region'))
-            return JsonResponse({'options': data})
-        
-        elif field == 'negocios':
-            # All businesses
-            data = list(qs.exclude(business='').values_list('business', flat=True).distinct().order_by('business'))
-            return JsonResponse({'options': data})
-        
+     
         # Default: return all
-        corporacoes = list(qs.values('corporation_id', 'corporation').distinct().order_by('corporation'))
-        plantas = list(qs.values('plant_id', 'plant').distinct().order_by('plant')[:100])
+        corporacoes = list(qs.values('corporation').distinct().order_by('corporation'))
+        plantas = list(qs.values('plant').distinct().order_by('plant')[:100])
         return JsonResponse({'corporacoes': corporacoes, 'plantas': plantas})
 
 
@@ -1158,7 +1082,7 @@ class ClienteCorporacoesAutocompleteView(LoginRequiredMixin, View):
     
     def get(self, request):
         q = request.GET.get('q', '').strip()
-        qs = Cliente.objects.filter(ativo=True).values(
+        qs = Cliente.objects.all().values(
             'corporation_id', 'corporation'
         ).distinct().order_by('corporation')
         
@@ -1188,7 +1112,6 @@ class ClientePlantasAutocompleteView(LoginRequiredMixin, View):
             return JsonResponse({'results': []})
         
         qs = Cliente.objects.filter(
-            ativo=True, 
             corporation_id=corporacao_id
         ).values('plant_id', 'plant').distinct().order_by('plant')
         
@@ -1213,17 +1136,16 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
     
     def get(self, request):
         q = request.GET.get('q', '').strip()
-        qs = Cliente.objects.filter(ativo=True)
+        qs = Cliente.objects.all()
         if q:
             qs = qs.filter(
                 Q(corporation__icontains=q) |
                 Q(plant__icontains=q) |
                 Q(corporation_id__icontains=q) |
-                Q(plant_id__icontains=q) |
-                Q(city__icontains=q)
+                Q(plant_id__icontains=q)
             )
         # Retornar formato esperado pelo TomSelect: value e text
-        data = list(qs.values('pk', 'corporation_id', 'corporation', 'plant_id', 'plant', 'city')[:50])
+        data = list(qs.values('pk', 'corporation', 'plant')[:50])
         results = []
         for item in data:
             value = str(item['pk'])
@@ -1231,11 +1153,8 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
             results.append({
                 'value': value,
                 'text': text,
-                'corporation_id': item['corporation_id'],
                 'corporation': item['corporation'],
-                'plant_id': item['plant_id'],
                 'plant': item['plant'],
-                'city': item['city'],
             })
         return JsonResponse({'results': results}, json_dumps_params={'ensure_ascii': False})
 
@@ -1252,10 +1171,7 @@ class ClienteBuscaView(LoginRequiredMixin, View):
         if q:
             qs = qs.filter(
                 Q(corporation__icontains=q) |
-                Q(plant__icontains=q) |
-                Q(corporation_id__icontains=q) |
-                Q(plant_id__icontains=q) |
-                Q(city__icontains=q)
+                Q(plant__icontains=q) 
             )
         # Mais resultados no foco vazio (navegação), menos na busca filtrada
         limit = 30 if not q else 10
@@ -1268,34 +1184,30 @@ class ClienteBuscaView(LoginRequiredMixin, View):
 
 
 class EquipamentoAutocompleteView(LoginRequiredMixin, View):
-    """Autocomplete search for equipamentos. Filtra por cliente_id se fornecido."""
+    """Autocomplete search for equipamentos."""
     
     def get(self, request):
         q = request.GET.get('q', '').strip()
-        cliente_id = request.GET.get('cliente_id', '').strip()
-        qs = Equipamento.objects.filter(ativo=True).select_related('cliente')
-        
-        if cliente_id:
-            qs = qs.filter(cliente_id=cliente_id)
+        qs = Equipamento.objects.all()
         
         if q:
             qs = qs.filter(
-                Q(numero_serie__icontains=q) |
+                Q(id__icontains=q) |
                 Q(modelo__icontains=q) |
                 Q(tipo__icontains=q) |
-                Q(cliente__corporation__icontains=q) |
-                Q(cliente__plant__icontains=q)
+                Q(descricao__icontains=q)
             )
         
-        data = list(qs.values('pk', 'numero_serie', 'modelo', 'tipo', 'cliente__corporation', 'cliente__plant')[:50])
-        # Formato para TomSelect: value=pk, text=numero_serie
+        data = list(qs.values('pk', 'modelo', 'tipo', 'descricao')[:50])
+        # Formato para TomSelect
         results = [
             {
                 'value': item['pk'],
-                'text': item['numero_serie'],
+                'text': item['modelo'] or str(item['pk']),
+                'equipamento_id': str(item['pk']),
                 'modelo': item['modelo'] or '',
                 'tipo': item['tipo'] or '',
-                'cliente': f"{item['cliente__corporation'] or ''} - {item['cliente__plant'] or ''}".strip(' -')
+                'descricao': item['descricao'] or '',
             }
             for item in data
         ]
@@ -1685,43 +1597,26 @@ class EquipamentoListView(EquipamentoPermissionMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Equipamento.objects.select_related('cliente').all()
+        qs = Equipamento.objects.all()
         filters = {
-            'equipamento_id': self.request.GET.get('equipamento_id', '').strip(),
-            'cliente': self.request.GET.get('cliente', '').strip(),
+            'descricao': self.request.GET.get('descricao', '').strip(),
             'tipo': self.request.GET.get('tipo', '').strip(),
-            'numero_serie': self.request.GET.get('numero_serie', '').strip(),
             'modelo': self.request.GET.get('modelo', '').strip(),
-            'ativo': self.request.GET.get('ativo', ''),
         }
-        if filters['equipamento_id']:
-            qs = qs.filter(equipamento_id__icontains=filters['equipamento_id'])
-        if filters['cliente']:
-            qs = qs.filter(
-                Q(cliente__corporation__icontains=filters['cliente']) |
-                Q(cliente__plant__icontains=filters['cliente'])
-            )
+        if filters['descricao']:
+            qs = qs.filter(descricao__icontains=filters['descricao'])
         if filters['tipo']:
             qs = qs.filter(tipo=filters['tipo'])
-        if filters['numero_serie']:
-            qs = qs.filter(numero_serie__icontains=filters['numero_serie'])
         if filters['modelo']:
             qs = qs.filter(modelo__icontains=filters['modelo'])
-        if filters['ativo'] == 'true':
-            qs = qs.filter(ativo=True)
-        elif filters['ativo'] == 'false':
-            qs = qs.filter(ativo=False)
         return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filters'] = {
-            'equipamento_id': self.request.GET.get('equipamento_id', ''),
-            'cliente': self.request.GET.get('cliente', ''),
+            'descricao': self.request.GET.get('descricao', ''),
             'tipo': self.request.GET.get('tipo', ''),
-            'numero_serie': self.request.GET.get('numero_serie', ''),
             'modelo': self.request.GET.get('modelo', ''),
-            'ativo': self.request.GET.get('ativo', ''),
         }
         context['tipo_choices'] = Equipamento.TIPO_CHOICES
         params = self.request.GET.copy()
@@ -1759,4 +1654,60 @@ class EquipamentoDeleteView(EquipamentoPermissionMixin, DeleteView):
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Equipamento excluído com sucesso!')
+        return super().delete(request, *args, **kwargs)
+
+class StatusListView(LoginRequiredMixin, ListView):
+    model = Equipamento
+    template_name = 'status/lista.html'
+    context_object_name = 'status'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Status.objects.all()
+        filters = {
+            'status': self.request.GET.get('status', '').strip(),
+        }
+        if filters['status']:
+            qs = qs.filter(status__icontains=filters['status'])
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filters'] = {
+            'status': self.request.GET.get('status', ''),
+        }
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        context['filter_params'] = params.urlencode()
+        return context
+
+class StatusCreateView(LoginRequiredMixin, CreateView):
+    model = Status
+    form_class = StatusForm
+    template_name = 'status/form.html'
+    success_url = reverse_lazy('semeq:status_lista')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Status criado com sucesso!')
+        return super().form_valid(form)
+
+class StatusUpdateView(LoginRequiredMixin, UpdateView):
+    model = Status
+    form_class = StatusForm
+    template_name = 'status/form.html'
+    success_url = reverse_lazy('semeq:status_lista')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Status atualizado com sucesso!')
+        return super().form_valid(form)
+
+
+class StatusDeleteView(LoginRequiredMixin, DeleteView):
+    model = Status
+    template_name = 'status/confirm_delete.html'
+    success_url = reverse_lazy('semeq:status_lista')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'Status excluído com sucesso!')
         return super().delete(request, *args, **kwargs)

@@ -8,21 +8,17 @@ class ClienteResource(resources.ModelResource):
     class Meta:
         model = Cliente
         fields = (
-            'id', 'corporation_id', 'corporation', 'plant_id', 'plant',
-            'unat', 'city', 'state_province', 'country', 'iso_3166',
-            'region', 'business', 'sap_bp_code', 'zone', 'ativo'
+            'id', 'corporation','plant', 'zone'
         )
         export_order = fields
-        import_id_fields = ('corporation_id', 'plant_id')
+        # import_id_fields = ('corporation_id', 'plant_id')
 
 
 @admin.register(Cliente)
 class ClienteAdmin(ImportExportModelAdmin):
     resource_class = ClienteResource
-    list_display = ('corporation', 'plant', 'city', 'state_province', 'country', 'ativo', 'criado_em')
-    list_filter = ('ativo', 'country', 'state_province', 'region', 'business')
-    search_fields = ('corporation_id', 'corporation', 'plant_id', 'plant', 'city', 'sap_bp_code')
-    list_editable = ('ativo',)
+    list_display = ('corporation', 'plant', 'criado_em')
+    search_fields = ('corporation','plant')
     ordering = ('corporation', 'plant')
     list_per_page = 25
 
@@ -30,17 +26,16 @@ class ClienteAdmin(ImportExportModelAdmin):
 class EquipamentoInline(admin.TabularInline):
     model = Equipamento
     extra = 1
-    fields = ('tipo', 'numero_serie', 'modelo', 'ativo')
+    fields = ('tipo', 'modelo',)
     readonly_fields = ('criado_em',)
 
 
 @admin.register(Equipamento)
 class EquipamentoAdmin(admin.ModelAdmin):
-    list_display = ('tipo', 'numero_serie', 'modelo', 'cliente', 'ativo', 'criado_em')
-    list_filter = ('tipo', 'ativo', 'cliente__corporation')
-    search_fields = ('numero_serie', 'modelo', 'cliente__corporation', 'cliente__plant')
-    list_editable = ('ativo',)
-    ordering = ('cliente', 'tipo', 'numero_serie')
+    list_display = ('tipo', 'modelo', 'criado_em',)
+    list_filter = ('tipo',)
+    search_fields = ('tipo', 'dispositivo', 'modelo',)
+    ordering = ('tipo', 'modelo')
     list_per_page = 25
 
 

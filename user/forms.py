@@ -3,24 +3,20 @@ from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, Authe
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.conf import settings
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken, Status
 
 
 class EquipamentoForm(forms.ModelForm):
     class Meta:
         model = Equipamento
         fields = [
-            'equipamento_id', 'cliente', 'tipo', 'numero_serie',
-            'modelo', 'descricao', 'ativo'
+            'tipo',
+            'modelo', 'descricao',
         ]
         widgets = {
-            'equipamento_id': forms.TextInput(attrs={'class': 'form-control'}),
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
             'tipo': forms.Select(attrs={'class': 'form-select'}),
-            'numero_serie': forms.TextInput(attrs={'class': 'form-control'}),
             'modelo': forms.TextInput(attrs={'class': 'form-control'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
@@ -28,48 +24,27 @@ class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         fields = [
-            'corporation_id', 'corporation', 'plant_id', 'plant',
-            'unat', 'city', 'state_province', 'country', 'region', 'business', 'zone', 'ativo'
+            'corporation',  'plant', 'zone'
         ]
         widgets = {
-            'corporation_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: BR001'}),
             'corporation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SEMEQ Brasil'}),
-            'plant_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SP001'}),
             'plant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
-            'unat': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: UNAT SP'}),
-            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
-            'state_province': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SP'}),
-            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Brasil'}),
-            'region': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Sudeste'}),
-            'business': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Oil & Gas'}),
-            'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'})
         }
 
-    def clean_corporation_id(self):
-        corp_id = self.cleaned_data['corporation_id'].strip().upper()
-        if not corp_id:
-            raise ValidationError('ID Corporação é obrigatório.')
-        return corp_id
-
-    def clean_plant_id(self):
-        plant_id = self.cleaned_data['plant_id'].strip().upper()
-        if not plant_id:
-            raise ValidationError('ID Planta é obrigatório.')
-        return plant_id
 
     def clean(self):
         cleaned_data = super().clean()
-        corp_id = cleaned_data.get('corporation_id')
-        plant_id = cleaned_data.get('plant_id')
+        corp =  cleaned_data.get('corporation')
+        plant = cleaned_data.get('plant')
         
-        if corp_id and plant_id:
-            qs = Cliente.objects.filter(corporation_id=corp_id, plant_id=plant_id)
+        if corp and plant:
+            qs = Cliente.objects.filter(corporation=corp, plant=plant)
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise ValidationError(
-                    'Já existe um cliente com esta combinação de Corporation ID e Plant ID.'
+                    'Já existe um cliente com esta combinação de Corporação e Planta.'
                 )
         return cleaned_data
 
@@ -77,14 +52,14 @@ class ClienteForm(forms.ModelForm):
 class ClienteImportForm(forms.Form):
     arquivo = forms.FileField(
         label='Arquivo (CSV ou Excel)',
-        help_text='Colunas esperadas: corporation_id, corporation, plant_id, plant, unat, city, state_province, country, region, business, zone',
+        help_text='Colunas esperadas: corporation, plant, zone (opcional: corporation_id, plant_id)',
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.csv,.xlsx,.xls'})
     )
     atualizar_existentes = forms.BooleanField(
         label='Atualizar clientes existentes',
         required=False,
         initial=True,
-        help_text='Se marcado, atualiza clientes com mesmo corporation_id + plant_id. Se desmarcado, ignora duplicados.',
+        help_text='Se marcado, atualiza clientes com mesma corporação + planta. Se desmarcado, ignora duplicados.',
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
     )
 
@@ -350,11 +325,11 @@ class ApontamentoForm(forms.ModelForm):
                 self.fields['responsavel'].initial = qs.first()
         
         # Cliente queryset
-        self.fields['cliente'].queryset = Cliente.objects.filter(ativo=True).order_by('corporation', 'plant')
+        self.fields['cliente'].queryset = Cliente.objects.all().order_by('corporation', 'plant')
         self.fields['cliente'].required = False
         
         # Equipamento queryset (filtered by cliente via JS)
-        self.fields['equipamento'].queryset = Equipamento.objects.filter(ativo=True).select_related('cliente')
+        self.fields['equipamento'].queryset = Equipamento.objects.all().order_by('tipo', 'modelo')
 
         # Remove empty_label from ModelChoiceFields so first option is selected by default
         for field_name in ['responsavel', 'equipamento']:
@@ -592,3 +567,31 @@ class SemeqPasswordResetForm(PasswordResetForm):
             is_active=True,
             perfil__ativo=True
         )
+
+
+class StatusForm(forms.ModelForm):
+    class Meta:
+        model = Status
+        fields = [
+            'status'
+        ]
+        widgets = {
+            'status': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Concluído'}),
+        }
+
+
+    def clean(self):
+        cleaned_data = super().clean()
+        status =  cleaned_data.get('status')
+        
+        if status:
+            qs = Status.objects.filter(status=status)
+
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            if qs.exists():
+                raise ValidationError(
+                    'Já existe um status com essa nomeação.'
+                )
+        return cleaned_data
