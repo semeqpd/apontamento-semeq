@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, PasswordResetForm
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, Status
 
 
 class EquipamentoForm(forms.ModelForm):
@@ -481,3 +481,30 @@ class SemeqPasswordResetForm(PasswordResetForm):
             is_active=True,
             perfil__ativo=True
         )
+
+class StatusForm(forms.ModelForm):
+    class Meta:
+        model = Status
+        fields = [
+            'status'
+        ]
+        widgets = {
+            'status': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Concluído'}),
+        }
+
+
+    def clean(self):
+        cleaned_data = super().clean()
+        status =  cleaned_data.get('status')
+        
+        if status:
+            qs = Status.objects.filter(status=status)
+
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            if qs.exists():
+                raise ValidationError(
+                    'Já existe um status com essa nomeação.'
+                )
+        return cleaned_data

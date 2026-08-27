@@ -244,3 +244,14 @@ class Apontamento(models.Model):
             self.tempo_total = fim - inicio
         
         super().save(*args, **kwargs)
+
+class Status(models.Model):
+    status = models.CharField(max_length=200, verbose_name="Status")
+
+    class Meta:
+        verbose_name = "State"
+        verbose_name_plural = "Status"
+        ordering = ['status']
+
+    def __str__(self):
+        return f"{self.status}"

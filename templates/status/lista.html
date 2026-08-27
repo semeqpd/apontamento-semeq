@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Status - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Status</h2>
+    <a href="{% url 'semeq:status_novo' %}" class="btn btn-semeq-primary">
+        <i class="bi bi-plus-lg me-1"></i> Novo Status
+    </a>
+</div>
+
+<!-- Filtros e Busca -->
+<div class="card card-dashboard mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end" id="statusFilters">
+            <div class="col-md-4">
+                <label class="form-label">Buscar</label>
+                <input type="text" name="status" class="form-control" placeholder="Status" value="{{ filters.status }}">
+            </div>
+            <div class="col-md-2">
+                <a href="{% url 'semeq:status_lista' %}" class="btn btn-semeq-secondary w-100">
+                    <i class="bi bi-x-lg me-1"></i> Limpar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabela de Colaboradores -->
+<div class="card card-dashboard">
+    <div class="card-body p-0">
+        {% if status %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for state in status %}
+                    <tr>
+                        <td class="fw-semibold">{{ state.status }}</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'semeq:status_editar' state.pk %}" class="btn btn-outline-primary" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'semeq:status_excluir' state.pk %}" class="btn btn-outline-danger" title="Excluir">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        {% if is_paginated %}
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center">
+            <span class="text-muted small">
+                Mostrando {{ status.start_index }} a {{ status.end_index }} de {{ paginator.count }} status
+            </span>
+            <nav aria-label="Paginação">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?status={{ filters.status }}&page=1">&laquo; Primeira</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?status={{ filters.status }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?status={{ filters.status }}&page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?status={{ filters.status }}&page={{ page_obj.next_page_number }}">Próxima</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?status={{ filters.status }}&page={{ paginator.num_pages }}">Última &raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-list-check fs-1 text-muted mb-3"></i>
+            <h5 class="text-muted">Nenhum status encontrado</h5>
+            <a href="{% url 'semeq:status_novo' %}" class="btn btn-semeq-primary mt-2">
+                <i class="bi bi-plus-lg me-1"></i> Criar primeiro status
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-submit filter form on typing (with debounce)
+let filterTimeoutStatus;
+document.querySelectorAll('#statusFilters input').forEach(el => {
+    const event = 'input';
+    el.addEventListener(event, function() {
+        clearTimeout(filterTimeoutStatus);
+        filterTimeoutStatus = setTimeout(() => {
+            document.getElementById('statusFilters').submit();
+        }, 350);
+    });
+});
+</script>
+{% endblock %}

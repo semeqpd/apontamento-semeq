@@ -75,4 +75,8 @@ urlpatterns = [
     path('senha/redefinir/<uidb64>/<token>/', views.SemeqPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('senha/redefinido/', views.SemeqPasswordResetCompleteView.as_view(), name='password_reset_complete'),
 
+    path('status/', views.StatusListView.as_view(), name='status_lista'),
+    path('status/novo/', views.StatusCreateView.as_view(), name='status_novo'),
+    path('status/<int:pk>/editar/', views.StatusUpdateView.as_view(), name='status_editar'),
+    path('status/<int:pk>/excluir/', views.StatusDeleteView.as_view(), name='status_excluir'),
 ]

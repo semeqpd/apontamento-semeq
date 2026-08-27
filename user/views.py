@@ -15,11 +15,12 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.core.exceptions import PermissionDenied
 from datetime import date, timedelta, datetime
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, Status
 from .forms import (
     ClienteForm, ClienteImportForm,
     UsuarioForm, ApontamentoForm, UsuarioUpdateForm,
-    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm
+    PublicRegistrationForm, SemeqPasswordResetForm, 
+    EquipamentoForm, StatusForm
     )
 from .throttle import rate_limit
 import csv
@@ -1575,4 +1576,60 @@ class EquipamentoDeleteView(EquipamentoPermissionMixin, DeleteView):
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Equipamento excluído com sucesso!')
+        return super().delete(request, *args, **kwargs)
+
+class StatusListView(LoginRequiredMixin, ListView):
+    model = Equipamento
+    template_name = 'status/lista.html'
+    context_object_name = 'status'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Status.objects.all()
+        filters = {
+            'status': self.request.GET.get('status', '').strip(),
+        }
+        if filters['status']:
+            qs = qs.filter(status__icontains=filters['status'])
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filters'] = {
+            'status': self.request.GET.get('status', ''),
+        }
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        context['filter_params'] = params.urlencode()
+        return context
+
+class StatusCreateView(LoginRequiredMixin, CreateView):
+    model = Status
+    form_class = StatusForm
+    template_name = 'status/form.html'
+    success_url = reverse_lazy('semeq:status_lista')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Status criado com sucesso!')
+        return super().form_valid(form)
+
+class StatusUpdateView(LoginRequiredMixin, UpdateView):
+    model = Status
+    form_class = StatusForm
+    template_name = 'status/form.html'
+    success_url = reverse_lazy('semeq:status_lista')
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Status atualizado com sucesso!')
+        return super().form_valid(form)
+
+
+class StatusDeleteView(LoginRequiredMixin, DeleteView):
+    model = Status
+    template_name = 'status/confirm_delete.html'
+    success_url = reverse_lazy('semeq:status_lista')
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'Status excluído com sucesso!')
         return super().delete(request, *args, **kwargs)
