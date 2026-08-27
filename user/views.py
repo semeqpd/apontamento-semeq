@@ -934,7 +934,7 @@ class ClienteImportView(ClientePermissionMixin, View):
         """Map row values by header name (case-insensitive)"""
         row_dict = {}
         header_lower = {h.lower(): i for i, h in enumerate(headers)}
-        for key in ['corporation_id', 'corporation', 'plant_id', 'plant', 'zone']:
+        for key in ['corporation', 'plant', 'zone']:
             idx = header_lower.get(key.lower())
             row_dict[key] = row[idx] if idx is not None and idx < len(row) else ''
         return row_dict
@@ -959,25 +959,18 @@ class ClienteImportView(ClientePermissionMixin, View):
             
             for i, row_data in enumerate(rows, start=2):
                 try:
-                    corp_id = row_data.get('corporation_id', '')
                     corp = self._fix_encoding(row_data.get('corporation', ''))
-                    plant_id = row_data.get('plant_id', '')
                     plant = self._fix_encoding(row_data.get('plant', ''))
                     zone = self._fix_encoding(row_data.get('zone', ''))
                     
-                    if not corp_id or not plant_id:
-                        erros.append(f'Linha {i}: corporation_id e plant_id são obrigatórios')
+                    if not corp or not plant or not zone:
+                        erros.append(f'Linha {i}: Corporação e Planta e Zona são obrigatórios')
                         continue
                     
                     obj, created = Cliente.objects.update_or_create(
-                        corporation_id=corp_id,
-                        plant_id=plant_id,
-                        defaults={
-                            'corporation': corp,
-                            'plant': plant,     
-                            'zone': zone,
-
-                        }
+                        corporation=corp,
+                        plant=plant,
+                        zone=zone
                     )
                     if created:
                         criados += 1
@@ -1042,12 +1035,12 @@ class ClienteExportView(ClientePermissionMixin, View):
         
         writer = csv.writer(response, delimiter=';')
         writer.writerow([
-            'CORPORATION_ID', 'CORPORATION', 'PLANT_ID', 'PLANT', 'ZONE'
+            'corporation', 'plant', 'zone'
         ])
         
         for c in qs:
             writer.writerow([
-                c.corporation_id, c.corporation, c.plant_id, c.plant, c.zone
+                c.corporation, c.plant, c.zone
             ])
         return response
 
@@ -1064,25 +1057,19 @@ class ClienteFilterOptionsView(ClientePermissionMixin, View):
         
         if field == 'corporacoes':
             # All corporations
-            data = list(qs.values('corporation_id', 'corporation').distinct().order_by('corporation'))
+            data = list(qs.values('corporation').distinct().order_by('corporation'))
             return JsonResponse({'options': data})
         
         elif field == 'plantas':
             # Plants, optionally filtered by corporation_id
             if parent_field == 'corporation_id' and parent_value:
                 qs = qs.filter(corporation_id=parent_value)
-            data = list(qs.values('plant_id', 'plant').distinct().order_by('plant')[:200])
+            data = list(qs.values('plant').distinct().order_by('plant')[:200])
             return JsonResponse({'options': data})
-        
-        elif field == 'cidades':
-            return JsonResponse({'options': []})
-
-        elif field in ('estados', 'paises', 'regioes', 'negocios'):
-            return JsonResponse({'options': []})
-        
+     
         # Default: return all
-        corporacoes = list(qs.values('corporation_id', 'corporation').distinct().order_by('corporation'))
-        plantas = list(qs.values('plant_id', 'plant').distinct().order_by('plant')[:100])
+        corporacoes = list(qs.values('corporation').distinct().order_by('corporation'))
+        plantas = list(qs.values('plant').distinct().order_by('plant')[:100])
         return JsonResponse({'corporacoes': corporacoes, 'plantas': plantas})
 
 
@@ -1154,7 +1141,7 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
                 Q(plant_id__icontains=q)
             )
         # Retornar formato esperado pelo TomSelect: value e text
-        data = list(qs.values('pk', 'corporation_id', 'corporation', 'plant_id', 'plant')[:50])
+        data = list(qs.values('pk', 'corporation', 'plant')[:50])
         results = []
         for item in data:
             value = str(item['pk'])
@@ -1162,9 +1149,7 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
             results.append({
                 'value': value,
                 'text': text,
-                'corporation_id': item['corporation_id'],
                 'corporation': item['corporation'],
-                'plant_id': item['plant_id'],
                 'plant': item['plant'],
             })
         return JsonResponse({'results': results}, json_dumps_params={'ensure_ascii': False})
@@ -1182,10 +1167,7 @@ class ClienteBuscaView(LoginRequiredMixin, View):
         if q:
             qs = qs.filter(
                 Q(corporation__icontains=q) |
-                Q(plant__icontains=q) |
-                Q(corporation_id__icontains=q) |
-                Q(plant_id__icontains=q) |
-                Q(city__icontains=q)
+                Q(plant__icontains=q) 
             )
         # Mais resultados no foco vazio (navegação), menos na busca filtrada
         limit = 30 if not q else 10

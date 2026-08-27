@@ -6,7 +6,7 @@ import re
 MODEL_FIELDS = {
     Cliente: ['corporation', 'corporation_id', 'plant', 'plant_id', 'unat', 'city',
               'state_province', 'country', 'region', 'business', 'zone'],
-    Equipamento: ['numero_serie', 'modelo', 'descricao', 'tipo'],
+    Equipamento: ['modelo', 'descricao', 'tipo'],
     Apontamento: ['projeto', 'solicitante', 'ticket', 'descricao'],
 }
 
