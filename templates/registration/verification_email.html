@@ -1,0 +1,17 @@
+{% load i18n %}{% autoescape off %}
+Olá {{ user.first_name }},
+
+Obrigado por se cadastrar no Portal SEMEQ!
+
+Para ativar sua conta, clique no link abaixo:
+
+{{ verification_url }}
+
+Este link expira em 24 horas.
+
+Se você não solicitou este cadastro, ignore este email.
+
+---
+Equipe SEMEQ
+Portal de Suporte
+{% endautoescape %}

@@ -1,8 +1,9 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, PasswordResetForm
+from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, AuthenticationForm
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
+from django.conf import settings
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken
 
 
 class EquipamentoForm(forms.ModelForm):
@@ -126,9 +127,8 @@ class UsuarioForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email']
+        fields = ['first_name', 'last_name', 'email']
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: joao.silva'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: João'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Silva'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Ex: joao@empresa.com'}),
@@ -140,12 +140,6 @@ class UsuarioForm(forms.ModelForm):
         if user and not user.is_superuser:
             # Non-admin cannot create admin users
             self.fields['role'].choices = [c for c in PerfilUsuario.ROLE_CHOICES if c[0] != 'admin']
-
-    def clean_username(self):
-        username = self.cleaned_data['username'].strip().lower()
-        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
-            raise ValidationError('Este nome de usuário já está em uso.')
-        return username
 
     def clean_email(self):
         email = self.cleaned_data['email'].strip().lower()
@@ -167,6 +161,18 @@ class UsuarioForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        # Gerar username único a partir do email
+        email = self.cleaned_data['email']
+        base_username = email.split('@')[0].lower()
+        base_username = ''.join(c for c in base_username if c.isalnum() or c in '._-')
+        
+        username = base_username
+        counter = 1
+        while User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+        
+        user.username = username
         user.set_password(self.cleaned_data['password'])
         if commit:
             user.save()
@@ -206,9 +212,8 @@ class UsuarioUpdateForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_active']
+        fields = ['first_name', 'last_name', 'email', 'is_active']
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
@@ -243,6 +248,12 @@ class UsuarioUpdateForm(forms.ModelForm):
         if self.request_user and self.request_user == self.instance:
             self.fields['role'].disabled = True
             self.fields['is_active'].disabled = True
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise ValidationError('Este e-mail já está cadastrado.')
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -431,10 +442,52 @@ class ApontamentoForm(forms.ModelForm):
         return cleaned_data
 
 
+class EmailLoginForm(AuthenticationForm):
+    """
+    Form de login usando email em vez de username.
+    Compatível com EmailBackend.
+    """
+    username = forms.EmailField(
+        label='Email',
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'seu@email.com',
+            'autocomplete': 'email'
+        })
+    )
+    password = forms.CharField(
+        label='Senha',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Sua senha',
+            'autocomplete': 'current-password'
+        })
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove o help_text padrão do Django
+        self.fields['password'].help_text = ''
+
+    def confirm_login_allowed(self, user):
+        """Verifica se o usuário pode fazer login (is_active + perfil.ativo)."""
+        if not user.is_active:
+            raise ValidationError(
+                'Esta conta está inativa.',
+                code='inactive',
+            )
+        # Verifica perfil ativo
+        if hasattr(user, 'perfil') and not user.perfil.ativo:
+            raise ValidationError(
+                'Este usuário está inativo no sistema.',
+                code='inactive_profile',
+            )
+
+
 class PublicRegistrationForm(UserCreationForm):
     email = forms.EmailField(
         required=True,
-        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'seu@email.com'})
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'seu@semeq.com'})
     )
     first_name = forms.CharField(
         max_length=30,
@@ -454,36 +507,57 @@ class PublicRegistrationForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2']
-        widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome de usuário'}),
-        }
+        fields = ['first_name', 'last_name', 'email', 'password1', 'password2']
+        widgets = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['password1'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Senha'})
+        self.fields['password1'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Senha (mín. 8 caracteres)'})
         self.fields['password2'].widget.attrs.update({'class': 'form-control', 'placeholder': 'Confirmar senha'})
 
     def clean_email(self):
         email = self.cleaned_data['email'].strip().lower()
         if User.objects.filter(email__iexact=email).exists():
             raise ValidationError('Este e-mail já está cadastrado.')
+        
+        # Validar domínio permitido
+        domain = email.split('@')[-1].lower()
+        allowed_domains = getattr(settings, 'ALLOWED_EMAIL_DOMAINS', ['semeq.com'])
+        if domain not in allowed_domains:
+            raise ValidationError(
+                f'Email não permitido. Domínios aceitos: {", ".join(allowed_domains)}'
+            )
         return email
 
     def save(self, commit=True):
+        # Gerar username único baseado no email
+        email = self.cleaned_data['email']
+        base_username = email.split('@')[0].lower()
+        base_username = ''.join(c for c in base_username if c.isalnum() or c in '._-')
+        
+        username = base_username
+        counter = 1
+        while User.objects.filter(username__iexact=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+        
         user = super().save(commit=False)
-        user.email = self.cleaned_data['email']
+        user.username = username
+        user.email = email
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
-        user.is_active = False  # Requires admin approval
+        user.is_active = False  # Requer verificação de email
+        
         if commit:
             user.save()
             PerfilUsuario.objects.create(
                 user=user,
                 role='usuario',
                 telefone=self.cleaned_data['telefone'],
-                ativo=False,  # Inactive until approved
+                ativo=False,  # Inativo até verificação de email
             )
+            # Criar token de verificação
+            EmailVerificationToken.objects.create(user=user)
         return user
 
 
@@ -496,6 +570,18 @@ class SemeqPasswordResetForm(PasswordResetForm):
             'autocomplete': 'email'
         })
     )
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        
+        # Validar domínio permitido
+        domain = email.split('@')[-1].lower()
+        allowed_domains = getattr(settings, 'ALLOWED_EMAIL_DOMAINS', ['semeq.com'])
+        if domain not in allowed_domains:
+            raise ValidationError(
+                f'Email não permitido. Domínios aceitos: {", ".join(allowed_domains)}'
+            )
+        return email
 
     def get_users(self, email):
         """Override to only return active users with perfil ativo"""

@@ -57,19 +57,22 @@ urlpatterns = [
     # DEACTIVATED: path('times/<int:pk>/excluir/', views.TimeDeleteView.as_view(), name='time_excluir'),
 
 
-    # Auth - MANTER ATIVO (necessário para login/logout)
-    path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    # Auth - Login por email
+    path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', views.CustomLogoutView.as_view(next_page='semeq:login'), name='logout'),
     path('senha/alterar/', auth_views.PasswordChangeView.as_view(
         template_name='registration/password_change.html',
         success_url='/'
     ), name='password_change'),
     
-    # Cadastro Público (@semeq.com)
+    # Cadastro Público (domínios permitidos)
     path('cadastro/', views.PublicRegistrationView.as_view(), name='register'),
     path('cadastro/sucesso/', views.PublicRegistrationDoneView.as_view(), name='register_done'),
     
-    # Password Reset (@semeq.com)
+    # Verificação de Email
+    path('verificar-email/<uuid:token>/', views.EmailVerificationView.as_view(), name='email_verificar'),
+    
+    # Password Reset
     path('senha/esqueci/', views.SemeqPasswordResetView.as_view(), name='password_reset'),
     path('senha/esqueci/enviado/', views.SemeqPasswordResetDoneView.as_view(), name='password_reset_done'),
     path('senha/redefinir/<uidb64>/<token>/', views.SemeqPasswordResetConfirmView.as_view(), name='password_reset_confirm'),

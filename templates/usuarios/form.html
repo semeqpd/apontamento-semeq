@@ -18,106 +18,6 @@
                 <div class="section-title">Dados de Acesso</div>
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label class="form-label">{{ form.username.label }} <span class="text-danger">*</span></label>
-                        {{ form.username }}
-                        {% if form.username.errors %}
-                            <div class="text-danger small mt-1">{{ form.username.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.email.label }} <span class="text-danger">*</span></label>
-                        {{ form.email }}
-                        {% if form.email.errors %}
-                            <div class="text-danger small mt-1">{{ form.email.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                {% if not object %}
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6 d-flex flex-column">
-                        <label class="form-label" for="{{ form.password1.id_for_label }}">{{ form.password1.label }} <span class="text-danger">*</span></label>
-                        <div class="password-input-wrapper">
-                            {{ form.password1 }}
-                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password1.id_for_label }}" aria-label="Mostrar/ocultar senha">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
-                        {% if form.password1.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.password1.errors %}
-                                <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="form-text text-nowrap" style="min-height: 18px;">{{ form.password1.help_text }}</div>
-                    </div>
-                    <div class="col-md-6 d-flex flex-column">
-                        <label class="form-label" for="{{ form.password2.id_for_label }}">{{ form.password2.label }} <span class="text-danger">*</span></label>
-                        <div class="password-input-wrapper">
-                            {{ form.password2 }}
-                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password2.id_for_label }}" aria-label="Mostrar/ocultar senha">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
-                        {% if form.password2.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.password2.errors %}
-                                <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="form-text">{{ form.password2.help_text }}</div>
-                    </div>
-                    <div class="col-12">
-                        <div class="password-strength-meter"></div>
-                    </div>
-                </div>
-                {% elif form.password1 %}
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6 d-flex flex-column">
-                        <label class="form-label" for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
-                        <div class="password-input-wrapper">
-                            {{ form.password1 }}
-                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password1.id_for_label }}" aria-label="Mostrar/ocultar senha">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
-                        {% if form.password1.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.password1.errors %}
-                                <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        {% if form.password1.help_text %}
-                            <div class="form-text">{{ form.password1.help_text }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-6 d-flex flex-column">
-                        <label class="form-label" for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
-                        <div class="password-input-wrapper">
-                            {{ form.password2 }}
-                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password2.id_for_label }}" aria-label="Mostrar/ocultar senha">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
-                        {% if form.password2.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.password2.errors %}
-                                <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endif %}
-
-                <hr>
-
-                <div class="section-title">Informações Pessoais</div>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
                         <label class="form-label">{{ form.first_name.label }} <span class="text-danger">*</span></label>
                         {{ form.first_name }}
                         {% if form.first_name.errors %}
@@ -132,6 +32,93 @@
                         {% endif %}
                     </div>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ form.email.label }} <span class="text-danger">*</span></label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">{{ form.email.errors }}</div>
+                    {% endif %}
+                </div>
+
+                {% if not object %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }} <span class="text-danger">*</span></label>
+                        <div class="password-input-wrapper">
+                            {{ form.password }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text text-nowrap" style="min-height: 18px;">{{ form.password.help_text }}</div>
+                    </div>
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }} <span class="text-danger">*</span></label>
+                        <div class="password-input-wrapper">
+                            {{ form.password_confirm }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password_confirm.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password_confirm.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password_confirm.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">{{ form.password_confirm.help_text }}</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="password-strength-meter"></div>
+                    </div>
+                </div>
+                {% elif form.password %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                        <div class="password-input-wrapper">
+                            {{ form.password }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if form.password.help_text %}
+                            <div class="form-text">{{ form.password.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }}</label>
+                        <div class="password-input-wrapper">
+                            {{ form.password_confirm }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password_confirm.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password_confirm.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password_confirm.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
 
                 <hr>
 
@@ -181,8 +168,8 @@
 <script>
 // Verificação de força de senha em tempo real
 document.addEventListener('DOMContentLoaded', function() {
-    const pwd1 = document.getElementById('id_password1');
-    const pwd2 = document.getElementById('id_password2');
+    const pwd1 = document.getElementById('id_password');
+    const pwd2 = document.getElementById('id_password_confirm');
     const meterContainer = document.querySelector('.password-strength-meter');
 
     if (!pwd1 || !meterContainer) return;
@@ -241,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.setCustomValidity('');
             }
         });
-    }
+    });
 });
 </script>
 {% endblock %}

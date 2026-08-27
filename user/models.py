@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from datetime import timedelta, time
+from django.utils import timezone
+import uuid
 
 
 class PerfilUsuario(models.Model):
@@ -25,6 +27,9 @@ class PerfilUsuario(models.Model):
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
     last_password_change = models.DateTimeField(null=True, blank=True, verbose_name="Última alteração de senha")
+    # Email verification fields
+    email_verificado = models.BooleanField(default=False, verbose_name="Email verificado")
+    email_verificado_em = models.DateTimeField(null=True, blank=True, verbose_name="Email verificado em")
 
     def is_admin(self):
         return self.role == 'admin' or self.user.is_superuser
@@ -75,6 +80,37 @@ class PerfilUsuario(models.Model):
     class Meta:
         verbose_name = "Perfil de Usuário"
         verbose_name_plural = "Perfis de Usuários"
+
+
+class EmailVerificationToken(models.Model):
+    """Token para verificação de email no cadastro."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='email_verification_token')
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    expira_em = models.DateTimeField()
+    usado = models.BooleanField(default=False)
+    usado_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Token de Verificação de Email"
+        verbose_name_plural = "Tokens de Verificação de Email"
+
+    def save(self, *args, **kwargs):
+        if not self.expira_em:
+            self.expira_em = timezone.now() + timedelta(hours=24)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        """Verifica se o token é válido (não expirado, não usado)."""
+        return not self.usado and timezone.now() < self.expira_em
+
+    def mark_used(self):
+        self.usado = True
+        self.usado_em = timezone.now()
+        self.save(update_fields=['usado', 'usado_em'])
+
+    def __str__(self):
+        return f"Token para {self.user.email} (expira: {self.expira_em})"
 
 
 class Time(models.Model):

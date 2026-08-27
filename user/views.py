@@ -4,7 +4,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.contrib.auth.views import LogoutView
+from django.contrib.auth.views import LogoutView, LoginView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.contrib.auth import views as auth_views
 from django.contrib import messages
 from django.urls import reverse_lazy
@@ -14,12 +14,15 @@ from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.core.exceptions import PermissionDenied
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.conf import settings
 from datetime import date, timedelta, datetime
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken
 from .forms import (
     ClienteForm, ClienteImportForm,
     UsuarioForm, ApontamentoForm, UsuarioUpdateForm,
-    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm
+    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm, EmailLoginForm
     )
 from .throttle import rate_limit
 import csv
@@ -28,7 +31,9 @@ from io import BytesIO
 
 
 def HomeView(request):
-    return render(request, 'home/home.html')
+    if request.user.is_authenticated:
+        return redirect('semeq:dashboard')
+    return redirect('semeq:login')
 
 
 class DashboardView(LoginRequiredMixin, View):
@@ -1498,11 +1503,43 @@ class ConfiguracoesTemaView(LoginRequiredMixin, View):
 
 
 # =====================================================================
-# PUBLIC REGISTRATION & PASSWORD RESET (apenas @semeq.com)
+# PUBLIC REGISTRATION & PASSWORD RESET (apenas domínios permitidos)
 # =====================================================================
 
+def _send_verification_email(request, user):
+    """Envia email de verificação para o usuário."""
+    try:
+        token_obj = user.email_verification_token
+        verification_url = request.build_absolute_uri(
+            reverse_lazy('semeq:email_verificar', kwargs={'token': token_obj.token})
+        )
+        
+        subject = 'Verifique seu email - Portal SEMEQ'
+        message = render_to_string('registration/verification_email.html', {
+            'user': user,
+            'verification_url': verification_url,
+            'expira_em': token_obj.expira_em,
+        })
+        
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+            html_message=message,
+        )
+        return True
+    except Exception as e:
+        # Log error but don't fail the request
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Erro ao enviar email de verificação para {user.email}: {e}")
+        return False
+
+
 class PublicRegistrationView(CreateView):
-    """Cadastro público - apenas emails @semeq.com"""
+    """Cadastro público - apenas emails de domínios permitidos"""
     form_class = PublicRegistrationForm
     template_name = 'registration/register.html'
     success_url = reverse_lazy('semeq:register_done')
@@ -1515,18 +1552,78 @@ class PublicRegistrationView(CreateView):
         return super().dispatch(request, *args, **kwargs)
     
     def form_valid(self, form):
-        messages.success(self.request, 'Cadastro realizado com sucesso! Faça login para acessar.')
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        # Enviar email de verificação
+        _send_verification_email(self.request, self.object)
+        messages.success(self.request, 'Cadastro realizado! Verifique seu email para ativar a conta.')
+        return response
 
 
 class PublicRegistrationDoneView(View):
-    """Página de sucesso após cadastro"""
+    """Página de sucesso após cadastro - instrui verificar email"""
     def get(self, request):
         return render(request, 'registration/register_done.html')
 
 
-# Password Reset Views usando formulário customizado @semeq.com
-class SemeqPasswordResetView(auth_views.PasswordResetView):
+class EmailVerificationView(View):
+    """Verifica o token de email e ativa a conta."""
+    
+    def get(self, request, token):
+        try:
+            token_obj = EmailVerificationToken.objects.select_related('user', 'user__perfil').get(token=token)
+        except EmailVerificationToken.DoesNotExist:
+            messages.error(request, 'Token de verificação inválido.')
+            return render(request, 'registration/email_verified.html', {
+                'success': False,
+                'message': 'Token de verificação inválido ou expirado.'
+            })
+        
+        if not token_obj.is_valid():
+            messages.error(request, 'Token de verificação expirado ou já utilizado.')
+            return render(request, 'registration/email_verified.html', {
+                'success': False,
+                'message': 'Token de verificação expirado ou já utilizado.'
+            })
+        
+        # Token válido - ativar usuário
+        user = token_obj.user
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        
+        # Ativar perfil e marcar email como verificado
+        perfil = user.perfil
+        perfil.ativo = True
+        perfil.email_verificado = True
+        perfil.email_verificado_em = timezone.now()
+        perfil.save(update_fields=['ativo', 'email_verificado', 'email_verificado_em'])
+        
+        # Marcar token como usado
+        token_obj.mark_used()
+        
+        messages.success(request, 'Email verificado com sucesso! Sua conta está ativa.')
+        return render(request, 'registration/email_verified.html', {
+            'success': True,
+            'message': 'Sua conta foi ativada com sucesso. Você já pode fazer login.'
+        })
+
+
+class CustomLoginView(LoginView):
+    """Login customizado usando email."""
+    form_class = EmailLoginForm
+    template_name = 'registration/login.html'
+    redirect_authenticated_user = True
+    
+    @method_decorator(rate_limit(rate='10/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+    
+    def form_invalid(self, form):
+        messages.error(self.request, 'Email ou senha inválidos.')
+        return super().form_invalid(form)
+
+
+# Password Reset Views usando formulário customizado
+class SemeqPasswordResetView(PasswordResetView):
     form_class = SemeqPasswordResetForm
     template_name = 'registration/password_reset.html'
     email_template_name = 'registration/password_reset_email.html'
@@ -1538,11 +1635,11 @@ class SemeqPasswordResetView(auth_views.PasswordResetView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class SemeqPasswordResetDoneView(auth_views.PasswordResetDoneView):
+class SemeqPasswordResetDoneView(PasswordResetDoneView):
     template_name = 'registration/password_reset_done.html'
 
 
-class SemeqPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
+class SemeqPasswordResetConfirmView(PasswordResetConfirmView):
     template_name = 'registration/password_reset_confirm.html'
     success_url = reverse_lazy('semeq:password_reset_complete')
     
@@ -1551,7 +1648,7 @@ class SemeqPasswordResetConfirmView(auth_views.PasswordResetConfirmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class SemeqPasswordResetCompleteView(auth_views.PasswordResetCompleteView):
+class SemeqPasswordResetCompleteView(PasswordResetCompleteView):
     template_name = 'registration/password_reset_complete.html'
 
 

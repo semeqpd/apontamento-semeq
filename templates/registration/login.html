@@ -137,6 +137,22 @@
             box-shadow: 0 4px 12px rgba(10, 16, 51, 0.15);
         }
 
+        .btn-semeq-outline {
+            border: 1px solid var(--semeq-navy);
+            color: var(--semeq-navy);
+            font-weight: 600;
+            padding: 0.7rem 1.5rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            width: 100%;
+            background: transparent;
+        }
+
+        .btn-semeq-outline:hover {
+            background-color: var(--semeq-navy);
+            color: #ffffff;
+        }
+
         .login-footer {
             text-align: center;
             margin-top: 1.5rem;
@@ -166,7 +182,8 @@
         }
 
         .password-input-wrapper input[type="password"],
-        .password-input-wrapper input[type="text"] {
+        .password-input-wrapper input[type="text"],
+        .password-input-wrapper input[type="email"] {
           flex: 1 1 auto;
           width: 100%;
           min-width: 0;
@@ -245,7 +262,7 @@
 
                     <div class="mb-3" style="width: 100%; display: flex; flex-direction: column;">
                         <label for="{{ form.username.id_for_label }}" class="form-label">
-                            <i class="bi bi-person me-1"></i> Usuário
+                            <i class="bi bi-envelope me-1"></i> Email
                         </label>
                         {{ form.username }}
                         {% if form.username.errors %}
@@ -273,7 +290,7 @@
                             <input class="form-check-input" type="checkbox" name="remember" id="remember">
                             <label class="form-check-label" for="remember">Lembrar-me</label>
                         </div>
-                        <a href="#" class="small text-decoration-none" style="color: var(--semeq-navy);">Esqueci a senha</a>
+                        <a href="{% url 'semeq:password_reset' %}" class="small text-decoration-none" style="color: var(--semeq-navy);">Esqueci a senha</a>
                     </div>
 
                     <button type="submit" class="btn btn-semeq-primary">
@@ -283,6 +300,9 @@
 
                 <div class="login-footer">
                     <small>Sistema de Gestão de Suporte - SEMEQ</small>
+                    <div class="mt-2">
+                        <a href="{% url 'semeq:register' %}" class="small text-decoration-none" style="color: var(--semeq-navy);">Não tem conta? Cadastre-se</a>
+                    </div>
                 </div>
             </div>
         </div>

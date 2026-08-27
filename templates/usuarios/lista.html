@@ -16,7 +16,7 @@
         <form method="GET" class="row g-3 align-items-end" id="usuarioFilters">
             <div class="col-md-4">
                 <label class="form-label">Buscar</label>
-                <input type="text" name="q" class="form-control" placeholder="Nome, usuário, e-mail..." value="{{ search }}">
+                <input type="text" name="q" class="form-control" placeholder="Nome, e-mail..." value="{{ search }}">
             </div>
             <div class="col-md-3">
                 <label class="form-label">Função</label>
@@ -55,7 +55,7 @@
                     <tr>
                         <th>Colaborador</th>
                         <th>Nome Completo</th>
-                        <th>E-mail</th>
+                        <th>E-mail (Login)</th>
                         <th>Função</th>
                         <th>Time</th>
                         <th>Status</th>
@@ -65,7 +65,7 @@
                 <tbody>
                     {% for user in usuarios %}
                     <tr>
-                        <td class="fw-semibold">{{ user.username }}</td>
+                        <td class="fw-semibold">{{ user.get_full_name|default:user.email }}</td>
                         <td>{{ user.get_full_name|default:"-" }}</td>
                         <td>{{ user.email|default:"-" }}</td>
                         <td>
