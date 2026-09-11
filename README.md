@@ -8,7 +8,6 @@ Sistema web em Django para registro de apontamentos de horas e atendimentos. Per
 - Dashboard com indicadores e filtros por equipe, colaborador, status, prioridade e data.
 - Gestão de clientes (cadastro e importação de Excel/CSV).
 - Gestão de usuários com papéis e times.
-- Tema claro/escuro.
 - Troca rápida de status via dropdown (lista de apontamentos).
 
 ## Como rodar
