@@ -101,7 +101,7 @@
                     </thead>
                     <tbody>
                       {% for a in lista %}
-                      <tr onclick="window.location='{% url 'semeq:apontamento_lista' %}?data_inicio={{ a.data }}&data_fim={{ a.data }}'" style="cursor: pointer;">
+                      <tr onclick="window.location='{% url 'semeq:apontamento_lista' %}?data_inicio={{ a.data|date:'Y-m-d' }}&data_fim={{ a.data|date:'Y-m-d' }}'" style="cursor: pointer;">
                         <td class="fw-semibold text-dark">{{ a.apontamento.ticket|default:"—" }}</td>
                         <td>{{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}</td>
                         <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>

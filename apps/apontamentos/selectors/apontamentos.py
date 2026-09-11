@@ -33,12 +33,11 @@ def get_apontamentos_list_qs(request, perfil: PerfilUsuario | None) -> QuerySet:
 
     status = request.GET.get('status', '').strip()
     if status:
-        qs = qs.filter(apontamento__status__status=status)
-    # No default status exclusion - show all statuses (like Dashboard)
+        qs = qs.filter(apontamento__status_id=status)
 
     prioridade = request.GET.get('prioridade', '').strip()
     if prioridade:
-        qs = qs.filter(apontamento__prioridade__nome=prioridade)
+        qs = qs.filter(apontamento__prioridade_id=prioridade)
 
     # Filtros de data opcionais
     data_inicio = request.GET.get('data_inicio', '').strip()

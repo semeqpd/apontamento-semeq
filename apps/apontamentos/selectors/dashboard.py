@@ -55,9 +55,9 @@ def apply_dashboard_filters(
         qs = qs.filter(data__lte=data_fim)
 
     if status:
-        qs = qs.filter(apontamento__status__status=status)
+        qs = qs.filter(apontamento__status_id=status)
     if prioridade:
-        qs = qs.filter(apontamento__prioridade__nome=prioridade)
+        qs = qs.filter(apontamento__prioridade_id=prioridade)
 
     return qs
 

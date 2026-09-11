@@ -29,11 +29,22 @@
                     </div>
                 </div>
             </div>
+
+            {% block delete_warning %}{% endblock %}
             
             <form method="post">
                 {% csrf_token %}
+                {% if show_delete_apontamentos_checkbox %}
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" name="delete_apontamentos" id="id_delete_apontamentos" required>
+                    <label class="form-check-label text-danger fw-semibold" for="id_delete_apontamentos">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Excluir também os {{ apontamentos_count|default:0 }} apontamento(s) associado(s)
+                    </label>
+                </div>
+                {% endif %}
                 <div class="d-flex gap-2 justify-content-end">
-                    <a href="{% url 'semeq:cadastros_unificada' %}" class="btn btn-outline-secondary">
+                    <a href="{{ request.path }}" class="btn btn-outline-secondary">
                         <i class="bi bi-x-lg me-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-danger">

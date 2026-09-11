@@ -127,9 +127,9 @@
                         <td onclick="event.stopPropagation();">
                             {% if a.apontamento.status %}
                             {% with st=a.apontamento.status id=a.apontamento.pk %}
-                            <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center" 
+                            <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center ps-3 pe-4" 
                                     data-apontamento-id="{{ id }}" 
-                                    style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: auto; min-width: 105px; padding: 3px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer;"
+                                    style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: auto; min-width: 120px; padding-top: 4px; padding-bottom: 4px; border-radius: 4px; cursor: pointer; background-position: right 8px center;"
                                     onclick="event.stopPropagation();">
                                 {% for status_obj in lista_status %}
                                     <option value="{{ status_obj.id }}" 

@@ -596,11 +596,13 @@ class StatusForm(forms.ModelForm):
     class Meta:
         model = Status
         fields = [
-            'status', 'cor'
+            'status', 'cor', 'ordem', 'ativo'
         ]
         widgets = {
             'status': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Concluído'}),
             'cor': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color', 'title': 'Escolha a cor'}),
+            'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
