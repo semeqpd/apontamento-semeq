@@ -49,6 +49,7 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_FILE_PATH = os.environ.get('EMAIL_FILE_PATH', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'SEMEQ <noreply@semeq.com>')
 
 # Application definition
@@ -78,6 +79,19 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# CSP Configuration
+CONTENT_SECURITY_POLICY = {
+    'CONNECT_SRC': ["'self'", 'cdn.jsdelivr.net'],
+    'DEFAULT_SRC': ["'self'"],
+    'SCRIPT_SRC': ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'code.jquery.com'],
+    'STYLE_SRC': ["'self'", "'unsafe-inline'", 'fonts.googleapis.com', 'cdn.jsdelivr.net'],
+    'FONT_SRC': ["'self'", 'fonts.gstatic.com', 'cdn.jsdelivr.net'],
+    'IMG_SRC': ["'self'", 'data:', 'cdn.jsdelivr.net'],
+    'FRAME_ANCESTORS': ["'none'"],
+    'BASE_URI': ["'self'"],
+    'FORM_ACTION': ["'self'"],
+}
+
 ROOT_URLCONF = 'apontamento.urls'
 
 TEMPLATES = [
@@ -92,6 +106,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'user.context_processors.previous_page',
+                'user.context_processors.current_path',
             ],
         },
     },
@@ -116,8 +132,11 @@ if DB_ENGINE == 'postgres':
             'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
             'PORT': os.environ.get('DJANGO_DB_PORT', '5432'),
             'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'client_encoding': 'UTF8',
+                'connect_timeout': 10,
+                'options': '-c statement_timeout=30000',  # 30s query timeout
             },
         }
     }
@@ -126,17 +145,106 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            'CONN_MAX_AGE': 60,
+            'OPTIONS': {
+                'timeout': 20,
+            },
         }
     }
+
+# Default primary key
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'maxBytes': 1024 * 1024 * 10,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'maxBytes': 1024 * 1024 * 5,  # 5MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'filters': ['require_debug_false'],
+            'class': 'django.utils.log.AdminEmailHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['file', 'mail_admins'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['security_file', 'mail_admins'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['file'],
+            'level': 'WARNING' if not DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'axes': {
+            'handlers': ['security_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'user': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
@@ -195,6 +303,11 @@ CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
+# Session security
+SESSION_COOKIE_AGE = 8 * 60 * 60  # 8 horas
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True  # Rotaciona session key a cada request
+
 # HTTPS/HSTS settings (only in production)
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
@@ -210,6 +323,15 @@ else:
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
+
+# CSRF
+CSRF_FAILURE_VIEW = 'user.views.csrf_failure'
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if os.environ.get('CSRF_TRUSTED_ORIGINS') else []
+
+# File upload limits
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 
 # Axes (Rate Limiting) Configuration
 AXES_FAILURE_LIMIT = 5
@@ -279,32 +401,8 @@ STATICFILES_DIRS = [
 # WSGI/ASGI
 WSGI_APPLICATION = 'apontamento.wsgi.application'
 
-# ROOT_URLCONF
-ROOT_URLCONF = 'apontamento.urls'
-
-# Templates
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            os.path.join(BASE_DIR, 'templates')
-        ],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },

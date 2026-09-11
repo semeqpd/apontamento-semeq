@@ -46,10 +46,48 @@
         }
     }
 
+    // Clique no badge de status -> esconde badge e mostra select
+    document.addEventListener('click', function (e) {
+        const badge = e.target.closest('.status-badge');
+        if (badge) {
+            e.stopPropagation();
+            const row = badge.closest('tr');
+            const select = row ? row.querySelector('.status-select') : null;
+            if (select) {
+                badge.classList.add('d-none');
+                select.classList.remove('d-none');
+                select.focus();
+            }
+        }
+    });
+
+    // Impede propagação de clique no select de status (evita abrir detalhes)
+    document.addEventListener('click', function (e) {
+        const select = e.target.closest('.status-select');
+        if (select) {
+            e.stopPropagation();
+        }
+    });
+
+    // Blur no select -> esconde select e mostra badge
+    document.addEventListener('focusout', function (e) {
+        const select = e.target.closest('.status-select');
+        if (select && !select.contains(e.relatedTarget)) {
+            const row = select.closest('tr');
+            const badge = row ? row.querySelector('.status-badge') : null;
+            if (badge) {
+                select.classList.add('d-none');
+                badge.classList.remove('d-none');
+            }
+        }
+    });
+
     // Lida com mudança de status em qualquer .status-select na página
     document.addEventListener('change', function (e) {
         const select = e.target.closest('.status-select');
         if (!select) return;
+        e.stopPropagation(); // Garante que não propague
+        
         const pk = select.getAttribute('data-pk');
         const previous = select.getAttribute('data-prev') || '';
 
@@ -69,15 +107,37 @@
                 select.setAttribute('data-prev', select.value);
                 if (data.success) {
                     showStatusToast(data.message, 'success');
+                    // Atualiza o badge
+                    const row = select.closest('tr');
+                    const badge = row ? row.querySelector('.status-badge') : null;
+                    if (badge) {
+                        const selectedOption = select.options[select.selectedIndex];
+                        badge.textContent = selectedOption.text;
+                        badge.setAttribute('data-status', select.value);
+                        // Nota: cor seria atualizada via reload ou AJAX extra
+                    }
                 } else {
                     select.value = previous || '';
                     showStatusToast(data.message || 'Erro ao atualizar status.', 'danger');
+                }
+                // Esconde select e mostra badge
+                select.classList.add('d-none');
+                const row = select.closest('tr');
+                const badge = row ? row.querySelector('.status-badge') : null;
+                if (badge) {
+                    badge.classList.remove('d-none');
                 }
             })
             .catch(function () {
                 select.disabled = false;
                 select.value = previous || '';
                 showStatusToast('Erro de conexão ao atualizar status.', 'danger');
+                select.classList.add('d-none');
+                const row = select.closest('tr');
+                const badge = row ? row.querySelector('.status-badge') : null;
+                if (badge) {
+                    badge.classList.remove('d-none');
+                }
             });
     });
 })();

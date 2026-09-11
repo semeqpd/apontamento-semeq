@@ -1,0 +1,11 @@
+{% extends 'cadastros/base_lista.html' %}
+
+{% block table_headers %}
+<th>Nome</th>
+<th>Descrição</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ obj.nome }}</td>
+<td>{{ obj.descricao|default:"—"|truncatechars:50 }}</td>
+{% endblock %}

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 from import_export import resources
-from .models import PerfilUsuario, Cliente, Equipamento, Time, Apontamento
+from .models import PerfilUsuario, Cliente, Equipamento, Time, Equipe, Apontamento
 
 
 class ClienteResource(resources.ModelResource):
@@ -26,16 +26,16 @@ class ClienteAdmin(ImportExportModelAdmin):
 class EquipamentoInline(admin.TabularInline):
     model = Equipamento
     extra = 1
-    fields = ('tipo', 'modelo',)
+    fields = ('nome',)
     readonly_fields = ('criado_em',)
 
 
 @admin.register(Equipamento)
 class EquipamentoAdmin(admin.ModelAdmin):
-    list_display = ('tipo', 'modelo', 'criado_em',)
-    list_filter = ('tipo',)
-    search_fields = ('tipo', 'dispositivo', 'modelo',)
-    ordering = ('tipo', 'modelo')
+    list_display = ('nome', 'criado_em',)
+    list_filter = ()
+    search_fields = ('nome', 'descricao',)
+    ordering = ('nome',)
     list_per_page = 25
 
 
@@ -48,21 +48,30 @@ class TimeAdmin(admin.ModelAdmin):
     ordering = ('nome',)
 
 
+@admin.register(Equipe)
+class EquipeAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'ativo', 'ordem', 'criado_em')
+    list_filter = ('ativo',)
+    search_fields = ('nome',)
+    list_editable = ('ativo', 'ordem')
+    ordering = ('ordem', 'nome')
+
+
 @admin.register(PerfilUsuario)
 class PerfilUsuarioAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'time', 'ativo', 'telefone', 'criado_em')
-    list_filter = ('role', 'ativo', 'time')
+    list_display = ('user', 'role', 'equipe', 'ativo', 'telefone', 'criado_em')
+    list_filter = ('role', 'ativo', 'equipe')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'user__email')
-    list_editable = ('role', 'ativo', 'time')
+    list_editable = ('role', 'ativo', 'equipe')
     raw_id_fields = ('user',)
 
 
 @admin.register(Apontamento)
 class ApontamentoAdmin(admin.ModelAdmin):
-    list_display = ('ticket', 'cliente', 'responsavel', 'equipe', 'status', 'data', 'criado_em')
-    list_filter = ('status', 'equipe', 'atividade', 'tipo_problema', 'prioridade', 'data', 'cliente')
-    search_fields = ('ticket', 'projeto', 'solicitante', 'responsavel__username', 'cliente__corporation')
-    date_hierarchy = 'data'
-    ordering = ('-data', '-hora_inicial')
+    list_display = ('id', 'cliente', 'responsavel', 'equipe', 'status', 'data_inicial', 'criado_em')
+    list_filter = ('status', 'equipe', 'atividade', 'tipo_problema', 'prioridade', 'data_inicial', 'cliente')
+    search_fields = ('projeto', 'solicitante', 'responsavel__username', 'cliente__corporation')
+    date_hierarchy = 'data_inicial'
+    ordering = ('-data_inicial', '-data_final')
     list_per_page = 25
     raw_id_fields = ('cliente', 'equipamento', 'responsavel', 'criado_por')

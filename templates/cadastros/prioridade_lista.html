@@ -1,0 +1,24 @@
+{% extends 'cadastros/base_lista.html' %}
+
+{% block table_headers %}
+<th>Nome</th>
+<th>Ordem</th>
+<th>Cor</th>
+<th>Ativo</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ obj.nome }}</td>
+<td>{{ obj.ordem }}</td>
+<td>
+    <span style="display:inline-block; width:20px; height:20px; background-color:{{ obj.cor }}; border:1px solid #ddd; border-radius:4px;"></span>
+    {{ obj.cor }}
+</td>
+<td>
+    {% if obj.ativo %}
+    <span class="badge bg-success">Sim</span>
+    {% else %}
+    <span class="badge bg-secondary">Não</span>
+    {% endif %}
+</td>
+{% endblock %}

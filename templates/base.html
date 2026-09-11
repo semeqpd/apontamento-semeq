@@ -846,31 +846,9 @@
                     <a href="{% url 'semeq:apontamento_lista' %}" class="{% if request.resolver_match.url_name == 'apontamento_lista' %}active{% endif %}">
                         <i class="bi bi-journal-text"></i> Apontamentos
                     </a>
-                    {% if request.user.is_superuser or request.user.perfil.is_gestor_or_above %}
-                    <a href="{% url 'semeq:cliente_lista' %}" class="{% if request.resolver_match.url_name == 'cliente_lista' %}active{% endif %}">
-                        <i class="bi bi-building"></i> Clientes
+                    <a href="{% url 'semeq:cadastros_unificada' %}" class="{% if request.resolver_match.url_name == 'cadastros_unificada' %}active{% endif %}">
+                        <i class="bi bi-grid-3x3-gap"></i> Cadastros
                     </a>
-                    {% endif %}
-                     <a href="{% url 'semeq:status_lista' %}" class="{% if request.resolver_match.url_name == 'status_lista' %}active{% endif %}">
-                        <i class="bi bi-building"></i> Status
-                    </a>
-                    <!-- DESATIVADO (modo construção): Equipamentos
-                    {% if request.user.is_superuser or request.user.perfil.is_lider_or_above %}
-                    <a href="#" class="{% if request.resolver_match.url_name == 'equipamento_lista' %}active{% endif %}">
-                        <i class="bi bi-box-seam"></i> Equipamentos
-                    </a>
-                    {% endif %}
-                    -->
-                    {% if request.user.is_superuser or request.user.perfil.can_manage_users %}
-                    <a href="{% url 'semeq:usuario_lista' %}" class="{% if request.resolver_match.url_name == 'usuario_lista' %}active{% endif %}">
-                        <i class="bi bi-people"></i> Usuários
-                    </a>
-                    {% endif %}
-                    {% if request.user.is_superuser or request.user.perfil.can_manage_users %}
-                    <a href="{% url 'semeq:equipamento_lista' %}" class="{% if request.resolver_match.url_name == 'equipamento_lista' %}active{% endif %}">
-                        <i class="bi bi-gear"></i> Equipamentos
-                    </a>
-                    {% endif %}
                     <a href="{% url 'semeq:configuracoes' %}" class="{% if request.resolver_match.url_name == 'configuracoes' %}active{% endif %}">
                         <i class="bi bi-gear"></i> Configurações
                     </a>

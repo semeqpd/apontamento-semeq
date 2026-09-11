@@ -8,28 +8,9 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i> Apontamentos</h4>
-        <div class="d-flex gap-2">
-            <div class="btn-group">
-                <button type="button" class="btn btn-semeq-outline dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-download me-1"></i> Exportar
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <a class="dropdown-item" href="{% url 'semeq:apontamento_exportar' %}?formato=csv&q={{ search }}&status={{ status_filter }}&prioridade={{ prioridade_filter }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}{% if usuario_filter %}&usuario={{ usuario_filter }}{% endif %}{% if time_filter %}&time={{ time_filter }}{% endif %}">
-                            <i class="bi bi-filetype-csv me-2"></i> CSV
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="{% url 'semeq:apontamento_exportar' %}?formato=xlsx&q={{ search }}&status={{ status_filter }}&prioridade={{ prioridade_filter }}&data_inicio={{ data_inicio }}&data_fim={{ data_fim }}{% if usuario_filter %}&usuario={{ usuario_filter }}{% endif %}{% if time_filter %}&time={{ time_filter }}{% endif %}">
-                            <i class="bi bi-filetype-xlsx me-2"></i> Excel (XLSX)
-                        </a>
-                    </li>
-                </ul>
-            </div>
-            <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
-                <i class="bi bi-plus-lg me-1"></i> Novo Apontamento
-            </a>
-        </div>
+        <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
+            <i class="bi bi-plus-lg me-1"></i> Novo Apontamento
+        </a>
     </div>
 
     <!-- Filtros -->
@@ -38,7 +19,7 @@
             <form method="get" class="row g-3" id="apontamentoFilters">
                 <div class="col-md-3">
                     <label class="form-label">Buscar</label>
-                    <input type="text" name="q" class="form-control" value="{{ search }}" placeholder="Ticket, Projeto, Solicitante, Cliente...">
+                    <input type="text" name="ticket" class="form-control" value="{{ ticket_filter }}" placeholder="Ticket">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Status</label>
@@ -97,88 +78,110 @@
         </div>
     </div>
 
-    <!-- Tabela -->
-    <div class="card card-dashboard">
-        <div class="card-body p-0">
+    <!-- Lista de Apontamentos (estilo Dashboard: cards por dia) -->
+    <div class="row">
+        <div class="col-md-12">
             {% if apontamentos_por_data %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="apontamentosTable">
+            {% for data, aps in apontamentos_por_data.items %}
+            <div class="card card-dashboard mb-4 shadow-sm{% if not forloop.first %} border-top{% endif %}" style="{% if not forloop.first %}border-top-width: 3px; border-top-color: #dee2e6;{% endif %}">
+              <!-- Cabeçalho do Dia -->
+              <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar3 me-2"></i>{{ data|date:"l, d/m/Y" }}</h6>
+              </div>
+              
+              <!-- Tabela das Tarefas do Dia -->
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
-                        <tr>
-                            <th>Horário / Duração</th>
-                            <th>Ticket</th>
-                            <th>Cliente</th>
-                            <th>Responsável</th>
-                            <th>Projeto</th>
-                            <th>Solicitante</th>
-                            <!-- <th>Equipamento</th> -->
-                            <th>Prioridade</th>
-                            <th>Status</th>
-                            <th class="text-end">Ações</th>
-                        </tr>
+                      <tr>
+                        <th>TICKET</th>
+                        <th>CLIENTE</th>
+                        <th>RESPONSÁVEL</th>
+                        <th>PROJETO</th>
+                        <th>SOLICITANTE</th>
+                        <th>PRIORIDADE</th>
+                        <th>DURAÇÃO</th>
+                        <th>STATUS</th>
+                        <th class="text-end">AÇÕES</th>
+                      </tr>
                     </thead>
                     <tbody>
-                        {% for data, aps in apontamentos_por_data.items %}
-                        <tr class="table-group-divider">
-                            <td colspan="10" class="bg-light fw-semibold">
-                                <i class="bi bi-calendar3 me-2"></i> Apontamentos do Dia: {{ data|date:"d/m/Y" }}
-                            </td>
-                        </tr>
-                        {% for a in aps %}
-                        <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.pk %}'" style="cursor: pointer;">
-                            <td class="text-nowrap text-primary fw-medium">
-                                {{ a.hora_inicial|time:"H:i" }} - {{ a.hora_final|time:"H:i" }} <span class="text-muted">({{ a.tempo_total|duration_minutes }} min)</span>
-                            </td>
-                            <td class="fw-semibold text-dark">{{ a.ticket }}</td>
-                            <td>{{ a.cliente.corporation }} - {{ a.cliente.plant }}</td>
-                            <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
-                            <td>{{ a.projeto|truncatechars:30 }}</td>
-                            <td>{{ a.solicitante }}</td>
-                            <!--<td>{{ a.equipamento|default:"—" }}</td>-->
-                            <td>
-                                {% if a.prioridade == 'critica' %}
-                                <span class="badge bg-danger">{{ a.get_prioridade_display }}</span>
-                                {% elif a.prioridade == 'alta' %}
-                                <span class="badge bg-warning text-dark">{{ a.get_prioridade_display }}</span>
-                                {% elif a.prioridade == 'media' %}
-                                <span class="badge bg-info text-dark">{{ a.get_prioridade_display }}</span>
-                                {% else %}
-                                <span class="badge bg-secondary">{{ a.get_prioridade_display }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <select class="form-select form-select-sm status-select" data-pk="{{ a.pk }}" onclick="event.stopPropagation()" title="Alterar status" style="min-width:130px;">
-                                    {% for value, label in status_choices %}
-                                    <option value="{{ value }}" {% if a.status == value %}selected{% endif %}>{{ label }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td class="text-end">
-                                <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir"
-                                        data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento"
-                                        data-pk="{{ a.pk }}" onclick="event.stopPropagation()">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        <tr class="table-secondary">
-                            <td colspan="10">
-                                <small class="fw-medium">Total do dia: {{ totais_por_data|get_item:data|default:0 }} min</small>
-                            </td>
-                        </tr>
-                        {% endfor %}
+                      {% for a in aps %}
+                      <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.apontamento.pk %}'" style="cursor: pointer;">
+                        <td class="fw-semibold text-dark">{{ a.apontamento.ticket|default:"—" }}</td>
+                        <td>{{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}</td>
+                        <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
+                        <td>{{ a.apontamento.projeto|truncatechars:30|default:"—" }}</td>
+                        <td>{{ a.apontamento.solicitante|default:"—" }}</td>
+                        <td>
+                            {% if a.apontamento.prioridade %}
+                            <span class="badge" style="background-color: {{ a.apontamento.prioridade.cor }}; color: {{ a.apontamento.prioridade.cor|contrast_color }};">
+                                {{ a.apontamento.prioridade.nome }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-medium text-primary text-nowrap">{{ a.apontamento.tempo_investido_minutos|default:a.get_tempo_exibicao_minutos }} min</td>
+                        <td onclick="event.stopPropagation();">
+                            {% if a.apontamento.status %}
+                            {% with st=a.apontamento.status id=a.apontamento.pk %}
+                            <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center" 
+                                    data-apontamento-id="{{ id }}" 
+                                    style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: auto; min-width: 105px; padding: 3px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer;"
+                                    onclick="event.stopPropagation();">
+                                {% for status_obj in lista_status %}
+                                    <option value="{{ status_obj.id }}" 
+                                            data-cor="{{ status_obj.cor }}" 
+                                            {% if st.id == status_obj.id %}selected{% endif %} 
+                                            style="background-color: #fff; color: #333;">
+                                        {{ status_obj.status }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% endwith %}
+                            {% else %}
+                            <span class="badge bg-secondary">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-outline-primary btn-sm me-1" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir"
+                                    data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento"
+                                    data-pk="{{ a.pk }}"
+                                    data-apontamento-pk="{{ a.apontamento.pk }}"
+                                    onclick="event.stopPropagation()">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                      </tr>
+                      {% endfor %}
                     </tbody>
-                </table>
+                  </table>
+                </div>
+              </div>
+              <!-- Rodapé com Total do Dia -->
+              <div class="card-footer bg-light border-top-0 text-end py-2">
+                <span class="text-muted me-2">Total do dia:</span>
+                <strong class="text-primary fs-6">{{ totais_por_data|get_item:data|default:0 }} min</strong>
+              </div>
             </div>
+            {% endfor %}
             {% else %}
-            <div class="text-center py-5">
-                <i class="bi bi-journal-text fs-1 text-muted"></i>
-                <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
-                <p class="text-muted">Clique em "Novo Apontamento" para criar o primeiro.</p>
-                <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
-                    <i class="bi bi-plus-lg me-1"></i> Criar Apontamento
-                </a>
+            <div class="card card-dashboard">
+              <div class="card-body p-0">
+                <div class="text-center py-5">
+                  <i class="bi bi-journal-text fs-1 text-muted"></i>
+                  <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
+                  <p class="text-muted">Clique em "Novo Apontamento" para criar o primeiro.</p>
+                  <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
+                      <i class="bi bi-plus-lg me-1"></i> Criar Apontamento
+                  </a>
+                </div>
+              </div>
             </div>
             {% endif %}
         </div>
@@ -236,26 +239,49 @@
     </div>
 </div>
 
-<!-- Modal: Excluir Apontamento -->
+<!-- Modal: Excluir Apontamento (Red Card Confirmation) -->
 <div class="modal fade" id="modalExcluirApontamento" tabindex="-1" aria-labelledby="modalExcluirApontamentoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalExcluirApontamentoLabel"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirmar Exclusão</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalExcluirApontamentoLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Exclusão</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <p>Tem certeza que deseja excluir este apontamento?</p>
-                <p class="text-muted small" id="excluirApontamentoInfo"></p>
-                <input type="hidden" id="excluirApontamentoPk">
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-semeq-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                    <div>
+                        <strong>Esta ação não pode ser desfeita!</strong>
+                        <div class="small mt-1">O registro será removido permanentemente do sistema.</div>
+                    </div>
+                </div>
+                
+                <div class="card bg-warning bg-opacity-10 border-warning mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title mb-2"><i class="bi bi-info-circle me-1"></i>Registro a ser excluído:</h6>
+                        <div class="row g-2 small">
+                            <div class="col-12">
+                                <strong>Apontamento #</strong> <span id="excluirApontamentoInfo"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="text-danger small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>Esta ação não pode ser desfeita.</strong>
+                </p>
+                
                 <form method="post" id="formExcluirApontamento" class="d-inline">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-semeq-danger" id="btnConfirmarExcluir">
-                        <i class="bi bi-trash me-1"></i> Excluir
-                    </button>
+                    <input type="hidden" id="excluirApontamentoPk">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-lg me-1"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i> Sim, Excluir
+                        </button>
                 </form>
             </div>
         </div>
@@ -267,28 +293,76 @@
 {% load static %}
 <script src="{% static 'js/status.js' %}"></script>
 <script>
-// Auto-submit filter form on change/typing (with debounce)
-let filterTimeout;
-document.querySelectorAll('#apontamentoFilters select, #apontamentoFilters input').forEach(el => {
-    const event = el.tagName === 'SELECT' ? 'change' : 'input';
-    el.addEventListener(event, function() {
-        clearTimeout(filterTimeout);
-        filterTimeout = setTimeout(() => {
-            document.getElementById('apontamentoFilters').submit();
-        }, 350);
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit filter form on change/typing (with debounce)
+    let filterTimeout;
+    document.querySelectorAll('#apontamentoFilters select, #apontamentoFilters input').forEach(el => {
+        const event = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(event, function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                document.getElementById('apontamentoFilters').submit();
+            }, 350);
+        });
+    });
+
+    // Delete modal: carrega o pk e define a action do form de exclusão
+    const modalExcluir = document.getElementById('modalExcluirApontamento');
+    if (modalExcluir) {
+        modalExcluir.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const pk = button.getAttribute('data-pk');
+            const apontamentoPk = button.getAttribute('data-apontamento-pk');
+            document.getElementById('excluirApontamentoPk').value = pk;
+            document.getElementById('formExcluirApontamento').setAttribute('action', '/apontamentos/' + apontamentoPk + '/apontamento/' + pk + '/excluir/');
+            document.getElementById('excluirApontamentoInfo').textContent = 'Apontamento #' + pk;
+        });
+    }
+
+    // Status quick-change dropdown
+    document.querySelectorAll('.select-status-rapido').forEach(select => {
+        select.addEventListener('change', function(e) {
+            e.stopPropagation();
+            
+            const apontamentoId = this.dataset.apontamentoId;
+            const novoStatusId = this.value;
+            
+            // Pega a opção selecionada e sua cor no data-cor
+            const optionSelecionada = this.options[this.selectedIndex];
+            const novaCor = optionSelecionada.dataset.cor;
+
+            // 1. Atualização em TEMPO REAL no frontend (Feedback instantâneo ao usuário)
+            if (novaCor) {
+                this.style.backgroundColor = novaCor;
+            }
+
+            // 2. Persistência no Banco via API
+            fetch(`/apontamentos/${apontamentoId}/alterar-status/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ status: novoStatusId })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        alert('Erro: ' + (data.error || 'Falha ao atualizar status'));
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    // Status atualizado com sucesso
+                }
+            })
+            .catch(err => {
+                alert('Erro de conexão ao alterar status.');
+            });
+        });
     });
 });
-
-// Delete modal: carrega o pk e define a action do form de exclusão
-const modalExcluir = document.getElementById('modalExcluirApontamento');
-if (modalExcluir) {
-    modalExcluir.addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        const pk = button.getAttribute('data-pk');
-        document.getElementById('excluirApontamentoPk').value = pk;
-        document.getElementById('formExcluirApontamento').setAttribute('action', '/apontamentos/' + pk + '/excluir/');
-        document.getElementById('excluirApontamentoInfo').textContent = 'Apontamento #' + pk;
-    });
-}
 </script>
 {% endblock %}

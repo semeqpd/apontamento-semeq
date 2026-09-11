@@ -1,27 +1,27 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from user.models import PerfilUsuario, Time
+from user.models import PerfilUsuario, Equipe
 
 User = get_user_model()
 
-# Estrutura de usuários: admin+gestor globais, líderes e colaboradores por time
+# Estrutura de usuários: admin+gestor globais, líderes e colaboradores por equipe
 USUARIOS = [
-    # (username, first_name, email, role, time_nome)
+    # (username, first_name, email, role, equipe_nome)
     ('admin', 'Administrador', 'admin@semeq.com', 'admin', None),
     ('gestor', 'Gestor', 'gestor@semeq.com', 'gestor', None),
-    # Time PMC
+    # Equipe PMC
     ('lider_pmc', 'Líder PMC', 'lider.pmc@semeq.com', 'lider', 'PMC'),
-    ('colab_pmc1', 'Colaborador PMC 1', 'colab1.pmc@semeq.com', 'usuario', 'PMC'),
-    ('colab_pmc2', 'Colaborador PMC 2', 'colab2.pmc@semeq.com', 'usuario', 'PMC'),
-    ('colab_pmc3', 'Colaborador PMC 3', 'colab3.pmc@semeq.com', 'usuario', 'PMC'),
-    # Time SHD
+    ('colab_pmc1', 'Colaborador PMC 1', 'colab1.pmc@semeq.com', 'colaborador', 'PMC'),
+    ('colab_pmc2', 'Colaborador PMC 2', 'colab2.pmc@semeq.com', 'colaborador', 'PMC'),
+    ('colab_pmc3', 'Colaborador PMC 3', 'colab3.pmc@semeq.com', 'colaborador', 'PMC'),
+    # Equipe SHD
     ('lider_shd', 'Líder SHD', 'lider.shd@semeq.com', 'lider', 'SHD'),
-    ('colab_shd1', 'Colaborador SHD 1', 'colab1.shd@semeq.com', 'usuario', 'SHD'),
-    ('colab_shd2', 'Colaborador SHD 2', 'colab2.shd@semeq.com', 'usuario', 'SHD'),
-    ('colab_shd3', 'Colaborador SHD 3', 'colab3.shd@semeq.com', 'usuario', 'SHD'),
+    ('colab_shd1', 'Colaborador SHD 1', 'colab1.shd@semeq.com', 'colaborador', 'SHD'),
+    ('colab_shd2', 'Colaborador SHD 2', 'colab2.shd@semeq.com', 'colaborador', 'SHD'),
+    ('colab_shd3', 'Colaborador SHD 3', 'colab3.shd@semeq.com', 'colaborador', 'SHD'),
 ]
 
-SENHA = 'Semeq@2024'
+SENHA = 'Semeq@123'
 
 
 class Command(BaseCommand):
@@ -68,18 +68,18 @@ class Command(BaseCommand):
                 Apontamento.objects.filter(criado_por__username=username).update(criado_por=admin_reserva)
                 User.objects.filter(username=username).delete()
 
-        # 3. Garantir Times PMC e SHD
-        times = {}
+        # 3. Garantir Equipes PMC e SHD
+        equipes = {}
         for nome in ['PMC', 'SHD']:
-            time, _ = Time.objects.update_or_create(
+            equipe, _ = Equipe.objects.update_or_create(
                 nome=nome,
-                defaults={'descricao': f'Time {nome}', 'ativo': True}
+                defaults={'ativo': True}
             )
-            times[nome] = time
-        self.stdout.write(self.style.SUCCESS('Times PMC e SHD criados.'))
+            equipes[nome] = equipe
+        self.stdout.write(self.style.SUCCESS('Equipes PMC e SHD criadas.'))
 
         # 4. Criar usuários
-        for username, first_name, email, role, time_nome in USUARIOS:
+        for username, first_name, email, role, equipe_nome in USUARIOS:
             user, created = User.objects.get_or_create(
                 username=username,
                 defaults={
@@ -97,18 +97,18 @@ class Command(BaseCommand):
             user.set_password(SENHA)
             user.save()
 
-            time = times.get(time_nome) if time_nome else None
+            equipe = equipes.get(equipe_nome) if equipe_nome else None
             PerfilUsuario.objects.update_or_create(
                 user=user,
                 defaults={
                     'role': role,
-                    'time': time,
+                    'equipe': equipe,
                     'ativo': True,
                     'telefone': '',
                 }
             )
             self.stdout.write(self.style.SUCCESS(
-                f'  {username} -> {role}{(" / " + time_nome) if time_nome else " (global)"}'
+                f'  {username} -> {role}{(" / " + equipe_nome) if equipe_nome else " (global)"}'
             ))
 
         # 5. Garantir admin global superuser

@@ -91,25 +91,19 @@
                                 <tr><th>Coluna</th><th>Descrição</th><th>Obrigatório</th></tr>
                             </thead>
                             <tbody>
-                                <tr><td>CORPORATION_ID</td><td>ID único da corporação</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
                                 <tr><td>CORPORATION</td><td>Nome da corporação</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
-                                <tr><td>PLANT_ID</td><td>ID único da planta</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
                                 <tr><td>PLANT</td><td>Nome da planta</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
-                                <tr><td>UNAT</td><td>Unidade de negócio</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
-                                <tr><td>CITY</td><td>Cidade</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
-                                <tr><td>STATE_PROVINCE</td><td>Estado/Província</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
-                                <tr><td>COUNTRY</td><td>País</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
-                                <tr><td>REGION</td><td>Região</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
-                                <tr><td>BUSINESS</td><td>Negócio/Setor</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
-                                <tr><td>ZONE</td><td>Zona</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>ZONE</td><td>Zona</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
+                                <tr><td>CORPORATION_ID</td><td>ID único da corporação</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>PLANT_ID</td><td>ID único da planta</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <p class="text-muted small mt-3"><strong>Chave única:</strong> CORPORATION_ID + PLANT_ID. Se "Atualizar clientes existentes" estiver marcado, registros com mesma chave serão atualizados.</p>
+                    <p class="text-muted small mt-3"><strong>Chave única:</strong> CORPORATION + PLANT + ZONE. Se "Atualizar clientes existentes" estiver marcado, registros com mesma chave serão atualizados.</p>
 
                     <div class="text-end">
-                        <a href="{% url 'semeq:cliente_lista' %}" class="btn btn-semeq-secondary">
+                        <a href="{% url 'semeq:cadastro_clientes' %}" class="btn btn-semeq-secondary">
                             <i class="bi bi-x-lg me-1"></i> Cancelar
                         </a>
                         <button type="submit" class="btn btn-semeq-primary">

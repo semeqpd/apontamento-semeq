@@ -14,6 +14,7 @@
         <div class="card-body p-4">
             <form method="post" novalidate>
                 {% csrf_token %}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
 
                 <div class="section-title">Identificação</div>
                 <div class="row g-3 mb-3">
@@ -45,7 +46,7 @@
                 <hr>
 
                 <div class="text-end">
-                    <a href="{% url 'semeq:cliente_lista' %}" class="btn btn-semeq-secondary">
+                    <a href="{{ next_url|default:'/cadastros/#clientes' }}" class="btn btn-semeq-secondary">
                         <i class="bi bi-x-lg me-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-semeq-primary">

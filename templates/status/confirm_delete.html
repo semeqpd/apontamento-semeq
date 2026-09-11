@@ -1,40 +1,30 @@
-{% extends 'base.html' %}
+{% extends 'cadastros/confirm_delete_base.html' %}
 
-{% block title %}Excluir Status - Portal SEMEQ{% endblock %}
-
-{% block content %}
-<div class="container-fluid" style="max-width: 600px;">
-    <div class="card">
-        <div class="card-header bg-danger text-white">
-            <div class="header-brand">
-                <i class="bi bi-exclamation-triangle"></i>
-                <span>Confirmar Exclusão</span>
-            </div>
-        </div>
-        <div class="card-body p-4">
-            <p class="lead">Tem certeza que deseja excluir este status?</p>
-            
-            <div class="alert alert-warning">
-                <strong>{{ object.status }}</strong>
-            </div>
-
-            <p class="text-muted small">
-                <i class="bi bi-info-circle me-1"></i>
-                Esta ação não pode ser desfeita. O status será removido permanentemente.
-            </p>
-
-            <form method="post">
-                {% csrf_token %}
-                <div class="d-flex gap-2 justify-content-end">
-                    <a href="{% url 'semeq:status_lista' %}" class="btn btn-semeq-secondary">
-                        <i class="bi bi-x-lg me-1"></i> Cancelar
-                    </a>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash me-1"></i> Sim, Excluir
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+{% block delete_info %}
+<div class="col-12 col-md-6">
+    <strong>Status:</strong> {{ object.status }}
 </div>
+<div class="col-12 col-md-6">
+    <strong>Ordem:</strong> {{ object.ordem }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Cor:</strong> <span style="display:inline-block; width:20px; height:20px; background-color:{{ object.cor }}; border:1px solid #ccc;"></span> {{ object.cor }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Ativo:</strong> {% if object.ativo %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-secondary">Não</span>{% endif %}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Apontamentos:</strong> {{ apontamentos_count|default:0 }}
+</div>
+{% endblock %}
+
+{% block delete_warning %}
+<p class="text-danger small">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>Esta ação não pode ser desfeita.</strong>
+    {% if apontamentos_count > 0 %}
+    <br><i class="bi bi-exclamation-triangle me-1"></i>
+    Esta ação excluirá também todos os {{ apontamentos_count }} apontamento(s) associado(s).
+    {% endif %}
+</p>
 {% endblock %}

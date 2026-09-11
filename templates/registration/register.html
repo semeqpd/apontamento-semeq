@@ -79,10 +79,10 @@
             <div class="card-body p-4">
                 <div class="alert alert-info mb-4">
                     <i class="bi bi-info-circle me-2"></i>
-                    <strong>Cadastro restrito:</strong> Apenas emails <strong>@semeq.com</strong> são permitidos no momento.
+                    <strong>Cadastro restrito:</strong> Apenas emails dos domínios <strong>{{ allowed_domains|join:", " }}</strong> são permitidos no momento.
                 </div>
                 
-                <form method="post" novalidate id="registerForm">
+                <form method="post" id="registerForm">
                     {% csrf_token %}
                     
                     <div class="section-title mb-3">Dados de Acesso</div>
@@ -149,6 +149,9 @@
                             </div>
                         {% endif %}
                         <div class="form-text">Digite a mesma senha novamente para confirmação</div>
+                        <div id="passwordMismatchError" class="field-errors d-none" style="margin-top: 0.375rem;">
+                            <div class="error-item"><i class="bi bi-exclamation-triangle me-1"></i>As senhas não coincidem.</div>
+                        </div>
                     </div>
                     
                     <hr>
@@ -291,22 +294,25 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update validator list
             atualizarRequisitos(this.value);
             
-            // Check password match
-            if (pwd2 && pwd2.value && pwd2.value !== this.value) {
-                pwd2.setCustomValidity('As senhas não coincidem.');
-            } else if (pwd2) {
-                pwd2.setCustomValidity('');
-            }
+            // Check password match in real-time
+            checkPasswordMatch();
         });
         
         if (pwd2) {
             pwd2.addEventListener('input', function() {
-                if (pwd1.value && this.value !== pwd1.value) {
-                    this.setCustomValidity('As senhas não coincidem.');
-                } else {
-                    pwd2.setCustomValidity('');
-                }
+                checkPasswordMatch();
             });
+        }
+        
+        function checkPasswordMatch() {
+            const mismatchError = document.getElementById('passwordMismatchError');
+            if (pwd1.value && pwd2.value && pwd1.value !== pwd2.value) {
+                pwd2.setCustomValidity('As senhas não coincidem.');
+                if (mismatchError) mismatchError.classList.remove('d-none');
+            } else {
+                pwd2.setCustomValidity('');
+                if (mismatchError) mismatchError.classList.add('d-none');
+            }
         }
         
         // Initialize validator list on load

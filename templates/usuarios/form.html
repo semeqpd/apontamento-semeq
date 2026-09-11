@@ -132,10 +132,10 @@
                         {% endif %}
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">{{ form.time.label }}</label>
-                        {{ form.time }}
-                        {% if form.time.errors %}
-                            <div class="text-danger small mt-1">{{ form.time.errors }}</div>
+                        <label class="form-label">{{ form.equipe.label }}</label>
+                        {{ form.equipe }}
+                        {% if form.equipe.errors %}
+                            <div class="text-danger small mt-1">{{ form.equipe.errors }}</div>
                         {% endif %}
                     </div>
                     <div class="col-md-4">
@@ -144,14 +144,14 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-check mt-4">
-                            {{ form.is_active }}
-                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+                            {{ form.ativo }}
+                            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
                         </div>
                     </div>
                 </div>
 
                 <div class="text-end">
-                    <a href="{% url 'semeq:usuario_lista' %}" class="btn btn-semeq-cancel">
+                    <a href="{{ next_url|default:'/cadastros/#usuarios' }}" class="btn btn-semeq-cancel">
                         <i class="bi bi-x-lg me-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-semeq-primary">

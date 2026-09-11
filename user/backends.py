@@ -4,8 +4,14 @@ Supports authentication via email instead of username.
 """
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
+
+
+def normalize_email(email: str) -> str:
+    """Normalize email: strip whitespace and lowercase."""
+    return email.strip().lower() if email else ''
 
 
 class EmailBackend(ModelBackend):
@@ -17,6 +23,10 @@ class EmailBackend(ModelBackend):
     """
     
     def authenticate(self, request, username=None, password=None, **kwargs):
+        # Normalize username/email
+        if username:
+            username = normalize_email(username)
+        
         # Se username contém @, trata como email
         if username and '@' in username:
             try:
@@ -38,22 +48,19 @@ class EmailBackend(ModelBackend):
                 return None
         
         # Verifica senha
-        if user.check_password(password) and self.user_can_authenticate(user):
+        if user.check_password(password):
+            # Check if user can authenticate
+            is_active = getattr(user, 'is_active', False)
+            
+            if not is_active:
+                # User exists but is inactive
+                raise ValidationError(
+                    'Sua conta está desativada.',
+                    code='inactive_user'
+                )
             return user
         
         return None
-    
-    def user_can_authenticate(self, user):
-        """
-        Verifica se o usuário pode se autenticar.
-        Requer: is_active=True e perfil.ativo=True
-        """
-        is_active = getattr(user, 'is_active', False)
-        perfil_ativo = False
-        if hasattr(user, 'perfil'):
-            perfil_ativo = getattr(user.perfil, 'ativo', False)
-        
-        return is_active and perfil_ativo
     
     def get_user(self, user_id):
         try:

@@ -1,74 +1,65 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
-{% block title %}{% if object %}Editar{% else %}Novo{% endif %} Apontamento - Portal SEMEQ{% endblock %}
+{% block title %}{% if object %}Editar Apontamento{% else %}Novo Apontamento{% endif %} - Portal SEMEQ{% endblock %}
 
 {% block content %}
 <div class="container-fluid" style="max-width: 960px;">
     <div class="card">
         <div class="card-header">
             <div class="header-brand">
-                <i class="bi bi-journal-text"></i>
-                <span>{% if object %}Editar{% else %}Novo{% endif %} Apontamento</span>
+                <i class="bi bi-journal-plus"></i>
+                <span>{% if object %}Editar Apontamento: {% if object.ticket %}{{ object.ticket }}{% else %}#{{ object.pk }}{% endif %}{% else %}Novo Apontamento{% endif %}</span>
             </div>
         </div>
         <div class="card-body p-4">
             <form method="post" novalidate id="apontamentoForm">
                 {% csrf_token %}
 
-                <!-- Non-field errors (ex: hora_final <= hora_inicial, conflito de horário) -->
-                <div class="section-title">
-                    Dados Gerais
+                <!-- Non-field errors -->
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                    {% endfor %}
                 </div>
+                {% endif %}
+
+                <div class="section-title">Dados do Apontamento</div>
 
                 <div class="row g-3 mb-3">
+                    <div class="col-md-3 d-none">
+                        <label class="form-label">{{ form.corporacao.label }}</label>
+                        {{ form.corporacao }}
+                        {% if form.corporacao.errors %}
+                            <div class="text-danger small mt-1">{{ form.corporacao.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
                     <div class="col-md-6">
-                        <label class="form-label">{{ form.cliente.label }} <span class="text-danger">*</span></label>
-                        <div class="autocomplete-wrapper position-relative">
-                            <input type="text" class="form-control" id="id_cliente_autocomplete" name="cliente_autocomplete" 
-                                   placeholder="Digite para buscar cliente (corporação - planta)..." 
-                                   autocomplete="off" required {% if form.cliente.field.disabled %}readonly{% endif %}>
-                            <input type="hidden" name="cliente" id="id_cliente" value="{{ form.cliente.value|default:'' }}">
-                            <div class="autocomplete-dropdown dropdown-menu w-100" id="clienteDropdown" style="display: none; max-height: 300px; overflow-y: auto;"></div>
-                        </div>
+                        <label class="form-label">Cliente (Planta) <span class="text-danger">*</span></label>
+                        {{ form.cliente }}
                         {% if form.cliente.errors %}
                             <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
                         {% endif %}
-                        {% if object %}
-                            <div class="form-text mt-1">
-                                <div class="form-check form-check-inline">
-                                    {{ form.alterar_planta }}
-                                    <label class="form-check-label" for="{{ form.alterar_planta.id_for_label }}">{{ form.alterar_planta.label }}</label>
-                                </div>
-                                <small class="text-muted d-block">Planta atual: <strong>{{ object.cliente.corporation }} - {{ object.cliente.plant }}</strong></small>
-                            </div>
-                        {% endif %}
                     </div>
-
+                    
                     <div class="col-md-6">
                         <label class="form-label">{{ form.projeto.label }} <span class="text-danger">*</span></label>
                         {{ form.projeto }}
                         {% if form.projeto.errors %}<div class="text-danger small mt-1">{{ form.projeto.errors }}</div>{% endif %}
                     </div>
-
+                    
                     <div class="col-md-6">
                         <label class="form-label">{{ form.solicitante.label }} <span class="text-danger">*</span></label>
                         {{ form.solicitante }}
                         {% if form.solicitante.errors %}<div class="text-danger small mt-1">{{ form.solicitante.errors }}</div>{% endif %}
                     </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.ticket.label }} <span class="text-danger">*</span></label>
-                        {{ form.ticket }}
-                        {% if form.ticket.errors %}<div class="text-danger small mt-1">{{ form.ticket.errors }}</div>{% endif %}
-                    </div>
                 </div>
 
                 <hr>
 
-                <!-- Seção: Apontamento -->
-                <div class="section-title">
-                    Apontamento
-                </div>
+                <div class="section-title">Apontamento</div>
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
@@ -89,10 +80,26 @@
                         {% if form.atividade.errors %}<div class="text-danger small mt-1">{{ form.atividade.errors }}</div>{% endif %}
                     </div>
 
+                    <!-- Campo condicional: Outra atividade -->
+                    <div id="outroAtividadeContainer" class="col-12 mb-3" style="display: none;">
+                        <label class="form-label">{{ form.outro_atividade.label }}</label>
+                        {{ form.outro_atividade }}
+                        {% if form.outro_atividade.errors %}<div class="text-danger small mt-1">{{ form.outro_atividade.errors }}</div>{% endif %}
+                        <div class="form-text">Descreva a atividade que não está na lista</div>
+                    </div>
+
                     <div class="col-md-4">
                         <label class="form-label">{{ form.tipo_problema.label }} <span class="text-danger">*</span></label>
                         {{ form.tipo_problema }}
                         {% if form.tipo_problema.errors %}<div class="text-danger small mt-1">{{ form.tipo_problema.errors }}</div>{% endif %}
+                    </div>
+
+                    <!-- Campo condicional: Outro tipo de problema -->
+                    <div id="outroTipoProblemaContainer" class="col-12 mb-3" style="display: none;">
+                        <label class="form-label">{{ form.outro_tipo_problema.label }}</label>
+                        {{ form.outro_tipo_problema }}
+                        {% if form.outro_tipo_problema.errors %}<div class="text-danger small mt-1">{{ form.outro_tipo_problema.errors }}</div>{% endif %}
+                        <div class="form-text">Descreva o tipo de problema que não está na lista</div>
                     </div>
 
                     <div class="col-md-4">
@@ -102,35 +109,39 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">{{ form.data.label }} <span class="text-danger">*</span></label>
-                        {{ form.data }}
-                        {% if form.data.errors %}<div class="text-danger small mt-1">{{ form.data.errors }}</div>{% endif %}
+                        <label class="form-label">{{ form.prioridade.label }} <span class="text-danger">*</span></label>
+                        {{ form.prioridade }}
+                        {% if form.prioridade.errors %}<div class="text-danger small mt-1">{{ form.prioridade.errors }}</div>{% endif %}
                     </div>
 
-                    <div class="col-md-2">
-                        <label class="form-label">{{ form.hora_inicial.label }} <span class="text-danger">*</span></label>
-                        {{ form.hora_inicial }}
-                        {% if form.hora_inicial.errors %}<div class="text-danger small mt-1">{{ form.hora_inicial.errors }}</div>{% endif %}
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.data_inicial.label }} <span class="text-danger">*</span></label>
+                        {{ form.data_inicial }}
+                        {% if form.data_inicial.errors %}<div class="text-danger small mt-1">{{ form.data_inicial.errors }}</div>{% endif %}
                     </div>
 
-                    <div class="col-md-2">
-                        <label class="form-label">{{ form.hora_final.label }} <span class="text-danger">*</span></label>
-                        {{ form.hora_final }}
-                        {% if form.hora_final.errors %}<div class="text-danger small mt-1">{{ form.hora_final.errors }}</div>{% endif %}
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.data_final.label }}</label>
+                        {{ form.data_final }}
+                        {% if form.data_final.errors %}<div class="text-danger small mt-1">{{ form.data_final.errors }}</div>{% endif %}
+                        <!-- Aviso de data final anterior -->
+                        <div id="dataFinalAlert" class="alert alert-danger alert-dismissible fade show mt-2 py-1 px-2 small" style="display: none;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            <strong>Data final não pode ser anterior à data inicial!</strong>
+                            <button type="button" class="btn-close btn-close-white p-0" onclick="document.getElementById('dataFinalAlert').style.display='none'"></button>
+                        </div>
                     </div>
 
-                    <div class="col-md-2">
-                        <label class="form-label">Tempo Total</label>
-                        <div id="id_tempo_total_display" class="form-control-plaintext fw-bold text-primary" style="min-height: 38px;">-- min</div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.tempo_investido_minutos.label }}</label>
+                        {{ form.tempo_investido_minutos }}
+                        {% if form.tempo_investido_minutos.errors %}<div class="text-danger small mt-1">{{ form.tempo_investido_minutos.errors }}</div>{% endif %}
                     </div>
                 </div>
 
                 <hr>
 
-                <!-- Seção: Equipamento -->
-                <div class="section-title">
-                    Equipamento
-                </div>
+                <div class="section-title">Equipamento</div>
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-8">
@@ -140,61 +151,20 @@
                         </div>
                         {% if form.equipamento.errors %}<div class="text-danger small mt-1">{{ form.equipamento.errors }}</div>{% endif %}
                     </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label">{{ form.prioridade.label }} <span class="text-danger">*</span></label>
-                        {{ form.prioridade }}
-                        {% if form.prioridade.errors %}<div class="text-danger small mt-1">{{ form.prioridade.errors }}</div>{% endif %}
-                    </div>
                 </div>
 
                 <!-- Campo condicional: Outro equipamento -->
                 <div id="outroEquipamentoContainer" class="mb-3" style="display: none;">
-                    <label class="form-label">{{ form.outro_equipamento_descricao.label }}</label>
-                    {{ form.outro_equipamento_descricao }}
-                    {% if form.outro_equipamento_descricao.errors %}<div class="text-danger small mt-1">{{ form.outro_equipamento_descricao.errors }}</div>{% endif %}
+                    <label class="form-label">{{ form.outro_equipamento.label }}</label>
+                    {{ form.outro_equipamento }}
+                    {% if form.outro_equipamento.errors %}<div class="text-danger small mt-1">{{ form.outro_equipamento.errors }}</div>{% endif %}
                     <div class="form-text">Descreva o equipamento que não está na lista</div>
                 </div>
-                {% if form.equipamento.errors %}<div class="text-danger small mt-1">{{ form.equipamento.errors }}</div>{% endif %}
 
                 <hr>
 
-                <!-- Seção: Informações adicionais -->
-                <div class="section-title">
-                    Informações Adicionais
-                </div>
+                <div class="section-title">Descrição</div>
 
-                <div class="row g-3 align-items-center mb-3">
-                    <div class="col-md-4">
-                            <div class="form-check">
-                                {{ form.gw_ar }}
-                                <label class="form-check-label" for="{{ form.gw_ar.id_for_label }}">{{ form.gw_ar.label }}</label>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                {{ form.apos_18h }}
-                                <label class="form-check-label" for="{{ form.apos_18h.id_for_label }}">{{ form.apos_18h.label }}</label>
-                            </div>
-                        </div>
-
-                        <div class="col-md-5">
-                            <div class="row align-items-center">
-                                <div class="col-auto">
-                                    <label class="form-label mb-0">{{ form.desvio.label }}</label>
-                                </div>
-                                <div class="col">
-                                    {{ form.desvio }}
-                                    {% if form.desvio.errors %}<div class="text-danger small mt-1">{{ form.desvio.errors }}</div>{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                </div>
-
-                <hr>
-
-                <!-- Seção: Descrição -->
                 <div class="mb-4">
                     <label class="form-label">{{ form.descricao.label }} <span class="text-danger">*</span></label>
                     {{ form.descricao }}
@@ -203,11 +173,11 @@
 
                 <!-- Botões de Ação -->
                 <div class="text-end">
-                    <a href="javascript:history.back()" class="btn btn-semeq-secondary">
+                    <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-secondary">
                         <i class="bi bi-x-lg me-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-semeq-primary">
-                        <i class="bi bi-check-lg me-1"></i> Salvar Apontamento
+                        <i class="bi bi-check-lg me-1"></i> {% if object %}Atualizar{% else %}Salvar{% endif %} Apontamento
                     </button>
                 </div>
             </form>
@@ -217,255 +187,115 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    // Auto-calculate tempo total display from time fields
-    const horaInicial = document.querySelector('[name="hora_inicial"]');
-    const horaFinal = document.querySelector('[name="hora_final"]');
-    const tempoTotalDisplay = document.getElementById('id_tempo_total_display');
-
-    function calcularTempo() {
-        if (horaInicial.value && horaFinal.value) {
-            const [hi, mi] = horaInicial.value.split(':').map(Number);
-            const [hf, mf] = horaFinal.value.split(':').map(Number);
-            
-            let inicio = hi * 60 + mi;
-            let fim = hf * 60 + mf;
-            
-            if (fim < inicio) fim += 24 * 60;
-            
-            const diff = fim - inicio;
-            
-            if (tempoTotalDisplay) {
-                tempoTotalDisplay.textContent = `${diff} min`;
-            }
-        } else {
-            if (tempoTotalDisplay) {
-                tempoTotalDisplay.textContent = '-- min';
-            }
-        }
-    }
-
-    // Show calculated time when using time fields
-    horaInicial?.addEventListener('change', calcularTempo);
-    horaFinal?.addEventListener('change', calcularTempo);
-</script>
-
-<!-- Tom Select CSS (loaded early for equipamento) -->
+<!-- Tom Select CSS -->
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
 
 <script>
 // ===== Wait for DOM ready =====
 document.addEventListener('DOMContentLoaded', function() {
     
-    // ===== ALTERAR PLANTA CHECKBOX =====
-    const alterarPlantaCheckbox = document.getElementById('id_alterar_planta');
-    const clienteAutocompleteInput = document.getElementById('id_cliente_autocomplete');
-    const clienteHiddenInput = document.getElementById('id_cliente');
-    
-    // Store original values for restoration
-    const originalClienteValue = clienteHiddenInput?.value || '';
-    const originalClienteText = clienteAutocompleteInput?.value || '';
-    
-    function toggleClienteField() {
-        if (alterarPlantaCheckbox && clienteAutocompleteInput && clienteHiddenInput) {
-            const enabled = alterarPlantaCheckbox.checked;
-            clienteAutocompleteInput.readOnly = !enabled;
-            clienteAutocompleteInput.disabled = !enabled;
-            clienteHiddenInput.disabled = !enabled;
-            
-            if (enabled) {
-                clienteAutocompleteInput.placeholder = 'Digite para buscar cliente (corporação - planta)...';
-                clienteAutocompleteInput.style.backgroundColor = '';
-                clienteAutocompleteInput.style.cursor = '';
-            } else {
-                // Restore original values when unchecked
-                clienteHiddenInput.value = originalClienteValue;
-                clienteAutocompleteInput.value = originalClienteText;
-                clienteAutocompleteInput.placeholder = 'Planta não editável (marque "Alterar planta" para mudar)';
-                clienteAutocompleteInput.style.backgroundColor = '#f5f5f5';
-                clienteAutocompleteInput.style.cursor = 'not-allowed';
-            }
-        }
-    }
-    
-    // Initial state
-    toggleClienteField();
-    
-    // Listen for checkbox changes
-    if (alterarPlantaCheckbox) {
-        alterarPlantaCheckbox.addEventListener('change', toggleClienteField);
-    }
-    
     // Set default date to today if empty AND block future dates
-    const dataInput = document.querySelector('[name="data"]');
+    const dataInicialInput = document.querySelector('[name="data_inicial"]');
+    const dataFinalInput = document.querySelector('[name="data_final"]');
     const today = new Date().toISOString().split('T')[0];
-    if (dataInput) {
-        dataInput.max = today;  // Bloqueia datas futuras (apenas hoje permitido)
-        if (!dataInput.value) dataInput.value = today;
+    if (dataInicialInput) {
+        dataInicialInput.max = today;
+        if (!dataInicialInput.value) dataInicialInput.value = today;
+    }
+    if (dataFinalInput) {
+        dataFinalInput.max = today;
     }
 
-    // ===== CLIENTE AUTOCOMPLETE (Fetch API + Debounce) =====
-    const clienteDropdown = document.getElementById('clienteDropdown');
-    let clienteDebounceTimer = null;
-    let clienteSelectedId = clienteHiddenInput?.value || '';
+// ===== CLIENTE CASCADING SELECTS (Corporação -> Planta) =====
+document.addEventListener('DOMContentLoaded', function() {
+    const corporacaoSelect = document.getElementById('id_corporacao');
+    const clienteSelect = document.getElementById('id_cliente');
 
-    function showClienteDropdown(items) {
-        if (!clienteDropdown || items.length === 0) {
-            hideClienteDropdown();
+    if (!corporacaoSelect || !clienteSelect) return;
+
+    function buscarPlantas(corporacaoNome, clienteIdParaSelecionar = null) {
+        if (!corporacaoNome) {
+            clienteSelect.innerHTML = '<option value="">Selecione a corporação primeiro</option>';
+            clienteSelect.disabled = true;
             return;
         }
-        clienteDropdown.innerHTML = items.map(item => 
-            `<a href="#" class="dropdown-item" data-id="${item.id}" data-nome="${escapeHtml(item.nome)}">${escapeHtml(item.nome)}</a>`
-        ).join('');
-        clienteDropdown.style.display = 'block';
-    }
 
-    function hideClienteDropdown() {
-        if (clienteDropdown) {
-            clienteDropdown.style.display = 'none';
-        }
-    }
+        // Habilita o campo e exibe o estado de carregamento
+        clienteSelect.disabled = false;
+        clienteSelect.innerHTML = '<option value="">Carregando plantas...</option>';
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function selectCliente(item) {
-        if (clienteAutocompleteInput) clienteAutocompleteInput.value = item.nome;
-        if (clienteHiddenInput) clienteHiddenInput.value = item.id;
-        clienteSelectedId = item.id;
-        hideClienteDropdown();
-        
-        // Trigger equipamento reload if Tom Select exists
-        if (window.equipamentoTomSelect && clienteSelectedId) {
-            window.equipamentoTomSelect.load(function(callback) {
-                fetch(`/equipamentos/autocomplete/?cliente_id=${encodeURIComponent(clienteSelectedId)}`)
-                    .then(response => response.json())
-                    .then(json => {
-                        callback(json.results);
-                        window.equipamentoTomSelect.enable();
-                        document.getElementById('id_equipamento').disabled = false;
-                        document.getElementById('id_equipamento').placeholder = 'Digite para buscar equipamento...';
-                        // Adiciona opção "Outro equipamento"
-                        window.equipamentoTomSelect.addOption({
-                            value: '__outro__',
-                            text: '➕ Outro equipamento (não listado)',
-                            equipamento_id: '',
-                            modelo: '',
-                            tipo: '',
-                            cliente: ''
-                        });
-                    })
-                    .catch(() => callback());
-            });
-        }
-    }
-
-    if (clienteAutocompleteInput) {
-        // --- FOCUS: Show all clients when field receives focus (empty) ---
-        clienteAutocompleteInput.addEventListener('focus', function() {
-            const query = this.value.trim();
-            if (!query && !clienteSelectedId) {
-                // Only fetch all if no selection made yet
-                fetch('/clientes/buscar/')
-                    .then(response => response.json())
-                    .then(data => showClienteDropdown(data))
-                    .catch(() => hideClienteDropdown());
+        fetch('/buscar-plantas/?corporacao=' + encodeURIComponent(corporacaoNome), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
             }
-        });
-
-        // --- INPUT: Filter as user types ---
-        clienteAutocompleteInput.addEventListener('input', function() {
-            const query = this.value.trim();
-            
-            // Clear previous debounce
-            clearTimeout(clienteDebounceTimer);
-            
-            // Clear hidden value if user clears input completely
-            if (!query) {
-                if (clienteHiddenInput) clienteHiddenInput.value = '';
-                clienteSelectedId = '';
-                // Show all after debounce
-                clienteDebounceTimer = setTimeout(() => {
-                    fetch('/clientes/buscar/')
-                        .then(response => response.json())
-                        .then(data => showClienteDropdown(data))
-                        .catch(() => hideClienteDropdown());
-                }, 300);
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Erro na rede: ' + response.status);
+            return response.json();
+        })
+        .then(plantas => {
+            if (plantas.length === 0) {
+                clienteSelect.innerHTML = '<option value="">Nenhuma planta cadastrada</option>';
                 return;
             }
-            
-            // Debounce 300ms for typed queries (2+ chars)
-            if (query.length >= 2) {
-                clienteDebounceTimer = setTimeout(() => {
-                    fetch(`/clientes/buscar/?q=${encodeURIComponent(query)}`)
-                        .then(response => response.json())
-                        .then(data => showClienteDropdown(data))
-                        .catch(() => hideClienteDropdown());
-                }, 300);
-            } else {
-                // 1 char: hide
-                hideClienteDropdown();
-            }
-        });
 
-        // Handle click on dropdown items (event delegation)
-        clienteDropdown?.addEventListener('click', function(e) {
-            const item = e.target.closest('.dropdown-item');
-            if (item) {
-                e.preventDefault();
-                selectCliente({
-                    id: item.dataset.id,
-                    nome: item.dataset.nome
-                });
-            }
-        });
+            clienteSelect.innerHTML = '<option value="">Selecione a planta</option>' +
+                plantas.map(p => `<option value="${p.pk}">${p.plant}</option>`).join('');
 
-        // Hide dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            if (clienteAutocompleteInput && !clienteAutocompleteInput.contains(e.target) && 
-                clienteDropdown && !clienteDropdown.contains(e.target)) {
-                hideClienteDropdown();
+            // Caso esteja no modo de edição ou mantendo estado
+            if (clienteIdParaSelecionar) {
+                clienteSelect.value = clienteIdParaSelecionar;
             }
-        });
-
-        // Prevent form submit on Enter in autocomplete
-        clienteAutocompleteInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const firstItem = clienteDropdown?.querySelector('.dropdown-item');
-                if (firstItem) {
-                    selectCliente({
-                        id: firstItem.dataset.id,
-                        nome: firstItem.dataset.nome
-                    });
-                }
-            }
+        })
+        .catch(err => {
+            console.error('Erro no filtro:', err);
+            clienteSelect.innerHTML = '<option value="">Erro ao carregar plantas</option>';
         });
     }
 
-    // ===== EQUIPAMENTO (Tom Select) =====
+    // Evento de disparo na mudança do Select de Corporação
+    corporacaoSelect.addEventListener('change', function() {
+        buscarPlantas(this.value);
+    });
+
+    // Se estiver no MODO DE EDIÇÃO ou reexibindo o formulário
+    {% if form.instance.pk and form.instance.cliente %}
+        const corpAtual = "{{ form.instance.cliente.corporation }}";
+        const clienteAtualId = "{{ form.instance.cliente.pk }}";
+        
+        corporacaoSelect.value = corpAtual;
+        buscarPlantas(corpAtual, clienteAtualId);
+    {% else %}
+        // Se for NOVO cadastro e o usuário selecionar algo que deu erro de validação
+        if (corporacaoSelect.value) {
+            buscarPlantas(corporacaoSelect.value);
+        } else {
+            clienteSelect.disabled = true;
+        }
+    {% endif %}
+});
+
+    // ===== EQUIPAMENTO (TomSelect) =====
     function initEquipamentoTomSelect() {
         const equipamentoSelect = document.getElementById('id_equipamento');
         const outroEquipamentoContainer = document.getElementById('outroEquipamentoContainer');
         const outroEquipamentoDescricao = document.getElementById('id_outro_equipamento_descricao');
 
         if (equipamentoSelect && window.TomSelect) {
+            // Check if we're editing an existing record with a specific equipment
+            const isEditing = {% if form.instance.pk %}true{% else %}false{% endif %};
+            const existingEquipamentoValue = {% if form.instance.pk and form.instance.equipamento %}'{{ form.instance.equipamento.pk }}'{% else %}''{% endif %};
+            
             window.equipamentoTomSelect = new TomSelect('#id_equipamento', {
                 plugins: ['dropdown_input', 'remove_button'],
                 valueField: 'value',
                 labelField: 'text',
                 searchField: ['text', 'modelo', 'tipo'],
-                preload: 'focus',
+                preload: true,
                 allowEmptyOption: true,
-                placeholder: 'Selecione um cliente primeiro...',
+                placeholder: 'Digite para buscar equipamento...',
                 load: function(query, callback) {
-                    const clienteId = document.getElementById('id_cliente')?.value;
-                    if (!clienteId) return callback();
-                    
-                    fetch(`/equipamentos/autocomplete/?cliente_id=${encodeURIComponent(clienteId)}&q=${encodeURIComponent(query || '')}`)
+                    fetch(`/equipamentos/autocomplete/?q=${encodeURIComponent(query || '')}`)
                         .then(response => response.json())
                         .then(json => callback(json.results))
                         .catch(() => callback());
@@ -507,7 +337,88 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 },
                 onInitialize: function() {
-                    this.disable();
+                    // Se for NOVO registro (não editando), selecionar "Outro" por padrão
+                    if (!isEditing) {
+                        this.addOption({value: '__outro__', text: 'Outro', equipamento_id: '', modelo: '', tipo: '', cliente: ''});
+                        this.addItem('__outro__', true);
+                        if (outroEquipamentoContainer) {
+                            outroEquipamentoContainer.style.display = 'block';
+                        }
+                    } else if (existingEquipamentoValue) {
+                        // Se editando, verificar se o equipamento atual não está nas opções (é um "Outro")
+                        this.addOption({value: '__outro__', text: 'Outro', equipamento_id: '', modelo: '', tipo: '', cliente: ''});
+                        if (outroEquipamentoContainer) {
+                            const hasCustomEquipamento = !this.options[existingEquipamentoValue];
+                            if (hasCustomEquipamento) {
+                                this.addItem('__outro__', true);
+                                outroEquipamentoContainer.style.display = 'block';
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // ===== ATIVIDADE (Simple Select) =====
+    function initAtividadeSelect() {
+        const atividadeSelect = document.getElementById('id_atividade');
+        const outroAtividadeContainer = document.getElementById('outroAtividadeContainer');
+        const outroAtividadeInput = document.getElementById('id_outro_atividade');
+
+        if (atividadeSelect && outroAtividadeContainer && outroAtividadeInput) {
+            // Initial check
+            if (atividadeSelect.value === '__outro__') {
+                outroAtividadeContainer.style.display = 'block';
+                outroAtividadeInput.required = true;
+            } else {
+                outroAtividadeContainer.style.display = 'none';
+                outroAtividadeInput.required = false;
+                outroAtividadeInput.value = '';
+            }
+
+            // Listen for changes
+            atividadeSelect.addEventListener('change', function() {
+                if (this.value === '__outro__') {
+                    outroAtividadeContainer.style.display = 'block';
+                    outroAtividadeInput.required = true;
+                    outroAtividadeInput.focus();
+                } else {
+                    outroAtividadeContainer.style.display = 'none';
+                    outroAtividadeInput.required = false;
+                    outroAtividadeInput.value = '';
+                }
+            });
+        }
+    }
+
+    // ===== TIPO PROBLEMA (Simple Select) =====
+    function initTipoProblemaSelect() {
+        const tipoProblemaSelect = document.getElementById('id_tipo_problema');
+        const outroTipoProblemaContainer = document.getElementById('outroTipoProblemaContainer');
+        const outroTipoProblemaInput = document.getElementById('id_outro_tipo_problema');
+
+        if (tipoProblemaSelect && outroTipoProblemaContainer && outroTipoProblemaInput) {
+            // Initial check
+            if (tipoProblemaSelect.value === '__outro__') {
+                outroTipoProblemaContainer.style.display = 'block';
+                outroTipoProblemaInput.required = true;
+            } else {
+                outroTipoProblemaContainer.style.display = 'none';
+                outroTipoProblemaInput.required = false;
+                outroTipoProblemaInput.value = '';
+            }
+
+            // Listen for changes
+            tipoProblemaSelect.addEventListener('change', function() {
+                if (this.value === '__outro__') {
+                    outroTipoProblemaContainer.style.display = 'block';
+                    outroTipoProblemaInput.required = true;
+                    outroTipoProblemaInput.focus();
+                } else {
+                    outroTipoProblemaContainer.style.display = 'none';
+                    outroTipoProblemaInput.required = false;
+                    outroTipoProblemaInput.value = '';
                 }
             });
         }
@@ -517,33 +428,66 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!window.TomSelect) {
         const js = document.createElement('script');
         js.src = 'https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js';
-        js.onload = initEquipamentoTomSelect;
+        js.onload = function() {
+            initEquipamentoTomSelect();
+        };
         document.head.appendChild(js);
     } else {
         initEquipamentoTomSelect();
     }
 
-    // Prevent browser's native validation from interfering with Django's validation
-    document.getElementById('apontamentoForm').setAttribute('novalidate', 'true');
-    
-    // Ensure only fields with actual errors get the 'is-invalid' class
+    // Initialize selects (no external dependency)
+    initAtividadeSelect();
+    initTipoProblemaSelect();
+
+    // Dynamic date validation: Data Final min/max based on Data Inicial
     const form = document.getElementById('apontamentoForm');
-    if (form) {
-        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-        
-        form.querySelectorAll('.form-control, .form-select').forEach(function(input) {
-            input.addEventListener('input', function() {
-                if (this.classList.contains('is-invalid')) {
-                    this.classList.remove('is-invalid');
-                }
-                const errorDiv = this.parentNode.querySelector('.text-danger');
-                if (errorDiv) {
-                    errorDiv.remove();
-                }
-            });
-        });
+    const dataInicialInput = document.querySelector('[name="data_inicial"]');
+    const dataFinalInput = document.querySelector('[name="data_final"]');
+    const dataFinalAlert = document.getElementById('dataFinalAlert');
+    const today = new Date().toISOString().split('T')[0];
+
+    // Initialize: set max to today for both fields
+    if (dataInicialInput) dataInicialInput.max = today;
+    if (dataFinalInput) dataFinalInput.max = today;
+
+    // When Data Inicial changes, update Data Final min/max
+    function updateDataFinalLimits() {
+        const dataInicial = dataInicialInput?.value;
+        if (dataInicial && dataFinalInput) {
+            // Data Final min = Data Inicial, max = today
+            dataFinalInput.min = dataInicial;
+            dataFinalInput.max = today;
+            // If current Data Final is before new min, clear it
+            if (dataFinalInput.value && dataFinalInput.value < dataInicial) {
+                dataFinalInput.value = '';
+            }
+        } else if (dataFinalInput) {
+            // No Data Inicial selected: min = none, max = today
+            dataFinalInput.min = '';
+            dataFinalInput.max = today;
+        }
     }
 
-});
+    // Real-time validation: show red alert if data_final < data_inicial
+    function checkDataFinal() {
+        const dataInicial = dataInicialInput?.value;
+        const dataFinal = dataFinalInput?.value;
+        if (dataInicial && dataFinal && dataFinal < dataInicial) {
+            if (dataFinalAlert) dataFinalAlert.style.display = 'block';
+        } else {
+            if (dataFinalAlert) dataFinalAlert.style.display = 'none';
+        }
+    }
+
+    dataInicialInput?.addEventListener('change', function() {
+        updateDataFinalLimits();
+        checkDataFinal();
+    });
+    dataFinalInput?.addEventListener('change', checkDataFinal);
+
+    // Initialize on load
+    updateDataFinalLimits();
+    });
 </script>
 {% endblock %}

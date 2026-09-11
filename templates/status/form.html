@@ -4,13 +4,14 @@
 
 {% block content %}
 <div class="container-fluid" style="max-width: 960px;">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <a href="{% url 'semeq:cadastro_status' %}" class="btn btn-semeq-outline" title="Voltar">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h4 class="mb-0"><i class="bi bi-tag me-2"></i> {% if object %}Editar{% else %}Novo{% endif %} Status</h4>
+    </div>
     <div class="card">
-        <div class="card-header">
-            <div class="header-brand">
-                <i class="bi bi-gear"></i>
-                <span>{% if object %}Editar Status{% else %}Novo Status{% endif %}</span>
-            </div>
-        </div>
+        <div class="card-body p-4">
         <div class="card-body p-4">
             {% if form.non_field_errors %}
             <div class="alert alert-danger" role="alert">
@@ -22,6 +23,7 @@
 
             <form method="post" novalidate id="statusForm">
                 {% csrf_token %}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
 
                 <div class="section-title">Status</div>
                 <div class="row g-3 mb-4">
@@ -29,9 +31,14 @@
                         {{ form.status }}
                         {% for error in form.status.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label">{{ form.cor.label }}</label>
+                        {{ form.cor }}
+                        {% for error in form.cor.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
                 </div>
                 <div class="d-flex justify-content-end gap-2 border-top pt-4">
-                    <a href="{% url 'semeq:status_lista' %}" class="btn btn-semeq-secondary">
+                    <a href="{{ next_url|default:'/cadastros/status/' }}" class="btn btn-semeq-secondary">
                         <i class="bi bi-x-lg me-1"></i> Cancelar
                     </a>
                     <button type="submit" class="btn btn-semeq-primary">
@@ -43,5 +50,3 @@
     </div>
 </div>
 {% endblock %}
-<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>

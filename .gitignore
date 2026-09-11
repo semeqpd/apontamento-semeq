@@ -126,6 +126,8 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
@@ -133,6 +135,15 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Django credentials / secrets
+secrets.json
+credentials.json
+*.key
+*.pem
+*.crt
+settings/local.py
+settings/production.py
 
 # Spyder project settings
 .spyderproject

@@ -5,9 +5,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">Colaboradores</h2>
+    {% if request.user.is_superuser or request.user.perfil.is_gestor %}
     <a href="{% url 'semeq:usuario_novo' %}" class="btn btn-semeq-primary">
-        <i class="bi bi-plus-lg me-1"></i> Novo Colaborador
+        <i class="bi bi-plus-lg me-1"></i> Criar novo usuário
     </a>
+    {% endif %}
 </div>
 
 <!-- Filtros e Busca -->
@@ -28,16 +30,16 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Time</label>
-                <select name="time" class="form-select">
-                    <option value="">Todos os times</option>
+                <label class="form-label">Equipe</label>
+                <select name="equipe" class="form-select">
+                    <option value="">Todas as equipes</option>
                     {% for t in times %}
                         <option value="{{ t.pk }}" {% if time_filter == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.nome }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-2">
-                <button type="button" class="btn btn-semeq-secondary w-100" onclick="window.location.href='{% url 'semeq:usuario_lista' %}'">
+                <button type="button" class="btn btn-semeq-secondary w-100" onclick="window.location.href='{% url 'semeq:cadastro_usuarios' %}'">
                     <i class="bi bi-x-lg me-1"></i> Limpar
                 </button>
             </div>
@@ -53,11 +55,10 @@
             <table class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
-                        <th>Colaborador</th>
                         <th>Nome Completo</th>
                         <th>E-mail (Login)</th>
                         <th>Função</th>
-                        <th>Time</th>
+                        <th>Equipe</th>
                         <th>Status</th>
                         <th class="text-end">Ações</th>
                     </tr>
@@ -66,7 +67,6 @@
                     {% for user in usuarios %}
                     <tr>
                         <td class="fw-semibold">{{ user.get_full_name|default:user.email }}</td>
-                        <td>{{ user.get_full_name|default:"-" }}</td>
                         <td>{{ user.email|default:"-" }}</td>
                         <td>
                             {% if user.perfil %}
@@ -76,8 +76,8 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if user.perfil and user.perfil.time %}
-                                {{ user.perfil.time.nome }}
+                            {% if user.perfil and user.perfil.equipe %}
+                                {{ user.perfil.equipe.nome }}
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
@@ -117,10 +117,10 @@
                 <ul class="pagination pagination-sm mb-0">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page=1">&laquo; Primeira</a>
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&equipe={{ time_filter }}&page=1">&laquo; Primeira</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&equipe={{ time_filter }}&page={{ page_obj.previous_page_number }}">Anterior</a>
                     </li>
                     {% endif %}
                     
@@ -129,17 +129,17 @@
                         <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                         <li class="page-item">
-                            <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ num }}">{{ num }}</a>
+                            <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&equipe={{ time_filter }}&page={{ num }}">{{ num }}</a>
                         </li>
                         {% endif %}
                     {% endfor %}
                     
                     {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ page_obj.next_page_number }}">Próxima</a>
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&equipe={{ time_filter }}&page={{ page_obj.next_page_number }}">Próxima</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&time={{ time_filter }}&page={{ paginator.num_pages }}">Última &raquo;</a>
+                        <a class="page-link" href="?q={{ search }}&role={{ role_filter }}&equipe={{ time_filter }}&page={{ paginator.num_pages }}">Última &raquo;</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -150,9 +150,6 @@
         <div class="text-center py-5">
             <i class="bi bi-people fs-1 text-muted mb-3"></i>
             <h5 class="text-muted">Nenhum colaborador encontrado</h5>
-            <a href="{% url 'semeq:usuario_novo' %}" class="btn btn-semeq-primary mt-2">
-                <i class="bi bi-plus-lg me-1"></i> Criar primeiro colaborador
-            </a>
         </div>
         {% endif %}
     </div>

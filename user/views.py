@@ -17,311 +17,166 @@ from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
-from datetime import date, timedelta, datetime
-from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken, Status
+from datetime import date, timedelta, datetime, time
+from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken, Status, Atividade, Prioridade, TipoProblema, Equipe, Projeto, Solicitante, ApontamentoTempo
 from .forms import (
     ClienteForm, ClienteImportForm,
     UsuarioForm, ApontamentoForm, UsuarioUpdateForm,
-    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm, EmailLoginForm, StatusForm
+    PublicRegistrationForm, SemeqPasswordResetForm, EquipamentoForm, EmailLoginForm, StatusForm,
+    ApontamentoForm, ApontamentoTempoForm,
+    AtividadeForm, PrioridadeForm, TipoProblemaForm, EquipeForm, ProjetoForm, SolicitanteForm
     )
 from .throttle import rate_limit
 import csv
 import openpyxl
 from io import BytesIO
+from apps.apontamentos.selectors.dashboard import (
+    get_dashboard_queryset, calculate_kpis, get_daily_compliance, get_filter_options,
+    agrupar_por_data
+)
+from apps.apontamentos.selectors.apontamentos import (
+    get_apontamentos_list_qs, get_list_context_data, get_export_queryset,
+    get_apontamentos_list_qs, get_apontamento_context_data
+)
+from apps.apontamentos.services.apontamento_service import (
+    criar_apontamento, criar_apontamento_tempo, atualizar_apontamento_tempo, pode_editar,
+    criar_apontamento, atualizar_apontamento, pode_editar
+)
+from apps.clientes.services.import_service import (
+    parse_file, normalize_row, fix_encoding
+)
+from apps.core.views.base import (
+    PermissionMixin, BaseCRUDListView, BaseCRUDCreateView,
+    BaseCRUDUpdateView, BaseCRUDDeleteView
+)
+from .permissions import (
+    can_view_apontamento, can_edit_apontamento, can_delete_apontamento,
+    can_view_user, can_edit_user, can_delete_user, can_manage_users,
+    filter_apontamentos_queryset, filter_apontamentostempo_queryset,
+    filter_users_queryset, PermissionDenied as PermDenied
+)
 
 
 def HomeView(request):
-    if request.user.is_authenticated:
-        return redirect('semeq:dashboard')
-    return redirect('semeq:login')
+    if not request.user.is_authenticated:
+        return redirect('semeq:login')
+    return redirect('semeq:dashboard')
 
 
 class DashboardView(LoginRequiredMixin, View):
     def get(self, request):
-        perfil = request.user.perfil if hasattr(request.user, 'perfil') else None
+        perfil = getattr(request.user, 'perfil', None)
+        qs = get_dashboard_queryset(request, perfil)
+        kpis = calculate_kpis(qs)
+        daily_compliance = get_daily_compliance(qs)
         
-        # Filtros
-        time_id = request.GET.get('time')
-        usuario_id = request.GET.get('usuario')
-        data_inicio = request.GET.get('data_inicio')
-        data_fim = request.GET.get('data_fim')
-        status = request.GET.get('status')
-        prioridade = request.GET.get('prioridade')
+        # FORCE ordering at the very end of pipeline (most recent first)
+        qs = qs.order_by('-data', '-hora_inicial')
         
-        # Base queryset
-        qs = Apontamento.objects.select_related('cliente', 'responsavel', 'equipamento').all()
+        # Group by day for ALL appointments in current month
+        agrupados, totais = agrupar_por_data(qs)
         
-        # Permissões
-        if perfil and perfil.is_lider_or_above() and not perfil.is_gestor_or_above():
-            equipe_codigo = perfil.time.nome.lower() if perfil.time else ''
-            qs = qs.filter(equipe=equipe_codigo) if equipe_codigo else qs.none()
-        elif not perfil or not perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel=request.user)
-        
-        # Se não houver datas informadas, mostra a semana atual (segunda a domingo)
-        if not data_inicio and not data_fim:
-            
-            date_start_this_month = str(date.today().year) +'-'+ str(date.today().month)  + '-01'
-            date_end_this_month =  str(date.today().year) +'-'+ str(date.today().month + 1)  + '-01'
-            # seg = date.today() - timedelta(days=date.today().weekday())
-            # dom = seg + timedelta(days=6)
-            data = qs.filter(data__gte=date_start_this_month, data__lte=date_end_this_month)
-
-            if data.count() < 10 and qs.count() >= 10:
-                qs =  qs.order_by('-criado_em')[:10]
-
-            else:
-                qs = data
-        
-        # Aplicar filtros
-        if time_id and perfil and perfil.is_gestor_or_above():
-            equipe_nome = Time.objects.filter(
-                pk=time_id, ativo=True
-            ).values_list('nome', flat=True).first()
-            if equipe_nome:
-                qs = qs.filter(equipe=equipe_nome.lower())
-            else:
-                qs = qs.none()
-        if usuario_id:
-            qs = qs.filter(responsavel_id=usuario_id)
-        if data_inicio:
-            qs = qs.filter(data__gte=data_inicio)
-        if data_fim:
-            qs = qs.filter(data__lte=data_fim)
-        if status:
-            qs = qs.filter(status=status)
-        if prioridade:
-            qs = qs.filter(prioridade=prioridade)
-        
-        # KPIs
-        hoje = date.today()
-        total_hoje = qs.filter(data=hoje).count()
-        
-        horas_trabalhadas = qs.aggregate(total=Sum('tempo_total'))['total']
-        if horas_trabalhadas:
-            total_seconds = int(horas_trabalhadas.total_seconds())
-            horas_str = f"{total_seconds // 3600}h {(total_seconds % 3600) // 60}m"
-        else:
-            horas_str = "0h 0m"
-        
-        em_aberto = qs.filter(status='aberto').count()
-        
-        concluidos = qs.filter(status='concluido').count()
-        total_status = qs.exclude(status='cancelado').count()
-        sla_pct = round((concluidos / total_status * 100), 1) if total_status > 0 else 0
-        
-        # Últimos 10 apontamentos
-        ultimos = qs[:10]
-        
-        # Totais diários por usuário (para indicador de cumprimento)
-        daily_totals = qs.values('responsavel__id', 'responsavel__first_name', 'responsavel__last_name', 'data').annotate(
-            total_minutos=Sum(ExpressionWrapper(F('tempo_total'), output_field=DurationField()))
-        ).order_by('-data')
-        
-        # Process daily totals for compliance check
-        daily_compliance = {}
-        for dt in daily_totals:
-            user_id = dt['responsavel__id']
-            data = dt['data']
-            total_min = 0
-            if dt['total_minutos']:
-                total_min = int(dt['total_minutos'].total_seconds() / 60)
-            
-            weekday = data.weekday()
-            min_required = 540 if weekday <= 3 else (480 if weekday == 4 else 0)
-            compliant = total_min >= min_required if min_required > 0 else True
-            
-            key = f"{user_id}_{data}"
-            daily_compliance[key] = {
-                'user_id': user_id,
-                'user_name': f"{dt['responsavel__first_name']} {dt['responsavel__last_name']}".strip(),
-                'data': data,
-                'total_minutos': total_min,
-                'min_required': min_required,
-                'compliant': compliant,
-                'deficit': max(0, min_required - total_min) if min_required > 0 else 0,
-            }
-        
-        # Para filtros
-        if perfil and perfil.is_gestor_or_above():
-            times = Time.objects.filter(ativo=True)
-            if time_id:
-                usuarios = perfil.get_visible_users().filter(perfil__time_id=time_id)
-            else:
-                usuarios = perfil.get_visible_users()
-        elif perfil and perfil.is_lider_or_above():
-            times = Time.objects.filter(pk=perfil.time_id, ativo=True)
-            usuarios = perfil.get_visible_users()
-        else:
-            times = Time.objects.none()
-            usuarios = perfil.get_visible_users() if perfil else User.objects.none()
+        # Status choices for dropdown
+        status_choices = [(s.pk, s.status) for s in Status.objects.filter(ativo=True).order_by('ordem', 'status')]
+        lista_status = list(Status.objects.filter(ativo=True).order_by('ordem', 'status'))
         
         context = {
             'perfil': perfil,
-            'total_hoje': total_hoje,
-            'horas_trabalhadas': horas_str,
-            'em_aberto': em_aberto,
-            'sla_pct': sla_pct,
-            'ultimos': ultimos,
-            'times': times,
-            'usuarios': usuarios,
+            'total_hoje': kpis['total_hoje'],
+            'horas_trabalhadas': kpis['horas_trabalhadas'],
+            'em_aberto': kpis['em_aberto'],
+            'sla_pct': kpis['sla_pct'],
             'daily_compliance': daily_compliance,
-            'filtros': {
-                'time': time_id,
-                'usuario': usuario_id,
-                'data_inicio': data_inicio,
-                'data_fim': data_fim,
-                'status': status,
-                'prioridade': prioridade,
-            },
-            'status_choices': Apontamento.STATUS_CHOICES,
-            'prioridade_choices': Apontamento.PRIORIDADE_CHOICES,
+            # Grouped by day (all days of current month)
+            'apontamentos_por_data': agrupados,
+            'totais_por_data': totais,
+            # Status choices for dropdown
+            'status_choices': status_choices,
+            'lista_status': lista_status,
+            # Botão Voltar - Dashboard não tem botão voltar
+            'hide_back_button': True,
         }
         return render(request, 'dashboard.html', context)
 
 
 # Apontamento Views
 class ApontamentoListView(LoginRequiredMixin, ListView):
-    model = Apontamento
+    model = ApontamentoTempo
     template_name = 'apontamentos/lista.html'
     context_object_name = 'apontamentos'
-    paginate_by = None  # Sem paginação: o agrupamento por data requer o dia inteiro junto
-    
+    paginate_by = 15
+
     def get_queryset(self):
-        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        qs = Apontamento.objects.select_related('cliente', 'responsavel', 'equipamento').all()
+        import logging
+        logger = logging.getLogger(__name__)
         
-        # Same permission logic as DashboardView
-        if perfil and perfil.is_lider_or_above() and not perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel__perfil__time=perfil.time)
-        elif not perfil or not perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel=self.request.user)
+        perfil = getattr(self.request.user, 'perfil', None)
+        qs = get_apontamentos_list_qs(self.request, perfil)
         
-        # Filtros
-        q = self.request.GET.get('q', '').strip()
-        if q:
-            qs = qs.filter(
-                Q(ticket__icontains=q) |
-                Q(cliente__corporation__icontains=q) |
-                Q(projeto__icontains=q) |
-                Q(solicitante__icontains=q)
-            )
+        # Ensure select_related for 'apontamento' is included
+        qs = qs.select_related('apontamento', 'apontamento__cliente', 'apontamento__status', 
+                               'apontamento__prioridade', 'apontamento__equipe', 'responsavel')
         
-        status = self.request.GET.get('status', '').strip()
-        if status:
-            qs = qs.filter(status=status)
-            
-        prioridade = self.request.GET.get('prioridade', '').strip()
-        if prioridade:
-            qs = qs.filter(prioridade=prioridade)
-            
-        data_inicio = self.request.GET.get('data_inicio', '').strip()
-        if data_inicio:
-            qs = qs.filter(data__gte=data_inicio)
-            
-        data_fim = self.request.GET.get('data_fim', '').strip()
-        if data_fim:
-            qs = qs.filter(data__lte=data_fim)
+        # FORCE ordering at the very end of pipeline (most recent first)
+        qs = qs.order_by('-data', '-hora_inicial')
         
-        # Time filter (Equipe) - only for gestores
-        time_id = self.request.GET.get('time', '').strip()
-        if time_id and perfil and perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel__perfil__time_id=time_id)
+        # Log para debug - ver o que está vindo
+        logger.info(f'[ApontamentoListView] User: {self.request.user}, Perfil: {perfil.role if perfil else "None"}')
+        logger.info(f'[ApontamentoListView] Query count: {qs.count()}')
         
-        # Usuario filter (Colaborador) - respect permission boundaries
-        usuario_id = self.request.GET.get('usuario', '').strip()
-        if usuario_id:
-            if perfil and perfil.is_gestor_or_above():
-                qs = qs.filter(responsavel_id=usuario_id)
-            elif perfil and perfil.is_lider_or_above():
-                qs = qs.filter(responsavel_id=usuario_id, responsavel__perfil__time=perfil.time)
-            else:
-                qs = qs.filter(responsavel_id=usuario_id, responsavel=self.request.user)
+        # Verificar se há órfãos no queryset
+        orphans = [a for a in qs if not a.apontamento or not a.apontamento.pk]
+        if orphans:
+            logger.warning(f'[ApontamentoListView] ÓRFÃOS ENCONTRADOS: {len(orphans)} - IDs: {[o.pk for o in orphans]}')
+            for o in orphans:
+                logger.warning(f'  - ApontamentoTempo PK={o.pk}, apontamento_id={o.apontamento_id}, apontamento={o.apontamento}')
+        else:
+            logger.info(f'[ApontamentoListView] Nenhum órfão no queryset')
         
-        return qs.order_by('-data', '-hora_inicial')
-    
+        return qs
+
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        context['perfil'] = perfil
+        # Don't call super() since we're using custom queryset (ApontamentoTempo) with model=ApontamentoTempo
+        # and custom context building
+        from django.core.paginator import Paginator
         
-        # Filter options for template
-        context['status_choices'] = Apontamento.STATUS_CHOICES
-        context['prioridade_choices'] = Apontamento.PRIORIDADE_CHOICES
+        perfil = getattr(self.request.user, 'perfil', None)
+        # Use the FULL queryset (before pagination) for grouping by day
+        qs = self.get_queryset()
+        selector_context = get_list_context_data(self.request, perfil, qs)
         
-        # Current filter values
-        context['search'] = self.request.GET.get('q', '')
-        context['status_filter'] = self.request.GET.get('status', '')
-        context['prioridade_filter'] = self.request.GET.get('prioridade', '')
-        context['data_inicio'] = self.request.GET.get('data_inicio', '')
-        context['data_fim'] = self.request.GET.get('data_fim', '')
+        # Group by day (same as Dashboard) - using full queryset
+        agrupados, totais = agrupar_por_data(qs)
+        selector_context['apontamentos_por_data'] = agrupados
+        selector_context['totais_por_data'] = totais
         
-        # Time/Usuário filters for gestores
-        if perfil and perfil.is_gestor_or_above():
-            from .models import Time
-            context['times'] = Time.objects.filter(ativo=True)
-            context['time_filter'] = self.request.GET.get('time', '')
-            if context['time_filter']:
-                context['usuarios'] = User.objects.filter(
-                    perfil__ativo=True, perfil__time_id=context['time_filter']
-                ).select_related('perfil')
-            else:
-                context['usuarios'] = User.objects.filter(perfil__ativo=True).select_related('perfil')
-            context['usuario_filter'] = self.request.GET.get('usuario', '')
-        elif perfil and perfil.is_lider_or_above():
-            context['usuarios'] = perfil.get_visible_users()
-            context['usuario_filter'] = self.request.GET.get('usuario', '')
-
-        # Agrupar apontamentos por data (já ordenados data DESC, hora DESC no queryset)
-        from collections import OrderedDict
-        apontamentos_por_data = OrderedDict()
-        totais_por_data = {}
-        for a in context['apontamentos']:
-            apontamentos_por_data.setdefault(a.data, []).append(a)
-        for data, lista in apontamentos_por_data.items():
-            total_min = 0
-            for a in lista:
-                if a.tempo_total:
-                    total_min += int(a.tempo_total.total_seconds() / 60)
-            totais_por_data[data] = total_min
-        context['apontamentos_por_data'] = apontamentos_por_data
-        context['totais_por_data'] = totais_por_data
-
-        return context
-
-
-class ApontamentoCreateView(LoginRequiredMixin, CreateView):
-    model = Apontamento
-    form_class = ApontamentoForm
-    template_name = 'apontamentos/form.html'
-    success_url = reverse_lazy('semeq:apontamento_lista')
-    
-    @method_decorator(rate_limit(rate='20/m', key='user_or_ip', method='POST', block=True))
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
-    
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user
-        return kwargs
-    
-    @transaction.atomic
-    def form_valid(self, form):
-        # Bloqueia race condition: lock nas linhas do responsável+data antes de inserir
-        data = form.cleaned_data
-        if data.get('responsavel') and data.get('data'):
-            Apontamento.objects.select_for_update().filter(
-                responsavel=data['responsavel'],
-                data=data['data'],
-            ).exists()
-
-        form.instance.criado_por = self.request.user
-        # Respeita o responsável escolhido (admin/gestor pode selecionar outro usuário);
-        # para colaborador, o form já força o próprio usuário (HiddenInput)
-        resp = form.cleaned_data.get('responsavel')
-        form.instance.responsavel = resp if resp else self.request.user
-        messages.success(self.request, 'Apontamento criado com sucesso!')
-        return super().form_valid(form)
+        # Build filter params for pagination links
+        from django.http import QueryDict
+        get_params = self.request.GET
+        if hasattr(get_params, 'urlencode'):
+            query_string = get_params.urlencode()
+        else:
+            query_string = '&'.join(f'{k}={v}' for k, v in get_params.items())
+        filter_params = QueryDict(query_string)
+        if 'page' in filter_params:
+            filter_params = filter_params.copy()
+            filter_params.pop('page')
+        selector_context['filter_params'] = filter_params.urlencode()
+        
+        # Botão Voltar - Apontamentos volta para Dashboard
+        selector_context['previous_page_url'] = '/dashboard/'
+        selector_context['hide_back_button'] = False
+        
+        # Add paginator/page_obj for template compatibility
+        paginator = Paginator(qs, self.paginate_by)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        selector_context['paginator'] = paginator
+        selector_context['page_obj'] = page_obj
+        selector_context['object_list'] = page_obj.object_list
+        selector_context['is_paginated'] = page_obj.has_other_pages()
+        
+        return selector_context
 
 
 class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
@@ -329,24 +184,29 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
     form_class = ApontamentoForm
     template_name = 'apontamentos/form.html'
     success_url = reverse_lazy('semeq:apontamento_lista')
-    
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
-    
+
     def get_queryset(self):
-        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        qs = super().get_queryset()
-        if perfil and perfil.is_gestor_or_above():
-            return qs
-        elif perfil and perfil.is_lider_or_above():
-            return qs.filter(responsavel__perfil__time=perfil.time)
-        return qs.filter(responsavel=self.request.user)
-    
+        return filter_apontamentos_queryset(self.request.user, super().get_queryset())
+
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not pode_editar(obj):
+            messages.error(request, 'Não é possível editar um apontamento com status "Concluído".')
+            return redirect('semeq:apontamento_lista')
+        # Check edit permission
+        if not can_edit_apontamento(request.user, obj):
+            raise PermDenied('Você não tem permissão para editar este apontamento.')
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
+        atualizar_apontamento(self.object, **form.cleaned_data)
         messages.success(self.request, 'Apontamento atualizado com sucesso!')
-        return super().form_valid(form)
+        return redirect(self.get_success_url())
 
 
 class ApontamentoDeleteView(LoginRequiredMixin, DeleteView):
@@ -355,13 +215,13 @@ class ApontamentoDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy('semeq:apontamento_lista')
     
     def get_queryset(self):
-        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        qs = super().get_queryset()
-        if perfil and perfil.is_gestor_or_above():
-            return qs
-        elif perfil and perfil.is_lider_or_above():
-            return qs.filter(responsavel__perfil__time=perfil.time)
-        return qs.filter(responsavel=self.request.user)
+        return filter_apontamentos_queryset(self.request.user, super().get_queryset())
+    
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not can_delete_apontamento(request.user, obj):
+            raise PermDenied('Você não tem permissão para excluir este apontamento.')
+        return super().dispatch(request, *args, **kwargs)
     
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Apontamento excluído com sucesso!')
@@ -374,82 +234,139 @@ class ApontamentoDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'apontamento'
     
     def get_queryset(self):
-        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        qs = super().get_queryset().select_related('cliente', 'responsavel', 'equipamento', 'criado_por')
-        if perfil and perfil.is_gestor_or_above():
-            return qs
-        elif perfil and perfil.is_lider_or_above():
-            return qs.filter(responsavel__perfil__time=perfil.time)
-        return qs.filter(responsavel=self.request.user)
+        return filter_apontamentos_queryset(
+            self.request.user, 
+            super().get_queryset().select_related('cliente', 'responsavel', 'equipamento', 'criado_por')
+        )
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Check view permission using filtered queryset
+        pk = kwargs.get('pk')
+        qs = self.get_queryset()
+        if not qs.filter(pk=pk).exists():
+            return redirect('semeq:atendimento_detalhe', pk=pk)
+        obj = qs.get(pk=pk)
+        if not can_view_apontamento(request.user, obj):
+            raise PermDenied('Você não tem permissão para visualizar este apontamento.')
+        return super().dispatch(request, *args, **kwargs)
 
 
 class ApontamentoStatusView(LoginRequiredMixin, View):
-    """
-    Altera o status de um apontamento via AJAX (POST).
-    Usado nas telas de lista (/apontamentos/), dashboard e detalhe.
-    """
     @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
 
-    def get_apontamento(self, request, pk):
-        perfil = request.user.perfil if hasattr(request.user, 'perfil') else None
-        ap = get_object_or_404(Apontamento, pk=pk)
-        # Mesma lógica de permissão das demais views de apontamento
-        if perfil and perfil.is_gestor_or_above():
-            return ap
-        elif perfil and perfil.is_lider_or_above():
-            if ap.responsavel.perfil.time_id == perfil.time_id:
-                return ap
-        else:
-            if ap.responsavel_id == request.user.id:
-                return ap
-        return None
-
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs) -> JsonResponse:
         if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
             return JsonResponse({'success': False, 'message': 'Requisição inválida.'}, status=400)
 
-        ap = self.get_apontamento(request, kwargs.get('pk'))
-        if ap is None:
-            return JsonResponse({'success': False, 'message': 'Você não tem permissão para alterar este apontamento.'}, status=403)
+        pk = kwargs.get('pk')
+        ap = get_object_or_404(Apontamento, pk=pk)
+        
+        if not can_edit_apontamento(request.user, ap):
+            return JsonResponse({'success': False, 'message': 'Sem permissão para alterar este apontamento.'}, status=403)
 
-        novo_status = request.POST.get('status', '').strip()
-        status_validos = {key for key, _ in Apontamento.STATUS_CHOICES}
-        if novo_status not in status_validos:
+        # Support both form data and JSON
+        import json
+        if request.content_type == 'application/json':
+            try:
+                data = json.loads(request.body)
+                status_id = data.get('status', '').strip()
+            except (json.JSONDecodeError, AttributeError):
+                status_id = ''
+        else:
+            status_id = request.POST.get('status', '').strip()
+        
+        status_obj = Status.objects.filter(pk=status_id, ativo=True).first()
+        if not status_obj:
             return JsonResponse({'success': False, 'message': 'Status inválido.'}, status=400)
 
-        ap.status = novo_status
+        ap.status = status_obj
         ap.save()
 
         return JsonResponse({
             'success': True,
-            'message': 'Status atualizado com sucesso!',
-            'status': ap.get_status_display(),
+            'message': 'Status atualizado!',
+            'status': ap.status.status if ap.status else '',
+        })
+
+
+@rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True)
+def alterar_status_apontamento(request, pk):
+    """AJAX endpoint for quick status change from list/dashboard."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método não permitido'}, status=405)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        novo_status_id = data.get('status')
+        
+        if not novo_status_id:
+            return JsonResponse({'success': False, 'error': 'Status não informado'}, status=400)
+        
+        ap = get_object_or_404(Apontamento, pk=pk)
+        
+        if not can_edit_apontamento(request.user, ap):
+            return JsonResponse({'success': False, 'error': 'Sem permissão para alterar este apontamento.'}, status=403)
+        
+        status_obj = Status.objects.filter(pk=novo_status_id, ativo=True).first()
+        if not status_obj:
+            return JsonResponse({'success': False, 'error': 'Status inválido.'}, status=400)
+        
+        ap.status = status_obj
+        ap.save()
+        
+        return JsonResponse({'success': True, 'status': status_obj.status})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+class ApontamentoTipoProblemaView(LoginRequiredMixin, View):
+    @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True))
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs) -> JsonResponse:
+        if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'message': 'Requisição inválida.'}, status=400)
+
+        pk = kwargs.get('pk')
+        ap = get_object_or_404(Apontamento, pk=pk)
+        
+        if not can_edit_apontamento(request.user, ap):
+            return JsonResponse({'success': False, 'message': 'Sem permissão para alterar este apontamento.'}, status=403)
+
+        tipo_obj = TipoProblema.objects.filter(nome=request.POST.get('tipo_problema', '').strip(), ativo=True).first()
+        if not tipo_obj:
+            return JsonResponse({'success': False, 'message': 'Tipo de problema inválido.'}, status=400)
+
+        ap.tipo_problema = tipo_obj
+        ap.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Tipo de problema atualizado!',
+            'tipo_problema': ap.tipo_problema.nome if ap.tipo_problema else '',
         })
 
 
 class ApontamentoExportView(LoginRequiredMixin, View):
     def get(self, request):
         formato = request.GET.get('formato', 'csv')
-        perfil = request.user.perfil if hasattr(request.user, 'perfil') else None
-        
-        qs = Apontamento.objects.select_related('cliente', 'responsavel', 'equipamento').all()
-        
-        if perfil and perfil.is_lider_or_above() and not perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel__perfil__time=perfil.time)
-        elif not perfil or not perfil.is_gestor_or_above():
-            qs = qs.filter(responsavel=request.user)
-        
+        perfil = getattr(request.user, 'perfil', None)
+
+        qs = get_export_queryset(perfil, request.user)
+
         if formato == 'xlsx':
             return self.export_xlsx(qs)
         return self.export_csv(qs)
-    
+
     def export_csv(self, qs):
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="apontamentos_{date.today()}.csv"'
-        response.write('\ufeff'.encode('utf-8'))  # BOM para Excel
-        
+        response.write('\ufeff'.encode('utf-8'))
+
         writer = csv.writer(response, delimiter=';')
         writer.writerow([
             'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
@@ -457,7 +374,7 @@ class ApontamentoExportView(LoginRequiredMixin, View):
             'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
             'GW no Ar', '>18h', 'Desvio', 'Descrição'
         ])
-        
+
         for a in qs:
             tempo_min = a.tempo_minutos
             if not tempo_min and a.tempo_total:
@@ -465,10 +382,13 @@ class ApontamentoExportView(LoginRequiredMixin, View):
             writer.writerow([
                 a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
                 a.solicitante, str(a.equipamento) if a.equipamento else '',
-                a.get_prioridade_display(), a.get_equipe_display(),
+                a.prioridade.nome if a.prioridade else '',
+                a.equipe.nome if a.equipe else '',
                 a.responsavel.get_full_name() or a.responsavel.username,
-                a.get_atividade_display(), a.get_tipo_problema_display(),
-                a.get_status_display(), a.data.strftime('%d/%m/%Y'),
+                a.atividade.nome if a.atividade else '',
+                a.tipo_problema.nome if a.tipo_problema else '',
+                a.status.status if a.status else '',
+                a.data.strftime('%d/%m/%Y'),
                 a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
                 a.hora_final.strftime('%H:%M') if a.hora_final else '',
                 tempo_min if tempo_min else '',
@@ -477,12 +397,12 @@ class ApontamentoExportView(LoginRequiredMixin, View):
                 a.get_desvio_display(), a.descricao
             ])
         return response
-    
+
     def export_xlsx(self, qs):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = 'Apontamentos'
-        
+
         headers = [
             'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
             'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
@@ -490,7 +410,7 @@ class ApontamentoExportView(LoginRequiredMixin, View):
             'GW no Ar', '>18h', 'Desvio', 'Descrição'
         ]
         ws.append(headers)
-        
+
         for a in qs:
             tempo_min = a.tempo_minutos
             if not tempo_min and a.tempo_total:
@@ -498,10 +418,13 @@ class ApontamentoExportView(LoginRequiredMixin, View):
             ws.append([
                 a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
                 a.solicitante, str(a.equipamento) if a.equipamento else '',
-                a.get_prioridade_display(), a.get_equipe_display(),
+                a.prioridade.nome if a.prioridade else '',
+                a.equipe.nome if a.equipe else '',
                 a.responsavel.get_full_name() or a.responsavel.username,
-                a.get_atividade_display(), a.get_tipo_problema_display(),
-                a.get_status_display(), a.data.strftime('%d/%m/%Y'),
+                a.atividade.nome if a.atividade else '',
+                a.tipo_problema.nome if a.tipo_problema else '',
+                a.status.status if a.status else '',
+                a.data.strftime('%d/%m/%Y'),
                 a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
                 a.hora_final.strftime('%H:%M') if a.hora_final else '',
                 tempo_min if tempo_min else '',
@@ -509,13 +432,215 @@ class ApontamentoExportView(LoginRequiredMixin, View):
                 'Sim' if a.apos_18h else 'Não',
                 a.get_desvio_display(), a.descricao
             ])
-        
+
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         response['Content-Disposition'] = f'attachment; filename="apontamentos_{date.today()}.xlsx"'
         wb.save(response)
         return response
+
+
+# =====================================================================
+# ATENDIMENTO & APONTAMENTO TEMPO VIEWS
+# =====================================================================
+
+class ApontamentoPermissionMixin(LoginRequiredMixin):
+    """Apenas Admin e Gestor podem gerenciar apontamentos."""
+    def dispatch(self, request, *args, **kwargs):
+        perfil = getattr(request.user, 'perfil', None)
+        if not (request.user.is_superuser or (perfil and perfil.is_gestor_or_above())):
+            messages.error(request, 'Acesso negado. Apenas administradores e gestores.')
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class ApontamentoCreateView(LoginRequiredMixin, CreateView):
+    model = Apontamento
+    form_class = ApontamentoForm
+    template_name = 'apontamentos/form.html'
+    success_url = reverse_lazy('semeq:apontamento_lista')
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['cliente_queryset'] = Cliente.objects.all().order_by('corporation', 'plant')
+        return context
+    
+    def form_valid(self, form):
+        from django.db import transaction
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f'[ApontamentoCreateView] ===== INÍCIO CRIAÇÃO =====')
+        logger.info(f'[ApontamentoCreateView] User: {self.request.user} (ID: {self.request.user.pk})')
+        logger.info(f'[ApontamentoCreateView] User perfil: {getattr(self.request.user, "perfil", None)}')
+        if hasattr(self.request.user, 'perfil') and self.request.user.perfil:
+            logger.info(f'[ApontamentoCreateView] User role: {self.request.user.perfil.role}, equipe: {self.request.user.perfil.equipe}')
+        logger.info(f'[ApontamentoCreateView] Form data: data_inicial={form.cleaned_data.get("data_inicial")}, tempo={form.cleaned_data.get("tempo_investido_minutos")}, responsavel={form.cleaned_data.get("responsavel")}, cliente={form.cleaned_data.get("cliente")}')
+        
+        form.instance.criado_por = self.request.user
+        
+        # Ensure responsavel is set (for non-gestor users, it's hidden and defaults to current user)
+        if not form.instance.responsavel_id:
+            form.instance.responsavel = self.request.user
+            logger.info(f'[ApontamentoCreateView] Responsavel não definido, usando usuário atual: {self.request.user}')
+        else:
+            logger.info(f'[ApontamentoCreateView] Responsavel já definido: {form.instance.responsavel}')
+        
+        with transaction.atomic():
+            # Save the Apontamento first
+            response = super().form_valid(form)
+            
+            logger.info(f'[ApontamentoCreateView] Apontamento salvo com ID: {self.object.pk}, Data: {self.object.data_inicial}, Tempo: {self.object.tempo_investido_minutos}, Responsavel: {self.object.responsavel} (ID: {self.object.responsavel_id})')
+            
+            # Automatically create an ApontamentoTempo entry for the list view
+            if self.object.data_inicial and self.object.tempo_investido_minutos:
+                total_minutes = self.object.tempo_investido_minutos
+                
+                # Calculate end time properly using timedelta to handle overflow
+                from datetime import datetime, timedelta
+                hora_inicial = time(8, 0)
+                dt_inicial = datetime.combine(self.object.data_inicial, hora_inicial)
+                dt_final = dt_inicial + timedelta(minutes=total_minutes)
+                hora_final = dt_final.time()
+                
+                # If end time is next day or later, cap at 23:59
+                if dt_final.date() > self.object.data_inicial:
+                    hora_final = time(23, 59)
+                
+                try:
+                    at = ApontamentoTempo.objects.create(
+                        apontamento=self.object,
+                        responsavel=self.object.responsavel,
+                        criado_por=self.request.user,
+                        data=self.object.data_inicial,
+                        hora_inicial=hora_inicial,
+                        hora_final=hora_final,
+                        tempo_investido_minutos=total_minutes,
+                        observacao='Criado automaticamente a partir do apontamento principal'
+                    )
+                    logger.info(f'[ApontamentoCreateView] ApontamentoTempo criado com sucesso - ID: {at.pk}')
+                except Exception as e:
+                    logger.exception(f'[ApontamentoCreateView] ERRO ao criar ApontamentoTempo automático: {str(e)}')
+            else:
+                logger.warning(f'[ApontamentoCreateView] ApontamentoTempo NÃO criado - data_inicial: {self.object.data_inicial}, tempo_investido_minutos: {self.object.tempo_investido_minutos}')
+        
+        messages.success(self.request, 'Apontamento criado com sucesso!')
+        logger.info(f'[ApontamentoCreateView] ===== FIM CRIAÇÃO =====')
+        return response
+
+
+class ApontamentoUpdateView(ApontamentoPermissionMixin, UpdateView):
+    model = Apontamento
+    form_class = ApontamentoForm
+    template_name = 'apontamentos/form.html'
+    success_url = reverse_lazy('semeq:apontamento_lista')
+    context_object_name = 'object'
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Apontamento atualizado com sucesso!')
+        return super().form_valid(form)
+
+
+class ApontamentoDetailView(ApontamentoPermissionMixin, DetailView):
+    model = Apontamento
+    template_name = 'apontamentos/detail.html'
+    context_object_name = 'apontamento'
+    
+    def get_queryset(self):
+        return Apontamento.objects.select_related(
+            'cliente', 'responsavel', 'equipe', 'status', 'prioridade', 'projeto', 
+            'atividade', 'tipo_problema', 'solicitante', 'equipamento', 'criado_por'
+        ).prefetch_related('apontamentos_tempo__responsavel')
+
+
+class ApontamentoDeleteView(ApontamentoPermissionMixin, DeleteView):
+    model = Apontamento
+    template_name = 'apontamentos/confirm_delete.html'
+    success_url = reverse_lazy('semeq:apontamento_lista')
+    
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, 'Apontamento excluído com sucesso!')
+        return super().delete(request, *args, **kwargs)
+
+
+class ApontamentoTempoCreateView(ApontamentoPermissionMixin, CreateView):
+    model = ApontamentoTempo
+    form_class = ApontamentoTempoForm
+    template_name = 'atendimentos/apontamento_tempo_form.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.apontamento = get_object_or_404(Apontamento, pk=kwargs.get('apontamento_pk'))
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['apontamento'] = self.apontamento
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamento'] = self.apontamento
+        return context
+    
+    def form_valid(self, form):
+        form.instance.apontamento = self.apontamento
+        form.instance.responsavel = self.apontamento.responsavel
+        form.instance.criado_por = self.request.user
+        messages.success(self.request, 'Apontamento de tempo adicionado com sucesso!')
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse_lazy('semeq:apontamento_detalhe', kwargs={'pk': self.apontamento.pk})
+
+
+class ApontamentoTempoUpdateView(ApontamentoPermissionMixin, UpdateView):
+    model = ApontamentoTempo
+    form_class = ApontamentoTempoForm
+    template_name = 'atendimentos/apontamento_tempo_form.html'
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['apontamento'] = self.object.apontamento
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamento'] = self.object.apontamento
+        return context
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Apontamento de tempo atualizado com sucesso!')
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse_lazy('semeq:apontamento_detalhe', kwargs={'pk': self.object.apontamento.pk})
+
+
+class ApontamentoTempoDeleteView(ApontamentoPermissionMixin, DeleteView):
+    model = ApontamentoTempo
+    template_name = 'atendimentos/apontamento_tempo_confirm_delete.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamento'] = self.object.apontamento
+        return context
+    
+    def get_success_url(self):
+        messages.success(self.request, 'Apontamento de tempo excluído com sucesso!')
+        return reverse_lazy('semeq:apontamento_detalhe', kwargs={'pk': self.object.apontamento.pk})
 
 
 # Cliente Views
@@ -556,7 +681,7 @@ class ClienteListView(LoginRequiredMixin, ListView):
         if zone:
             qs = qs.filter(zone__icontains=zone)
         
-        return qs.order_by('corporation', 'plant')
+        return qs.order_by('-criado_em')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -593,8 +718,8 @@ class ClientePermissionMixin(LoginRequiredMixin):
 class ClienteCreateView(ClientePermissionMixin, CreateView):
     model = Cliente
     form_class = ClienteForm
-    template_name = 'clientes/form.html'
-    success_url = reverse_lazy('semeq:cliente_lista')
+    template_name = 'cadastros/cliente_form.html'
+    success_url = reverse_lazy('semeq:cadastro_clientes')
     
     def form_valid(self, form):
         messages.success(self.request, 'Cliente criado com sucesso!')
@@ -604,8 +729,8 @@ class ClienteCreateView(ClientePermissionMixin, CreateView):
 class ClienteUpdateView(ClientePermissionMixin, UpdateView):
     model = Cliente
     form_class = ClienteForm
-    template_name = 'clientes/form.html'
-    success_url = reverse_lazy('semeq:cliente_lista')
+    template_name = 'cadastros/cliente_form.html'
+    success_url = reverse_lazy('semeq:cadastro_clientes')
     
     def form_valid(self, form):
         messages.success(self.request, 'Cliente atualizado com sucesso!')
@@ -615,7 +740,7 @@ class ClienteUpdateView(ClientePermissionMixin, UpdateView):
 class ClienteDeleteView(ClientePermissionMixin, DeleteView):
     model = Cliente
     template_name = 'clientes/confirm_delete.html'
-    success_url = reverse_lazy('semeq:cliente_lista')
+    success_url = reverse_lazy('semeq:cadastro_clientes')
     
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -633,24 +758,17 @@ class ClienteDeleteView(ClientePermissionMixin, DeleteView):
     
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        delete_apontamentos = request.POST.get('delete_apontamentos') == 'on'
         
+        # Check apontamentos - auto-delete them if admin confirms
         if self.apontamentos_count > 0:
             if not (request.user.is_superuser or (
-                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+                hasattr(request.user, 'perfil') and self.request.user.perfil.is_admin()
             )):
                 messages.error(request, 
                     f'Este cliente possui {self.apontamentos_count} apontamento(s) associado(s). '
                     'Apenas administradores podem excluir clientes com apontamentos.'
                 )
-                return redirect('semeq:cliente_lista')
-            
-            if not delete_apontamentos:
-                messages.error(request,
-                    f'Este cliente possui {self.apontamentos_count} apontamento(s). '
-                    'Marque a opção para excluir os apontamentos junto com o cliente.'
-                )
-                return self.get(request)
+                return redirect('semeq:cadastro_clientes')
             
             # Admin confirmed - delete apontamentos first
             self.object.apontamentos.all().delete()
@@ -670,7 +788,7 @@ class ClienteDeleteAllView(ClientePermissionMixin, View):
         perfil = request.user.perfil if hasattr(request.user, 'perfil') else None
         if not (request.user.is_superuser or (perfil and perfil.is_admin())):
             messages.error(request, 'Acesso negado. Apenas administradores.')
-            return redirect('semeq:cliente_lista')
+            return redirect('semeq:cadastro_clientes')
         return super().dispatch(request, *args, **kwargs)
     
     def get(self, request):
@@ -711,7 +829,7 @@ class ClienteDeleteAllView(ClientePermissionMixin, View):
             f'Exclusão completa: {clientes_count} clientes, {equipamentos_count} equipamentos, '
             f'{apontamentos_count} apontamentos removidos.'
         )
-        return redirect('semeq:cliente_lista')
+        return redirect('semeq:cadastro_clientes')
 
 
 class ClienteImportView(ClientePermissionMixin, View):
@@ -723,254 +841,33 @@ class ClienteImportView(ClientePermissionMixin, View):
         form = ClienteImportForm()
         return render(request, 'clientes/importar.html', {'form': form})
 
-    @staticmethod
-    def _fix_encoding(value):
-        """
-        Corrige encoding legado (latin-1/cp1252/utf-8 mal interpretado).
-        
-        Padrões de mojibake comuns em PT-BR:
-        - UTF-8 bytes interpretados como latin-1:
-          * Ó (UTF-8: C3 93) -> Ã + " (U+00C3 U+0093) 
-          * Í (UTF-8: C3 8D) -> Ã + \x8d (U+00C3 U+008D)
-          * í (UTF-8: C3 AD) -> Ã + \xad (U+00C3 U+00AD)
-          * ç (UTF-8: C3 A7) -> Ã + § (U+00C3 U+00A7)
-        - Dupla corrupção: UTF-8 -> latin-1 -> replacement char
-          * Í (C3 8D) -> Ã + \x8d -> substituição \x8d -> � -> Ã + �
-        - Padrão parcial: Ã (U+00C3) + vogal/consoante -> acentuado
-        - Controle C1 (0x80-0x9F) após Ã (U+00C3) -> acentuado
-        """
-        if not value:
-            return value
-        
-        # Only process strings
-        if not isinstance(value, str):
-            return value
-        
-        import re
-        
-        # Estratégia 1 (MOVIDA PARA CIMA): Fix mojibake onde Ã (U+00C3) é seguido por controle C1 (0x80-0x9F)
-        # Mapeia Ã + controle C1 para o caractere acentuado correspondente
-        # UTF-8: C3 80-9F -> latin-1: Ã + controle C1
-        # Ex: C3 81 (Á) -> Ã + \x81; C3 8D (Í) -> Ã + \x8d; C3 AD (í) -> Ã + \xad
-        # Esta deve rodar ANTES das estratégias latin-1/utf-8 para evitar corrupção intermediária
-        c1_to_accented = {
-            '\u00c3\x81': 'Á', '\u00c3\x82': 'Â', '\u00c3\x83': 'Ã', '\u00c3\x84': 'Ä',
-            '\u00c3\x85': 'Å', '\u00c3\x86': 'Æ', '\u00c3\x87': 'Ç', '\u00c3\x88': 'È',
-            '\u00c3\x89': 'É', '\u00c3\x8a': 'Ê', '\u00c3\x8b': 'Ë', '\u00c3\x8c': 'Ì',
-            '\u00c3\x8d': 'Í', '\u00c3\x8e': 'Î', '\u00c3\x8f': 'Ï', '\u00c3\x90': 'Ð',
-            '\u00c3\x91': 'Ñ', '\u00c3\x92': 'Ò', '\u00c3\x93': 'Ó', '\u00c3\x94': 'Ô',
-            '\u00c3\x95': 'Õ', '\u00c3\x96': 'Ö', '\u00c3\x97': '×', '\u00c3\x98': 'Ø',
-            '\u00c3\x99': 'Ú', '\u00c3\x9a': 'Ú', '\u00c3\x9b': 'Û', '\u00c3\x9c': 'Ü',
-            '\u00c3\x9d': 'Ý', '\u00c3\x9e': 'Þ', '\u00c3\x9f': 'ß',
-            '\u00c3\xa1': 'á', '\u00c3\xa2': 'â', '\u00c3\xa3': 'ã', '\u00c3\xa4': 'ä',
-            '\u00c3\xa5': 'å', '\u00c3\xa6': 'æ', '\u00c3\xa7': 'ç', '\u00c3\xa8': 'è',
-            '\u00c3\xa9': 'é', '\u00c3\xaa': 'ê', '\u00c3\xab': 'ë', '\u00c3\xac': 'ì',
-            '\u00c3\xad': 'í', '\u00c3\xae': 'î', '\u00c3\xaf': 'ï', '\u00c3\xb0': 'ð',
-            '\u00c3\xb1': 'ñ', '\u00c3\xb2': 'ò', '\u00c3\xb3': 'ó', '\u00c3\xb4': 'ô',
-            '\u00c3\xb5': 'õ', '\u00c3\xb6': 'ö', '\u00c3\xb7': '÷', '\u00c3\xb8': 'ø',
-            '\u00c3\xb9': 'ù', '\u00c3\xba': 'ú', '\u00c3\xbb': 'û', '\u00c3\xbc': 'ü',
-            '\u00c3\xbd': 'ý', '\u00c3\xbe': 'þ', '\u00c3\xbf': 'ÿ',
-        }
-        pattern = '|'.join(re.escape(k) for k in c1_to_accented.keys())
-        fixed = re.sub(pattern, lambda m: c1_to_accented.get(m.group(0), m.group(0)), value)
-        if fixed != value:
-            return fixed
-        
-        # Estratégia 2: Fix mojibake parcial onde bytes de continuação foram substituídos
-        # Padrão: Ã (U+00C3) + vogal/consoante -> caractere acentuado
-        mojibake_map = {
-            '\u00c3A': 'Á', '\u00c3a': 'á',
-            '\u00c3E': 'É', '\u00c3e': 'é',
-            '\u00c3I': 'Í', '\u00c3i': 'í',
-            '\u00c3O': 'Ó', '\u00c3o': 'ó',
-            '\u00c3U': 'Ú', '\u00c3u': 'ú',
-            '\u00c3C': 'Ç', '\u00c3c': 'ç',
-            # Smart quote mojibake (Excel/openpyxl converts 0x93/0x94 to U+201C/U+201D)
-            '\u00c3\u201c': 'Ó', '\u00c3\u201d': 'Ó',  # Ã + " / Ã + "
-            '\u00e3\u201c': 'ó', '\u00e3\u201d': 'ó',  # ã + " / ã + "
-            '\u00c3\u2018': 'Á', '\u00c3\u2019': 'Á',  # Ã + ' / Ã + '
-            '\u00e3\u2018': 'á', '\u00e3\u2019': 'á',  # ã + ' / ã + '
-            '\u00c3\u201e': 'Í',  # Ã + "
-            '\u00e3\u201e': 'í',  # ã + "
-            '\u00c3\u201a': 'É',  # Ã + '
-            '\u00e3\u201a': 'é',  # ã + '
-        }
-        pattern = '|'.join(re.escape(k) for k in mojibake_map.keys())
-        fixed = re.sub(pattern, lambda m: mojibake_map.get(m.group(0), m.group(0)), value)
-        if fixed != value:
-            return fixed
-        
-        # Estratégia 3: Fix padrão mojibake (latin-1 -> cp1252)
-        # Corrige UTF-8 bytes lidos como latin-1 (ex: Ã + \x93 -> Ó)
-        try:
-            fixed = value.encode('latin-1').decode('cp1252')
-            if fixed != value:
-                return fixed
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            pass
-        
-        # Estratégia 4: Reconstrói bytes UTF-8 originais a partir da interpretação latin-1
-        # Quando UTF-8 (ex: C3 8D para Í) é lido como latin-1, vira Ã (C3) + \x8d (controle)
-        # Se houver caracteres de controle C1 (0x80-0x9F), tenta reconstruir UTF-8
-        try:
-            latin1_bytes = value.encode('latin-1')
-            fixed = latin1_bytes.decode('utf-8')
-            if fixed != value:
-                return fixed
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            pass
-        
-        # Estratégia 5: Dupla corrupção - replacement char (U+FFFD) + controle C1
-        # Ex: Í (C3 8D) -> Ã + \x8d -> substituição \x8d -> � -> Ã + �
-        # Tenta: substitui � (U+FFFD) por byte 0x80-0x9F correspondente e reconverte
-        if '\ufffd' in value:
-            try:
-                # Tenta diferentes bytes de continuação comuns em PT-BR
-                for continuation_byte in range(0x80, 0xA0):  # 0x80-0x9F
-                    test_value = value.replace('\ufffd', chr(continuation_byte))
-                    try:
-                        test_bytes = test_value.encode('latin-1')
-                        fixed = test_bytes.decode('utf-8')
-                        if fixed != value and not any(ord(c) in range(0x80, 0xA0) for c in fixed):
-                            return fixed
-                    except (UnicodeEncodeError, UnicodeDecodeError):
-                        continue
-            except:
-                pass
-        
-        # Estratégia 6: Remove caracteres de controle C1 (0x80-0x9F) restantes
-        try:
-            fixed = re.sub(r'[\x80-\x9F]', '', value)
-            if fixed != value:
-                return fixed
-        except:
-            pass
-        
-        return value
-    def _parse_file(self, arquivo, ext):
-        """Parse Excel or CSV file, return (headers, rows)"""
-        if ext in ['xlsx', 'xls']:
-            df = openpyxl.load_workbook(arquivo, read_only=True)
-            sheet = df.active
-            all_rows = list(sheet.iter_rows(values_only=True))
-            if not all_rows:
-                return [], []
-            
-            def fix_xlsx_value(val):
-                """Tenta múltiplas estratégias para corrigir encoding do XLSX"""
-                if val is None:
-                    return ''
-                s = str(val)
-                # Tenta fix padrão (latin-1 -> cp1252)
-                fixed = self._fix_encoding(s)
-                # Se não mudou, tenta outras estratégias
-                if fixed == s:
-                    # Estratégia 1: bytes UTF-8 interpretados como latin-1 -> decode cp1252
-                    try:
-                        fixed = s.encode('latin-1', errors='replace').decode('cp1252')
-                    except:
-                        pass
-                    # Estratégia 2: bytes UTF-8 interpretados como cp1252 -> decode utf-8
-                    if fixed == s:
-                        try:
-                            fixed = s.encode('cp1252', errors='replace').decode('utf-8')
-                        except:
-                            pass
-                    # Estratégia 3: bytes latin-1 interpretados como utf-8
-                    if fixed == s:
-                        try:
-                            fixed = s.encode('utf-8', errors='replace').decode('latin-1')
-                        except:
-                            pass
-                    # Estratégia 4: remove caracteres de controle C1 (0x80-0x9F) comuns em mojibake
-                    if fixed == s:
-                        import re
-                        fixed = re.sub(r'[\x80-\x9F]', '', s)
-                return fixed.strip()
-            
-            headers = [fix_xlsx_value(h) for h in all_rows[0]]
-            rows = [[fix_xlsx_value(c) for c in r] for r in all_rows[1:]]
-            return headers, rows
-        else:
-            import io
-            import chardet
-            content = arquivo.read()
-            
-            # Detect encoding using chardet
-            detected = chardet.detect(content)
-            encoding = detected['encoding'] or 'utf-8'
-            confidence = detected['confidence'] or 0
-            
-            # If confidence is low or encoding is ASCII/ISO-8859-1, try UTF-8 first
-            if confidence < 0.7 or encoding.lower() in ['ascii', 'iso-8859-1']:
-                try:
-                    content = content.decode('utf-8')
-                except UnicodeDecodeError:
-                    content = content.decode('cp1252')
-            else:
-                try:
-                    content = content.decode(encoding)
-                except UnicodeDecodeError:
-                    content = content.decode('cp1252')
-            
-            # Remove BOM if present
-            if content.startswith('\ufeff'):
-                content = content[1:]
-            
-            # Auto-detect delimiter
-            sample = content[:1024]
-            sniffer = csv.Sniffer()
-            try:
-                dialect = sniffer.sniff(sample, delimiters=',;\t')
-                delimiter = dialect.delimiter
-            except:
-                delimiter = ';' if ';' in sample else ','
-            
-            reader = csv.reader(io.StringIO(content), delimiter=delimiter)
-            all_rows = list(reader)
-            if not all_rows:
-                return [], []
-            headers = [self._fix_encoding(str(h or '')).strip() for h in all_rows[0]]
-            rows = [[self._fix_encoding(str(c or '')).strip() for c in r] for r in all_rows[1:]]
-            return headers, rows
-    
-    def _normalize_row(self, row, headers):
-        """Map row values by header name (case-insensitive)"""
-        row_dict = {}
-        header_lower = {h.lower(): i for i, h in enumerate(headers)}
-        for key in ['corporation', 'plant', 'zone']:
-            idx = header_lower.get(key.lower())
-            row_dict[key] = row[idx] if idx is not None and idx < len(row) else ''
-        return row_dict
-    
     def post(self, request):
         confirmar = request.POST.get('confirmar')
-        
+
         if confirmar:
-            # Step 2: Confirm import from session data
             import_data = request.session.pop('cliente_import_data', None)
             if not import_data:
                 messages.error(request, 'Dados de importação expirados. Tente novamente.')
                 return redirect('semeq:cliente_importar')
-            
+
             atualizar = import_data.get('atualizar', True)
             rows = import_data.get('rows', [])
             ext = import_data.get('ext', 'csv')
-            
+
             criados = 0
             atualizados = 0
             erros = []
-            
+
             for i, row_data in enumerate(rows, start=2):
                 try:
-                    corp = self._fix_encoding(row_data.get('corporation', ''))
-                    plant = self._fix_encoding(row_data.get('plant', ''))
-                    zone = self._fix_encoding(row_data.get('zone', ''))
-                    
+                    corp = fix_encoding(row_data.get('corporation', ''))
+                    plant = fix_encoding(row_data.get('plant', ''))
+                    zone = fix_encoding(row_data.get('zone', ''))
+
                     if not corp or not plant or not zone:
                         erros.append(f'Linha {i}: Corporação e Planta e Zona são obrigatórios')
                         continue
-                    
+
                     obj, created = Cliente.objects.update_or_create(
                         corporation=corp,
                         plant=plant,
@@ -982,45 +879,41 @@ class ClienteImportView(ClientePermissionMixin, View):
                         atualizados += 1
                 except Exception as e:
                     erros.append(f'Linha {i}: {str(e)}')
-            
+
             messages.success(request, f'Importação concluída: {criados} criados, {atualizados} atualizados.')
             if erros:
                 messages.warning(request, f'Erros: {"; ".join(erros[:5])}' + ('...' if len(erros) > 5 else ''))
-            return redirect('semeq:cliente_lista')
-        
-        # Step 1: Upload and show preview
+            return redirect('semeq:cadastro_clientes')
+
         form = ClienteImportForm(request.POST, request.FILES)
         if form.is_valid():
             arquivo = form.cleaned_data['arquivo']
             atualizar = form.cleaned_data['atualizar_existentes']
-            
+
             ext = arquivo.name.lower().split('.')[-1]
-            headers, rows = self._parse_file(arquivo, ext)
-            
+            headers, rows = parse_file(arquivo, ext)
+
             if not headers:
                 messages.error(request, 'Arquivo vazio ou inválido.')
                 return render(request, 'clientes/importar.html', {'form': form})
-            
-            # Normalize rows to dict by header
-            normalized_rows = [self._normalize_row(r, headers) for r in rows]
-            
-            # Store in session for confirmation step
+
+            normalized_rows = [normalize_row(r, headers) for r in rows]
+
             request.session['cliente_import_data'] = {
                 'atualizar': atualizar,
                 'rows': normalized_rows,
                 'ext': ext,
             }
-            
-            # Show preview (first 5 rows)
+
             preview = normalized_rows[:5]
-            
+
             return render(request, 'clientes/importar.html', {
                 'form': form,
                 'preview': preview,
                 'headers': headers,
                 'total_rows': len(normalized_rows),
             })
-        
+
         return render(request, 'clientes/importar.html', {'form': form})
 
 
@@ -1140,9 +1033,7 @@ class ClienteAutocompleteView(LoginRequiredMixin, View):
         if q:
             qs = qs.filter(
                 Q(corporation__icontains=q) |
-                Q(plant__icontains=q) |
-                Q(corporation_id__icontains=q) |
-                Q(plant_id__icontains=q)
+                Q(plant__icontains=q) 
             )
         # Retornar formato esperado pelo TomSelect: value e text
         data = list(qs.values('pk', 'corporation', 'plant')[:50])
@@ -1163,24 +1054,88 @@ class ClienteBuscaView(LoginRequiredMixin, View):
     """
     Autocomplete simples para busca de clientes via Fetch API.
     Retorna: [{"id": 1, "nome": "Corporação - Planta"}, ...]
+    Vazio retorna todos (até 50). Com query filtra por corporation/plant.
     """
     
     def get(self, request):
         q = request.GET.get('q', '').strip()
-        qs = Cliente.objects.filter(ativo=True)
+        qs = Cliente.objects.all()
         if q:
             qs = qs.filter(
                 Q(corporation__icontains=q) |
                 Q(plant__icontains=q) 
             )
-        # Mais resultados no foco vazio (navegação), menos na busca filtrada
-        limit = 30 if not q else 10
-        data = list(qs.values('pk', 'corporation', 'plant')[:limit])
+        # Limite menor para performance
+        data = list(qs.values('pk', 'corporation', 'plant')[:50])
         results = [
             {'id': item['pk'], 'nome': f"{item['corporation']} - {item['plant']}"}
             for item in data
         ]
         return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
+
+
+def buscar_clientes(request):
+    """
+    Autocomplete de clientes - retorna JSON para <datalist>
+    GET /buscar-clientes/?q=termo
+    Retorna: [{"id": 1, "label": "Corporação - Planta"}, ...] (max 10)
+    """
+    q = request.GET.get('q', '').strip()
+    qs = Cliente.objects.all()
+    if q:
+        qs = qs.filter(
+            Q(corporation__icontains=q) |
+            Q(plant__icontains=q)
+        )
+    data = list(qs.values('pk', 'corporation', 'plant')[:10])
+    results = [
+        {'id': item['pk'], 'label': f"{item['corporation']} - {item['plant']}"}
+        for item in data
+    ]
+    return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
+
+
+def buscar_corporacoes(request):
+    """
+    Retorna corporações únicas para o primeiro select
+    GET /buscar-corporacoes/
+    Retorna: [{"corporation": "NOME"}, ...]
+    """
+    corporacoes = Cliente.objects.values('corporation').distinct().order_by('corporation')
+    data = list(corporacoes)
+    return JsonResponse(data, safe=False, json_dumps_params={'ensure_ascii': False})
+
+
+def buscar_plantas(request):
+    """
+    Retorna plantas de uma corporação específica
+    GET /buscar-plantas/?corporacao=NOME
+    Retorna: [{"id": 1, "plant": "PLANTA"}, ...]
+    """
+    corporacao = request.GET.get('corporacao', '').strip()
+    if not corporacao:
+        return JsonResponse([], safe=False, json_dumps_params={'ensure_ascii': False})
+    
+    plantas = Cliente.objects.filter(corporation=corporacao).values('pk', 'plant').order_by('plant')
+    data = list(plantas)
+    return JsonResponse(data, safe=False, json_dumps_params={'ensure_ascii': False})
+
+
+def buscar_cliente_detalhe(request):
+    """
+    Retorna detalhes de um cliente específico (para edição)
+    GET /buscar-cliente-detalhe/?id=PK
+    Retorna: {"id": 1, "corporation": "CORP", "plant": "PLANT"}
+    """
+    cliente_id = request.GET.get('id', '').strip()
+    if not cliente_id:
+        return JsonResponse({}, safe=False, json_dumps_params={'ensure_ascii': False})
+    
+    try:
+        cliente = Cliente.objects.values('pk', 'corporation', 'plant').get(pk=cliente_id)
+        return JsonResponse(cliente, json_dumps_params={'ensure_ascii': False})
+    except Cliente.DoesNotExist:
+        return JsonResponse({}, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
 class EquipamentoAutocompleteView(LoginRequiredMixin, View):
@@ -1193,20 +1148,18 @@ class EquipamentoAutocompleteView(LoginRequiredMixin, View):
         if q:
             qs = qs.filter(
                 Q(id__icontains=q) |
-                Q(modelo__icontains=q) |
-                Q(tipo__icontains=q) |
+                Q(nome__icontains=q) |
                 Q(descricao__icontains=q)
             )
         
-        data = list(qs.values('pk', 'modelo', 'tipo', 'descricao')[:50])
+        data = list(qs.values('pk', 'nome', 'descricao')[:50])
         # Formato para TomSelect
         results = [
             {
                 'value': item['pk'],
-                'text': item['modelo'] or str(item['pk']),
+                'text': item['nome'] or str(item['pk']),
                 'equipamento_id': str(item['pk']),
-                'modelo': item['modelo'] or '',
-                'tipo': item['tipo'] or '',
+                'nome': item['nome'] or '',
                 'descricao': item['descricao'] or '',
             }
             for item in data
@@ -1233,13 +1186,18 @@ class UsuarioListView(UsuarioPermissionMixin, ListView):
     
     def get_queryset(self):
         perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        qs = User.objects.select_related('perfil', 'perfil__time').filter(is_active=True)
+        is_admin = self.request.user.is_superuser or (perfil and perfil.is_admin())
+        
+        qs = User.objects.select_related('perfil', 'perfil__equipe')
         
         if perfil and perfil.is_gestor_or_above():
-            qs = qs.filter(perfil__ativo=True)
+            # Gestor/Admin sees ALL users (including superusers, admins, without perfil, inativo)
+            pass
         elif perfil and perfil.is_lider_or_above():
-            qs = qs.filter(perfil__ativo=True, perfil__time=perfil.time)
+            # Líder sees only active users in their team
+            qs = qs.filter(perfil__ativo=True, perfil__equipe=perfil.equipe)
         else:
+            # Colaborador sees only themselves
             qs = qs.filter(id=self.request.user.id)
         
         # Filtros
@@ -1256,57 +1214,73 @@ class UsuarioListView(UsuarioPermissionMixin, ListView):
         if role:
             qs = qs.filter(perfil__role=role)
         
-        time = self.request.GET.get('time', '').strip()
-        if time:
-            qs = qs.filter(perfil__time_id=time)
+        equipe_id = self.request.GET.get('equipe', '').strip()
+        if equipe_id:
+            qs = qs.filter(perfil__equipe_id=equipe_id)
         
-        return qs.order_by('username')
+        return qs.order_by('-perfil__criado_em')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['roles'] = PerfilUsuario.ROLE_CHOICES
-        context['times'] = Time.objects.filter(ativo=True)
+        context['times'] = Equipe.objects.filter(ativo=True)
         context['role_filter'] = self.request.GET.get('role', '')
-        context['time_filter'] = self.request.GET.get('time', '')
+        context['time_filter'] = self.request.GET.get('equipe', '')
         context['search'] = self.request.GET.get('q', '')
         return context
 
 
 class UsuarioCreateView(UsuarioPermissionMixin, CreateView):
+    model = User
     form_class = UsuarioForm
-    template_name = 'usuarios/form.html'
-    success_url = reverse_lazy('semeq:usuario_lista')
+    template_name = 'cadastros/usuario_form.html'
+    success_url = reverse_lazy('semeq:cadastro_usuarios')
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
     
     def form_valid(self, form):
+        from django.db import transaction
+        import logging
+        logger = logging.getLogger('user')
+        
+        with transaction.atomic():
+            # Let the form handle user creation with password and PerfilUsuario
+            user = form.save()
+            
+            logger.info(f'[UsuarioCreateView] Usuário criado: {user.username} (ID: {user.pk}), Email: {user.email}, Perfil: {user.perfil.role}, Ativo: {user.is_active}, PerfilAtivo: {user.perfil.ativo}')
+            
         messages.success(self.request, 'Usuário criado com sucesso!')
-        return super().form_valid(form)
+        return redirect(self.get_success_url())
 
 
 class UsuarioUpdateView(UsuarioPermissionMixin, UpdateView):
     model = User
     form_class = UsuarioUpdateForm
-    template_name = 'usuarios/form.html'
-    success_url = reverse_lazy('semeq:usuario_lista')
+    template_name = 'cadastros/usuario_form.html'
+    success_url = reverse_lazy('semeq:cadastro_usuarios')
     
     def get_queryset(self):
         perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        qs = User.objects.select_related('perfil', 'perfil__time').filter(is_active=True)
+        is_admin = self.request.user.is_superuser or (perfil and perfil.is_admin())
+        
+        qs = User.objects.select_related('perfil', 'perfil__equipe')
         
         if perfil and perfil.is_gestor_or_above():
-            qs = qs.filter(perfil__ativo=True)
-            # Gestor não pode editar admins/superusers (evita elevação de privilégio)
-            if not (self.request.user.is_superuser or perfil.is_admin()):
-                qs = qs.exclude(is_superuser=True).exclude(perfil__role='admin')
+            # Gestor/Admin can edit ALL users (including superusers, admins, without perfil, inativo)
+            pass
         elif perfil and perfil.is_lider_or_above():
-            qs = qs.filter(perfil__ativo=True, perfil__time=perfil.time)
-        return qs.filter(id=self.request.user.id)
+            # Líder can only edit active users in their team
+            qs = qs.filter(perfil__ativo=True, perfil__equipe=perfil.equipe)
+        else:
+            qs = qs.filter(id=self.request.user.id)
+        
+        return qs
     
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
-        perfil = getattr(self.request.user, 'perfil', None)
-        # Impede gestor/não-admin de editar usuários de hierarquia maior
-        if perfil and not perfil.is_admin() and obj.is_superuser:
-            raise PermissionDenied('Você não tem permissão para editar este usuário.')
         return obj
     
     def get_form_kwargs(self):
@@ -1315,36 +1289,110 @@ class UsuarioUpdateView(UsuarioPermissionMixin, UpdateView):
         return kwargs
     
     def form_valid(self, form):
+        import logging
+        logger = logging.getLogger('user')
+        
+        # Check if password was changed
+        password_changed = bool(form.cleaned_data.get('password'))
+        
+        response = super().form_valid(form)
+        
+        logger.info(f'[UsuarioUpdateView] Usuário atualizado: {self.object.username} (ID: {self.object.pk}) por {self.request.user.username}, Senha alterada: {password_changed}')
+        
         messages.success(self.request, 'Usuário atualizado com sucesso!')
-        return super().form_valid(form)
+        return response
 
 
 class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
-    model = PerfilUsuario
+    model = User
     template_name = 'usuarios/confirm_delete.html'
-    success_url = reverse_lazy('semeq:usuario_lista')
+    success_url = reverse_lazy('semeq:cadastro_usuarios')
     
     def get_queryset(self):
         perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        qs = PerfilUsuario.objects.select_related('user', 'time').filter(ativo=True)
+        is_admin = self.request.user.is_superuser or (perfil and perfil.is_admin())
+        
+        qs = User.objects.select_related('perfil', 'perfil__equipe')
         
         if perfil and perfil.is_gestor_or_above():
-            return qs
+            if not is_admin:
+                qs = qs.exclude(is_superuser=True).exclude(perfil__role='admin')
         elif perfil and perfil.is_lider_or_above():
-            return qs.filter(time=perfil.time)
-        return qs.filter(user=self.request.user)
+            qs = qs.filter(perfil__ativo=True, perfil__equipe=perfil.equipe)
+        else:
+            qs = qs.filter(id=self.request.user.id)
+        
+        return qs
     
-    def get_object(self):
-        obj = get_object_or_404(PerfilUsuario, user__pk=self.kwargs['pk'])
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
         # Impede auto-exclusão
-        if obj.user == self.request.user:
+        if obj == self.request.user:
             messages.error(self.request, 'Você não pode excluir seu próprio usuário.')
+            raise PermissionDenied
+        # Impede exclusão de admins/superusers
+        if obj.is_superuser or (hasattr(obj, 'perfil') and obj.perfil.role == 'admin'):
+            messages.error(self.request, 'Não é possível excluir usuários administradores.')
             raise PermissionDenied
         return obj
     
-    def delete(self, request, *args, **kwargs):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Count related apontamentos
+        from user.models import Apontamento
+        user = self.object
+        context['apontamentos_count'] = Apontamento.objects.filter(responsavel=user).count()
+        # Check if current user is admin
+        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
+        context['is_admin'] = self.request.user.is_superuser or (perfil and perfil.is_admin())
+        context['show_delete_apontamentos_checkbox'] = context['is_admin'] and context['apontamentos_count'] > 0
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        # Check if target is admin/superuser
+        if self.object.is_superuser or (hasattr(self.object, 'perfil') and self.object.perfil.role == 'admin'):
+            messages.error(request, 'Não é possível excluir usuários administradores.')
+            return redirect('semeq:cadastro_usuarios')
+        
+        delete_apontamentos = request.POST.get('delete_apontamentos') == 'on'
+        
+        # Count apontamentos
+        from user.models import Apontamento
+        apontamentos_count = Apontamento.objects.filter(responsavel=self.object).count()
+        
+        if apontamentos_count > 0:
+            # Check if admin
+            perfil = request.user.perfil if hasattr(request.user, 'perfil') else None
+            is_admin = request.user.is_superuser or (perfil and perfil.is_admin())
+            
+            if not is_admin:
+                messages.error(request,
+                    f'Este usuário possui {apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir usuários com apontamentos.'
+                )
+                return redirect('semeq:cadastro_usuarios')
+            
+            if not delete_apontamentos:
+                messages.error(request,
+                    f'Este usuário possui {apontamentos_count} apontamento(s). '
+                    'Marque a opção para excluir os apontamentos junto com o usuário.'
+                )
+                return self.get(request)
+            
+            # Admin confirmed - delete apontamentos first
+            Apontamento.objects.filter(responsavel=self.object).delete()
+        
+        # Delete PerfilUsuario if exists, then delete User
+        if hasattr(self.object, 'perfil'):
+            self.object.perfil.delete()
+        self.object.delete()
         messages.success(request, 'Usuário excluído com sucesso!')
-        return super().delete(request, *args, **kwargs)
+        return redirect(self.get_success_url())
+    
+    def delete(self, request, *args, **kwargs):
+        return self.post(request, *args, **kwargs)
 
 
 # Configurações Views
@@ -1418,105 +1466,45 @@ class ConfiguracoesTemaView(LoginRequiredMixin, View):
 # PUBLIC REGISTRATION & PASSWORD RESET (apenas domínios permitidos)
 # =====================================================================
 
-def _send_verification_email(request, user):
-    """Envia email de verificação para o usuário."""
-    try:
-        token_obj = user.email_verification_token
-        verification_url = request.build_absolute_uri(
-            reverse_lazy('semeq:email_verificar', kwargs={'token': token_obj.token})
-        )
-        
-        subject = 'Verifique seu email - Portal SEMEQ'
-        message = render_to_string('registration/verification_email.html', {
-            'user': user,
-            'verification_url': verification_url,
-            'expira_em': token_obj.expira_em,
-        })
-        
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
-            html_message=message,
-        )
-        return True
-    except Exception as e:
-        # Log error but don't fail the request
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Erro ao enviar email de verificação para {user.email}: {e}")
-        return False
-
 
 class PublicRegistrationView(CreateView):
     """Cadastro público - apenas emails de domínios permitidos"""
     form_class = PublicRegistrationForm
     template_name = 'registration/register.html'
-    success_url = reverse_lazy('semeq:register_done')
+    success_url = reverse_lazy('semeq:login')
     
-    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='20/m', key='user_or_ip', method='POST', block=True))
     def dispatch(self, request, *args, **kwargs):
-        # Se já logado, redireciona para dashboard
         if request.user.is_authenticated:
             return redirect('semeq:dashboard')
         return super().dispatch(request, *args, **kwargs)
     
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from django.conf import settings
+        context['allowed_domains'] = getattr(settings, 'ALLOWED_EMAIL_DOMAINS', ['semeq.com'])
+        return context
+    
     def form_valid(self, form):
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f'[PublicRegistrationView] Iniciando cadastro - Email: {form.cleaned_data.get("email")}, Nome: {form.cleaned_data.get("first_name")} {form.cleaned_data.get("last_name")}')
+        
         response = super().form_valid(form)
-        # Enviar email de verificação
-        _send_verification_email(self.request, self.object)
-        messages.success(self.request, 'Cadastro realizado! Verifique seu email para ativar a conta.')
+        
+        if hasattr(self, 'object') and self.object:
+            logger.info(f'[PublicRegistrationView] Usuário criado com sucesso - ID: {self.object.pk}, Username: {self.object.username}, Email: {self.object.email}')
+        else:
+            logger.warning(f'[PublicRegistrationView] Usuário não criado (object não definido)')
+        
         return response
 
 
 class PublicRegistrationDoneView(View):
-    """Página de sucesso após cadastro - instrui verificar email"""
+    """Redireciona para login após cadastro"""
     def get(self, request):
-        return render(request, 'registration/register_done.html')
-
-
-class EmailVerificationView(View):
-    """Verifica o token de email e ativa a conta."""
-    
-    def get(self, request, token):
-        try:
-            token_obj = EmailVerificationToken.objects.select_related('user', 'user__perfil').get(token=token)
-        except EmailVerificationToken.DoesNotExist:
-            messages.error(request, 'Token de verificação inválido.')
-            return render(request, 'registration/email_verified.html', {
-                'success': False,
-                'message': 'Token de verificação inválido ou expirado.'
-            })
-        
-        if not token_obj.is_valid():
-            messages.error(request, 'Token de verificação expirado ou já utilizado.')
-            return render(request, 'registration/email_verified.html', {
-                'success': False,
-                'message': 'Token de verificação expirado ou já utilizado.'
-            })
-        
-        # Token válido - ativar usuário
-        user = token_obj.user
-        user.is_active = True
-        user.save(update_fields=['is_active'])
-        
-        # Ativar perfil e marcar email como verificado
-        perfil = user.perfil
-        perfil.ativo = True
-        perfil.email_verificado = True
-        perfil.email_verificado_em = timezone.now()
-        perfil.save(update_fields=['ativo', 'email_verificado', 'email_verificado_em'])
-        
-        # Marcar token como usado
-        token_obj.mark_used()
-        
-        messages.success(request, 'Email verificado com sucesso! Sua conta está ativa.')
-        return render(request, 'registration/email_verified.html', {
-            'success': True,
-            'message': 'Sua conta foi ativada com sucesso. Você já pode fazer login.'
-        })
+        return redirect('semeq:login')
 
 
 class CustomLoginView(LoginView):
@@ -1599,26 +1587,21 @@ class EquipamentoListView(EquipamentoPermissionMixin, ListView):
     def get_queryset(self):
         qs = Equipamento.objects.all()
         filters = {
+            'nome': self.request.GET.get('nome', '').strip(),
             'descricao': self.request.GET.get('descricao', '').strip(),
-            'tipo': self.request.GET.get('tipo', '').strip(),
-            'modelo': self.request.GET.get('modelo', '').strip(),
         }
+        if filters['nome']:
+            qs = qs.filter(nome__icontains=filters['nome'])
         if filters['descricao']:
             qs = qs.filter(descricao__icontains=filters['descricao'])
-        if filters['tipo']:
-            qs = qs.filter(tipo=filters['tipo'])
-        if filters['modelo']:
-            qs = qs.filter(modelo__icontains=filters['modelo'])
-        return qs
+        return qs.order_by('-criado_em')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filters'] = {
+            'nome': self.request.GET.get('nome', ''),
             'descricao': self.request.GET.get('descricao', ''),
-            'tipo': self.request.GET.get('tipo', ''),
-            'modelo': self.request.GET.get('modelo', ''),
         }
-        context['tipo_choices'] = Equipamento.TIPO_CHOICES
         params = self.request.GET.copy()
         params.pop('page', None)
         context['filter_params'] = params.urlencode()
@@ -1628,8 +1611,8 @@ class EquipamentoListView(EquipamentoPermissionMixin, ListView):
 class EquipamentoCreateView(EquipamentoPermissionMixin, CreateView):
     model = Equipamento
     form_class = EquipamentoForm
-    template_name = 'equipamentos/form.html'
-    success_url = reverse_lazy('semeq:equipamento_lista')
+    template_name = 'cadastros/equipamento_form.html'
+    success_url = reverse_lazy('semeq:cadastro_equipamentos')
 
     def form_valid(self, form):
         messages.success(self.request, 'Equipamento criado com sucesso!')
@@ -1639,8 +1622,8 @@ class EquipamentoCreateView(EquipamentoPermissionMixin, CreateView):
 class EquipamentoUpdateView(EquipamentoPermissionMixin, UpdateView):
     model = Equipamento
     form_class = EquipamentoForm
-    template_name = 'equipamentos/form.html'
-    success_url = reverse_lazy('semeq:equipamento_lista')
+    template_name = 'cadastros/equipamento_form.html'
+    success_url = reverse_lazy('semeq:cadastro_equipamentos')
 
     def form_valid(self, form):
         messages.success(self.request, 'Equipamento atualizado com sucesso!')
@@ -1650,64 +1633,898 @@ class EquipamentoUpdateView(EquipamentoPermissionMixin, UpdateView):
 class EquipamentoDeleteView(EquipamentoPermissionMixin, DeleteView):
     model = Equipamento
     template_name = 'equipamentos/confirm_delete.html'
-    success_url = reverse_lazy('semeq:equipamento_lista')
+    success_url = reverse_lazy('semeq:cadastros_unificada')
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Equipamento excluído com sucesso!')
         return super().delete(request, *args, **kwargs)
+# =====================================================================
+# STATUS CRUD
+# =====================================================================
 
-class StatusListView(LoginRequiredMixin, ListView):
-    model = Equipamento
-    template_name = 'status/lista.html'
+class StatusListView(PermissionMixin, BaseCRUDListView):
+    model = Status
+    template_name = 'cadastros/status_lista.html'
     context_object_name = 'status'
-    paginate_by = 20
+    search_fields = ['status']
 
     def get_queryset(self):
-        qs = Status.objects.all()
-        filters = {
-            'status': self.request.GET.get('status', '').strip(),
-        }
-        if filters['status']:
-            qs = qs.filter(status__icontains=filters['status'])
+        return super().get_queryset().order_by('-criado_em')
 
-        return qs
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['filters'] = {
-            'status': self.request.GET.get('status', ''),
-        }
-        params = self.request.GET.copy()
-        params.pop('page', None)
-        context['filter_params'] = params.urlencode()
-        return context
-
-class StatusCreateView(LoginRequiredMixin, CreateView):
+class StatusCreateView(PermissionMixin, BaseCRUDCreateView):
     model = Status
     form_class = StatusForm
-    template_name = 'status/form.html'
-    success_url = reverse_lazy('semeq:status_lista')
+    template_name = 'cadastros/status_form.html'
+    success_url = reverse_lazy('semeq:cadastro_status')
 
-    def form_valid(self, form):
-        messages.success(self.request, 'Status criado com sucesso!')
-        return super().form_valid(form)
 
-class StatusUpdateView(LoginRequiredMixin, UpdateView):
+class StatusUpdateView(PermissionMixin, BaseCRUDUpdateView):
     model = Status
     form_class = StatusForm
-    template_name = 'status/form.html'
-    success_url = reverse_lazy('semeq:status_lista')
-
-    def form_valid(self, form):
-        messages.success(self.request, 'Status atualizado com sucesso!')
-        return super().form_valid(form)
+    template_name = 'cadastros/status_form.html'
+    success_url = reverse_lazy('semeq:cadastro_status')
 
 
-class StatusDeleteView(LoginRequiredMixin, DeleteView):
+class StatusDeleteView(PermissionMixin, DeleteView):
     model = Status
     template_name = 'status/confirm_delete.html'
-    success_url = reverse_lazy('semeq:status_lista')
-
-    def delete(self, request, *args, **kwargs):
+    success_url = reverse_lazy('semeq:cadastros_unificada')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Este status possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir status com apontamentos.'
+                )
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
         messages.success(request, 'Status excluído com sucesso!')
-        return super().delete(request, *args, **kwargs)
+        return super().post(request, *args, **kwargs)
+
+# =====================================================================
+# ATIVIDADE CRUD
+# =====================================================================
+
+class AtividadePermissionMixin(LoginRequiredMixin):
+    """Apenas Admin e Gestor podem gerenciar Atividades."""
+    def dispatch(self, request, *args, **kwargs):
+        perfil = getattr(request.user, 'perfil', None)
+        if not (request.user.is_superuser or (perfil and perfil.is_gestor_or_above())):
+            messages.error(request, 'Acesso negado. Apenas administradores e gestores.')
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+# =====================================================================
+# ATIVIDADE CRUD
+# =====================================================================
+
+class AtividadePermissionMixin(LoginRequiredMixin):
+    """Apenas Admin e Gestor podem gerenciar Atividades."""
+    def dispatch(self, request, *args, **kwargs):
+        perfil = getattr(request.user, 'perfil', None)
+        if not (request.user.is_superuser or (perfil and perfil.is_gestor_or_above())):
+            messages.error(request, 'Acesso negado. Apenas administradores e gestores.')
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+
+# =====================================================================
+# ATIVIDADE CRUD
+# =====================================================================
+
+class AtividadeListView(PermissionMixin, BaseCRUDListView):
+    model = Atividade
+    template_name = 'cadastros/atividade_lista.html'
+    context_object_name = 'atividades'
+    search_fields = ['nome']
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('-criado_em')
+
+
+class AtividadeCreateView(PermissionMixin, BaseCRUDCreateView):
+    model = Atividade
+    form_class = AtividadeForm
+    template_name = 'cadastros/atividade_form.html'
+    success_url = reverse_lazy('semeq:cadastro_atividades')
+
+
+class AtividadeUpdateView(PermissionMixin, BaseCRUDUpdateView):
+    model = Atividade
+    form_class = AtividadeForm
+    template_name = 'cadastros/atividade_form.html'
+    success_url = reverse_lazy('semeq:cadastro_atividades')
+
+
+class AtividadeDeleteView(PermissionMixin, DeleteView):
+    model = Atividade
+    template_name = 'atividade/confirm_delete.html'
+    success_url = reverse_lazy('semeq:cadastros_unificada')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Esta atividade possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir atividades com apontamentos.'
+)
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
+        messages.success(request, 'Atividade excluída com sucesso!')
+        return super().post(request, *args, **kwargs)
+
+
+# =====================================================================
+# PRIORIDADE CRUD
+# =====================================================================
+
+class PrioridadeListView(PermissionMixin, BaseCRUDListView):
+    model = Prioridade
+    template_name = 'cadastros/prioridade_lista.html'
+    context_object_name = 'prioridades'
+    search_fields = ['nome']
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('-criado_em')
+
+
+class PrioridadeCreateView(PermissionMixin, BaseCRUDCreateView):
+    model = Prioridade
+    form_class = PrioridadeForm
+    template_name = 'cadastros/prioridade_form.html'
+    success_url = reverse_lazy('semeq:cadastro_prioridades')
+
+
+class PrioridadeUpdateView(PermissionMixin, BaseCRUDUpdateView):
+    model = Prioridade
+    form_class = PrioridadeForm
+    template_name = 'cadastros/prioridade_form.html'
+    success_url = reverse_lazy('semeq:cadastro_prioridades')
+
+
+class PrioridadeDeleteView(PermissionMixin, DeleteView):
+    model = Prioridade
+    template_name = 'prioridade/confirm_delete.html'
+    success_url = reverse_lazy('semeq:cadastros_unificada')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Esta prioridade possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir prioridades com apontamentos.'
+                )
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
+        messages.success(request, 'Prioridade excluída com sucesso!')
+        return super().post(request, *args, **kwargs)
+
+
+# =====================================================================
+# EQUIPE CRUD
+# =====================================================================
+
+class EquipeListView(PermissionMixin, BaseCRUDListView):
+    model = Equipe
+    template_name = 'cadastros/equipe_lista.html'
+    context_object_name = 'equipes'
+    search_fields = ['nome']
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('-criado_em')
+
+
+class EquipeCreateView(PermissionMixin, BaseCRUDCreateView):
+    model = Equipe
+    form_class = EquipeForm
+    template_name = 'cadastros/equipe_form.html'
+    success_url = reverse_lazy('semeq:cadastro_equipes')
+
+
+class EquipeUpdateView(PermissionMixin, BaseCRUDUpdateView):
+    model = Equipe
+    form_class = EquipeForm
+    template_name = 'cadastros/equipe_form.html'
+    success_url = reverse_lazy('semeq:cadastro_equipes')
+
+
+class EquipeDeleteView(PermissionMixin, DeleteView):
+    model = Equipe
+    template_name = 'equipe/confirm_delete.html'
+    success_url = reverse_lazy('semeq:cadastros_unificada')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Esta equipe possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir equipes com apontamentos.'
+                )
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
+        messages.success(request, 'Equipe excluída com sucesso!')
+        return super().post(request, *args, **kwargs)
+
+
+# =====================================================================
+# CADASTROS - PÁGINA PRINCIPAL (Hub /cadastros/)
+# =====================================================================
+
+class CadastrosUnificadaView(LoginRequiredMixin, View):
+    """Hub de navegação de cadastros - Grid de cards com contadores."""
+    
+    def get(self, request):
+        perfil = getattr(request.user, 'perfil', None)
+        if not (request.user.is_superuser or (perfil and perfil.is_gestor_or_above())):
+            messages.error(request, 'Acesso negado. Apenas administradores e gestores.')
+            return redirect('semeq:dashboard')
+        
+        # Apenas contadores para os cards do hub
+        cliente_count = Cliente.objects.count()
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        usuario_count = User.objects.count()  # Show ALL users (incl. inativos, sem perfil)
+        equipe_count = Equipe.objects.count()
+        equipamento_count = Equipamento.objects.count()
+        status_count = Status.objects.count()
+        atividade_count = Atividade.objects.count()
+        prioridade_count = Prioridade.objects.count()
+        tipoproblema_count = TipoProblema.objects.count()
+        projeto_count = Projeto.objects.count()
+        solicitante_count = Solicitante.objects.count()
+        
+        return render(request, 'cadastros/unificada.html', {
+            'perfil': perfil,
+            # Contadores para os cards
+            'cliente_count': cliente_count,
+            'usuario_count': usuario_count,
+            'equipe_count': equipe_count,
+            'equipamento_count': equipamento_count,
+            'status_count': status_count,
+            'atividade_count': atividade_count,
+            'prioridade_count': prioridade_count,
+            'tipoproblema_count': tipoproblema_count,
+            'projeto_count': projeto_count,
+            'solicitante_count': solicitante_count,
+            # URLs das páginas individuais
+            'url_cliente_lista': reverse_lazy('semeq:cadastro_clientes'),
+            'url_usuario_lista': reverse_lazy('semeq:cadastro_usuarios'),
+            'url_equipe_lista': reverse_lazy('semeq:cadastro_equipes'),
+            'url_equipamento_lista': reverse_lazy('semeq:cadastro_equipamentos'),
+            'url_cadastro_status': reverse_lazy('semeq:cadastro_status'),
+            'url_atividade_lista': reverse_lazy('semeq:cadastro_atividades'),
+            'url_prioridade_lista': reverse_lazy('semeq:cadastro_prioridades'),
+            'url_tipoproblema_lista': reverse_lazy('semeq:cadastro_tipoproblemas'),
+            'url_projeto_lista': reverse_lazy('semeq:cadastro_projetos'),
+            'url_solicitante_lista': reverse_lazy('semeq:cadastro_solicitantes'),
+            # URLs para "Novo" (podem ser usadas nos cards se necessário)
+            'url_cliente_novo': reverse_lazy('semeq:cliente_novo'),
+            'url_equipe_novo': reverse_lazy('semeq:equipe_novo'),
+            'url_equipamento_novo': reverse_lazy('semeq:equipamento_novo'),
+            'url_cliente_importar': reverse_lazy('semeq:cliente_importar'),
+            'url_status_novo': reverse_lazy('semeq:status_novo'),
+            'url_atividade_novo': reverse_lazy('semeq:atividade_novo'),
+            'url_prioridade_novo': reverse_lazy('semeq:prioridade_novo'),
+            'url_tipoproblema_novo': reverse_lazy('semeq:tipoproblema_novo'),
+            'url_projeto_novo': reverse_lazy('semeq:projeto_novo'),
+            'url_solicitante_novo': reverse_lazy('semeq:solicitante_novo'),
+        })
+
+# =====================================================================
+# CADASTROS INDIVIDUAIS (Novas páginas /cadastros/<model>/)
+# =====================================================================
+
+class CadastroBaseView(LoginRequiredMixin, View):
+    """Base para páginas de cadastro individuais com busca e paginação."""
+    model = None
+    template_name = None
+    search_fields = []
+    context_object_name = 'object_list'
+    create_url_name = None
+    import_url_name = None
+    title = ''
+    icon = ''
+    paginate_by = 20
+    edit_url_name = None
+    delete_url_name = None
+    
+    def dispatch(self, request, *args, **kwargs):
+        perfil = getattr(request.user, 'perfil', None)
+        if not (request.user.is_superuser or (perfil and perfil.is_gestor_or_above())):
+            messages.error(request, 'Acesso negado. Apenas administradores e gestores.')
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_queryset(self):
+        qs = self.model.objects.all()
+        
+        # Search
+        q = self.request.GET.get('q', '').strip()
+        if q and self.search_fields:
+            query = Q()
+            for field in self.search_fields:
+                query |= Q(**{f"{field}__icontains": q})
+            qs = qs.filter(query)
+        
+        # Ordering
+        ordering = getattr(self.model._meta, 'ordering', ['-criado_em'])
+        if ordering:
+            qs = qs.order_by(*ordering)
+        
+        return qs
+    
+    def get_context_data(self, **kwargs):
+        q = self.request.GET.get('q', '').strip()
+        page = self.request.GET.get('page', 1)
+        
+        from django.core.paginator import Paginator
+        qs = self.get_queryset()
+        paginator = Paginator(qs, self.paginate_by)
+        page_obj = paginator.get_page(page)
+        
+        # Build delete URL path (e.g., 'clientes', 'usuarios', 'status', etc.)
+        delete_url_path = self.get_tab_id()
+        
+        context = {
+            'perfil': getattr(self.request.user, 'perfil', None),
+            'page_obj': page_obj,
+            'object_list': page_obj.object_list,
+            'search': q,
+            'title': self.title,
+            'icon': self.icon,
+            'create_url': reverse_lazy(self.create_url_name) if self.create_url_name else None,
+            'import_url': reverse_lazy(self.import_url_name) if self.import_url_name else None,
+            'edit_url_name': self.edit_url_name,
+            'delete_url_name': self.delete_url_name,
+            'delete_url_path': delete_url_path,
+            'current_tab': self.get_tab_id(),
+        }
+        context.update(kwargs)
+        return context
+    
+    def get_tab_id(self):
+        """Retorna o ID da tab para navegação."""
+        # Map model names to URL path (plural forms)
+        tab_map = {
+            'Cliente': 'clientes',
+            'User': 'usuarios',
+            'Equipe': 'equipes',
+            'Equipamento': 'equipamentos',
+            'Status': 'status',
+            'Atividade': 'atividades',
+            'Prioridade': 'prioridades',
+            'TipoProblema': 'tipoproblemas',
+            'Projeto': 'projetos',
+            'Solicitante': 'solicitantes',
+        }
+        return tab_map.get(self.model.__name__, self.model.__name__.lower())
+    
+    def get(self, request):
+        context = self.get_context_data()
+        return render(request, self.template_name, context)
+
+
+class CadastroClienteView(CadastroBaseView):
+    model = Cliente
+    template_name = 'cadastros/cliente_lista.html'
+    search_fields = ['corporation', 'plant', 'zone']
+    title = 'Clientes'
+    icon = 'bi-building'
+    create_url_name = 'semeq:cliente_novo'
+    import_url_name = 'semeq:cliente_importar'
+    edit_url_name = 'semeq:cliente_editar'
+    delete_url_name = 'semeq:cliente_excluir'
+    paginate_by = 20
+    create_label = 'Cliente'
+    current_tab = 'clientes'
+
+
+class CadastroUsuarioView(CadastroBaseView):
+    model = User
+    template_name = 'cadastros/usuario_lista.html'
+    search_fields = ['username', 'first_name', 'last_name', 'email']
+    title = 'Usuários'
+    icon = 'bi-people'
+    create_url_name = 'semeq:usuario_novo'
+    edit_url_name = 'semeq:usuario_editar'
+    delete_url_name = 'semeq:usuario_excluir'
+    paginate_by = 20
+    create_label = 'Usuário'
+    current_tab = 'usuarios'
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Show ALL users (including inativos, sem perfil) for gestor/admin
+        return qs.select_related(
+            'perfil', 'perfil__equipe'
+        ).order_by('first_name', 'last_name', 'username')
+
+
+class CadastroEquipeView(CadastroBaseView):
+    model = Equipe
+    template_name = 'cadastros/equipe_lista.html'
+    search_fields = ['nome']
+    title = 'Equipes'
+    icon = 'bi-people-fill'
+    create_url_name = 'semeq:equipe_novo'
+    edit_url_name = 'semeq:equipe_editar'
+    delete_url_name = 'semeq:equipe_excluir'
+    paginate_by = 20
+    create_label = 'Equipe'
+    current_tab = 'equipes'
+
+
+class CadastroEquipamentoView(CadastroBaseView):
+    model = Equipamento
+    template_name = 'cadastros/equipamento_lista.html'
+    search_fields = ['nome', 'descricao']
+    title = 'Equipamentos'
+    icon = 'bi-cpu'
+    create_url_name = 'semeq:equipamento_novo'
+    edit_url_name = 'semeq:equipamento_editar'
+    delete_url_name = 'semeq:equipamento_excluir'
+    paginate_by = 20
+    create_label = 'Equipamento'
+    current_tab = 'equipamentos'
+
+
+# =====================================================================
+# CADASTROS AUXILIARES (Status, Atividade, Prioridade, TipoProblema, Projeto, Solicitante)
+# =====================================================================
+
+class CadastroStatusView(CadastroBaseView):
+    model = Status
+    template_name = 'cadastros/status_lista.html'
+    search_fields = ['status']
+    title = 'Status'
+    icon = 'bi-tag'
+    create_url_name = 'semeq:status_novo'
+    edit_url_name = 'semeq:status_editar'
+    delete_url_name = 'semeq:status_excluir'
+    paginate_by = 20
+    create_label = 'Status'
+    current_tab = 'status'
+
+
+class CadastroAtividadeView(CadastroBaseView):
+    model = Atividade
+    template_name = 'cadastros/atividade_lista.html'
+    search_fields = ['nome']
+    title = 'Atividades'
+    icon = 'bi-list-task'
+    create_url_name = 'semeq:atividade_novo'
+    edit_url_name = 'semeq:atividade_editar'
+    delete_url_name = 'semeq:atividade_excluir'
+    paginate_by = 20
+    create_label = 'Atividade'
+    current_tab = 'atividades'
+
+
+class CadastroPrioridadeView(CadastroBaseView):
+    model = Prioridade
+    template_name = 'cadastros/prioridade_lista.html'
+    search_fields = ['nome']
+    title = 'Prioridades'
+    icon = 'bi-flag'
+    create_url_name = 'semeq:prioridade_novo'
+    edit_url_name = 'semeq:prioridade_editar'
+    delete_url_name = 'semeq:prioridade_excluir'
+    paginate_by = 20
+    create_label = 'Prioridade'
+    current_tab = 'prioridades'
+
+
+class CadastroTipoProblemaView(CadastroBaseView):
+    model = TipoProblema
+    template_name = 'cadastros/tipoproblema_lista.html'
+    search_fields = ['nome', 'descricao']
+    title = 'Tipos de Problema'
+    icon = 'bi-exclamation-triangle'
+    create_url_name = 'semeq:tipoproblema_novo'
+    edit_url_name = 'semeq:tipoproblema_editar'
+    delete_url_name = 'semeq:tipoproblema_excluir'
+    paginate_by = 20
+    create_label = 'Tipo de Problema'
+    current_tab = 'tipoproblemas'
+
+
+class CadastroProjetoView(CadastroBaseView):
+    model = Projeto
+    template_name = 'cadastros/projeto_lista.html'
+    search_fields = ['nome']
+    title = 'Projetos'
+    icon = 'bi-folder'
+    create_url_name = 'semeq:projeto_novo'
+    edit_url_name = 'semeq:projeto_editar'
+    delete_url_name = 'semeq:projeto_excluir'
+    paginate_by = 20
+    create_label = 'Projeto'
+    current_tab = 'projetos'
+
+
+class CadastroSolicitanteView(CadastroBaseView):
+    model = Solicitante
+    template_name = 'cadastros/solicitante_lista.html'
+    search_fields = ['nome']
+    title = 'Solicitantes'
+    icon = 'bi-person-badge'
+    create_url_name = 'semeq:solicitante_novo'
+    edit_url_name = 'semeq:solicitante_editar'
+    delete_url_name = 'semeq:solicitante_excluir'
+    paginate_by = 20
+    create_label = 'Solicitante'
+    current_tab = 'solicitantes'
+
+
+# =====================================================================
+# TIPOPROBLEMA CRUD
+# =====================================================================
+
+class TipoProblemaListView(PermissionMixin, BaseCRUDListView):
+    model = TipoProblema
+    template_name = 'cadastros/tipoproblema_lista.html'
+    context_object_name = 'tipos_problema'
+    search_fields = ['nome', 'descricao']
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('-criado_em')
+
+
+class TipoProblemaCreateView(PermissionMixin, BaseCRUDCreateView):
+    model = TipoProblema
+    form_class = TipoProblemaForm
+    template_name = 'cadastros/tipoproblema_form.html'
+    success_url = reverse_lazy('semeq:cadastro_tipoproblemas')
+
+
+class TipoProblemaUpdateView(PermissionMixin, BaseCRUDUpdateView):
+    model = TipoProblema
+    form_class = TipoProblemaForm
+    template_name = 'cadastros/tipoproblema_form.html'
+    success_url = reverse_lazy('semeq:cadastro_tipoproblemas')
+
+
+class TipoProblemaDeleteView(PermissionMixin, DeleteView):
+    model = TipoProblema
+    template_name = 'tipoproblema/confirm_delete.html'
+    success_url = reverse_lazy('semeq:cadastros_unificada')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Este tipo de problema possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir tipos de problema com apontamentos.'
+                )
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
+        messages.success(request, 'Tipo de Problema excluído com sucesso!')
+        return super().post(request, *args, **kwargs)
+
+
+# =====================================================================
+# PROJETO CRUD
+# =====================================================================
+
+class ProjetoListView(PermissionMixin, BaseCRUDListView):
+    model = Projeto
+    template_name = 'cadastros/projeto_lista.html'
+    context_object_name = 'projetos'
+    search_fields = ['nome']
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('-criado_em')
+
+
+class ProjetoCreateView(PermissionMixin, BaseCRUDCreateView):
+    model = Projeto
+    form_class = ProjetoForm
+    template_name = 'cadastros/projeto_form.html'
+    success_url = reverse_lazy('semeq:cadastro_projetos')
+
+
+class ProjetoUpdateView(PermissionMixin, BaseCRUDUpdateView):
+    model = Projeto
+    form_class = ProjetoForm
+    template_name = 'cadastros/projeto_form.html'
+    success_url = reverse_lazy('semeq:cadastro_projetos')
+
+
+class ProjetoDeleteView(PermissionMixin, DeleteView):
+    model = Projeto
+    template_name = 'projeto/confirm_delete.html'
+    success_url = reverse_lazy('semeq:cadastros_unificada')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Este projeto possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir projetos com apontamentos.'
+                )
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
+        messages.success(request, 'Projeto excluído com sucesso!')
+        return super().post(request, *args, **kwargs)
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and self.request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Este projeto possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir projetos com apontamentos.'
+                )
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
+        messages.success(request, 'Projeto excluído com sucesso!')
+        return super().post(request, *args, **kwargs)
+
+
+# =====================================================================
+# SOLICITANTE CRUD
+# =====================================================================
+
+class SolicitanteListView(PermissionMixin, BaseCRUDListView):
+    model = Solicitante
+    template_name = 'solicitante/lista.html'
+    context_object_name = 'solicitantes'
+    search_fields = ['nome']
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('-criado_em')
+
+
+class SolicitanteCreateView(PermissionMixin, BaseCRUDCreateView):
+    model = Solicitante
+    form_class = SolicitanteForm
+    template_name = 'cadastros/solicitante_form.html'
+    success_url = reverse_lazy('semeq:cadastro_solicitantes')
+
+
+class SolicitanteUpdateView(PermissionMixin, BaseCRUDUpdateView):
+    model = Solicitante
+    form_class = SolicitanteForm
+    template_name = 'cadastros/solicitante_form.html'
+    success_url = reverse_lazy('semeq:cadastro_solicitantes')
+
+
+class SolicitanteDeleteView(PermissionMixin, DeleteView):
+    model = Solicitante
+    template_name = 'solicitante/confirm_delete.html'
+    success_url = reverse_lazy('semeq:cadastros_unificada')
+    
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.apontamentos_count = self.object.apontamento_set.count()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['apontamentos_count'] = self.apontamentos_count
+        context['is_admin'] = self.request.user.is_superuser or (
+            hasattr(request.user, 'perfil') and self.request.user.perfil.is_admin()
+        )
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        if self.apontamentos_count > 0:
+            if not (request.user.is_superuser or (
+                hasattr(request.user, 'perfil') and self.request.user.perfil.is_admin()
+            )):
+                messages.error(request, 
+                    f'Este solicitante possui {self.apontamentos_count} apontamento(s) associado(s). '
+                    'Apenas administradores podem excluir solicitantes com apontamentos.'
+                )
+                return redirect('semeq:cadastros_unificada')
+            
+            self.object.apontamento_set.all().delete()
+        
+        messages.success(request, 'Solicitante excluído com sucesso!')
+        return super().post(request, *args, **kwargs)
+
+
+def csrf_failure(request, reason=''):
+    """View customizada para falha de CSRF."""
+    import logging
+    logger = logging.getLogger('django.security.csrf')
+    logger.warning(f'CSRF failure: {reason} - IP: {request.META.get("REMOTE_ADDR")} - Path: {request.path}')
+    return render(request, 'errors/403_csrf.html', {'reason': reason}, status=403)
+
+
+def carregar_responsaveis(request):
+    """API endpoint para carregar responsáveis filtrados por equipe."""
+    equipe_id = request.GET.get('equipe_id')
+    
+    # Base queryset: usuários ativos com perfil ativo
+    responsaveis = User.objects.filter(
+        is_active=True, perfil__ativo=True
+    ).select_related('perfil', 'perfil__equipe').order_by('first_name', 'username')
+    
+    if equipe_id:
+        responsaveis = responsaveis.filter(perfil__equipe_id=equipe_id)
+    
+    data = [
+        {
+            'id': user.id,
+            'nome': user.get_full_name() or user.username,
+            'equipe_id': user.perfil.equipe_id if hasattr(user, 'perfil') and user.perfil.equipe_id else None
+        }
+        for user in responsaveis
+    ]
+    
+    return JsonResponse(data, safe=False)
+
+
+class HealthCheckView(View):
+    """Health check endpoint para monitoramento (load balancer, k8s, etc)."""
+    
+    def get(self, request):
+        from django.db import connection
+        from django.core.cache import cache
+        
+        checks = {}
+        status_code = 200
+        
+        # Database
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1')
+            checks['database'] = 'ok'
+        except Exception as e:
+            checks['database'] = f'error: {e}'
+            status_code = 503
+        
+        # Cache
+        try:
+            cache.set('health_check', 'ok', 10)
+            if cache.get('health_check') == 'ok':
+                checks['cache'] = 'ok'
+            else:
+                checks['cache'] = 'error: cache not working'
+                status_code = 503
+        except Exception as e:
+            checks['cache'] = f'error: {e}'
+            status_code = 503
+        
+        return JsonResponse({
+            'status': 'healthy' if status_code == 200 else 'unhealthy',
+            'checks': checks,
+        }, status=status_code)

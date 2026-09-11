@@ -80,11 +80,21 @@ CREATE DATABASE apontamento OWNER admin;
 python manage.py migrate
 ```
 
-### 7. Criar os usuários iniciais
+### 7. Criar usuário administrador padrão
+
+```bash
+python manage.py setup_admin
+```
+
+> Cria o superusuário `admin@semeq.com` (senha definida via variável de ambiente `ADMIN_PASSWORD`).
+
+### 8. (Opcional) Criar estrutura completa de usuários e equipes
 
 ```bash
 python manage.py setup_usuarios
 ```
+
+> Cria admin, gestor, líderes e colaboradores nas equipes PMC e SHD. Use `--only-if-missing` para pular se já existirem usuários.
 
 ### 8. Rodar o servidor
 
