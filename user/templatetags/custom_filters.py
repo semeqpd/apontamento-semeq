@@ -70,7 +70,7 @@ def can_edit_apontamento_tag(user, apontamento):
     import logging
     logger = logging.getLogger(__name__)
     result = can_edit_apontamento(user, apontamento)
-    logger.warning(f'[TEMPLATE_TAG] can_edit_apontamento_tag: user={user.id if user else None} ({user.username if user else "None"}), apontamento={apontamento.pk if apontamento else None}, responsavel_id={apontamento.responsavel_id if apontamento else None}, criado_por_id={apontamento.criado_por_id if apontamento else None}, RESULT={result}')
+    logger.warning(f'[TEMPLATE_TAG] can_edit_apontamento_tag: user={user.id if user else None} ({user.username if user else "None"}), apontamento={apontamento.pk if apontamento else None}, responsavel_id={apontamento.responsavel_id if apontamento else None}, RESULT={result}')
     return result
 
 

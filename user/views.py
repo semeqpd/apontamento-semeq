@@ -57,7 +57,7 @@ from apps.core.views.base import (
     BaseCRUDUpdateView, BaseCRUDDeleteView
 )
 from .permissions import (
-    can_view_apontamento, can_edit_apontamento, can_delete_apontamento,
+    can_view_apontamento,
     can_view_user, can_edit_user, can_delete_user, can_manage_users,
     filter_apontamentos_queryset, filter_apontamentostempo_queryset,
     filter_users_queryset, PermissionDenied as PermDenied
@@ -211,9 +211,10 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
         if not pode_editar(obj):
             messages.error(request, 'Não é possível editar um apontamento com status "Concluído".')
             return redirect('semeq:apontamento_lista')
-        # Check edit permission
-        if not can_edit_apontamento(request.user, obj):
-            raise PermDenied('Você não tem permissão para editar este apontamento.')
+        # REGRA ESTRITA: Apenas o próprio responsável pode editar
+        if obj.responsavel != request.user:
+            messages.error(request, 'Ação não permitida. Você só pode editar os seus próprios apontamentos.')
+            return redirect('semeq:apontamento_lista')
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -252,8 +253,9 @@ class ApontamentoStatusView(LoginRequiredMixin, View):
         pk = kwargs.get('pk')
         ap = get_object_or_404(Apontamento, pk=pk)
         
-        if not can_edit_apontamento(request.user, ap):
-            return JsonResponse({'success': False, 'message': 'Sem permissão para alterar este apontamento.'}, status=403)
+        # REGRA ESTRITA: Apenas o próprio responsável pode alterar status
+        if ap.responsavel != request.user:
+            return JsonResponse({'success': False, 'message': 'Ação não permitida. Você só pode alterar os seus próprios apontamentos.'}, status=403)
 
         # Support both form data and JSON
         import json
@@ -292,8 +294,9 @@ def alterar_status_apontamento(request, pk):
 
         ap = get_object_or_404(Apontamento, pk=pk)
 
-        if not can_edit_apontamento(request.user, ap):
-            return JsonResponse({'success': False, 'error': 'Sem permissão para alterar este apontamento.'}, status=403)
+        # REGRA ESTRITA: Apenas o próprio responsável pode alterar status
+        if ap.responsavel != request.user:
+            return JsonResponse({'success': False, 'error': 'Ação não permitida. Você só pode alterar os seus próprios apontamentos.'}, status=403)
 
         status_obj = Status.objects.filter(pk=novo_status_id, ativo=True).first()
         if not status_obj:
@@ -331,8 +334,9 @@ def excluir_apontamento(request, pk):
     """Exclui um apontamento via POST (usado pelo modal de confirmação)."""
     apontamento = get_object_or_404(Apontamento, pk=pk)
     
-    if not can_delete_apontamento(request.user, apontamento):
-        raise PermissionDenied('Você não tem permissão para excluir este apontamento.')
+    # REGRA ESTRITA: Apenas o próprio responsável pode excluir
+    if apontamento.responsavel != request.user:
+        raise PermissionDenied('Ação não permitida. Você só pode excluir os seus próprios apontamentos.')
     
     # Log de auditoria
     logger.info(
@@ -367,8 +371,9 @@ class ApontamentoTipoProblemaView(LoginRequiredMixin, View):
         pk = kwargs.get('pk')
         ap = get_object_or_404(Apontamento, pk=pk)
         
-        if not can_edit_apontamento(request.user, ap):
-            return JsonResponse({'success': False, 'message': 'Sem permissão para alterar este apontamento.'}, status=403)
+        # REGRA ESTRITA: Apenas o próprio responsável pode alterar
+        if ap.responsavel != request.user:
+            return JsonResponse({'success': False, 'message': 'Ação não permitida. Você só pode alterar os seus próprios apontamentos.'}, status=403)
 
         tipo_obj = TipoProblema.objects.filter(nome=request.POST.get('tipo_problema', '').strip(), ativo=True).first()
         if not tipo_obj:
@@ -600,13 +605,17 @@ class ApontamentoDetailViewAdmin(ApontamentoPermissionMixin, DetailView):
         ).prefetch_related('apontamentos_tempo__responsavel')
 
 
-class ApontamentoTempoCreateView(ApontamentoPermissionMixin, CreateView):
+class ApontamentoTempoCreateView(LoginRequiredMixin, CreateView):
     model = ApontamentoTempo
     form_class = ApontamentoTempoForm
     template_name = 'atendimentos/apontamento_tempo_form.html'
     
     def dispatch(self, request, *args, **kwargs):
         self.apontamento = get_object_or_404(Apontamento, pk=kwargs.get('apontamento_pk'))
+        # REGRA ESTRITA: Apenas o próprio responsável pode adicionar tempo
+        if self.apontamento.responsavel != request.user:
+            messages.error(request, 'Ação não permitida. Você só pode adicionar tempo aos seus próprios apontamentos.')
+            return redirect('semeq:apontamento_detalhe', pk=self.apontamento.pk)
         return super().dispatch(request, *args, **kwargs)
     
     def get_form_kwargs(self):
@@ -631,10 +640,18 @@ class ApontamentoTempoCreateView(ApontamentoPermissionMixin, CreateView):
         return reverse_lazy('semeq:apontamento_detalhe', kwargs={'pk': self.apontamento.pk})
 
 
-class ApontamentoTempoUpdateView(ApontamentoPermissionMixin, UpdateView):
+class ApontamentoTempoUpdateView(LoginRequiredMixin, UpdateView):
     model = ApontamentoTempo
     form_class = ApontamentoTempoForm
     template_name = 'atendimentos/apontamento_tempo_form.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        # REGRA ESTRITA: Apenas o próprio responsável do apontamento pai pode editar
+        if obj.apontamento.responsavel != request.user:
+            messages.error(request, 'Ação não permitida. Você só pode editar os seus próprios apontamentos.')
+            return redirect('semeq:apontamento_detalhe', pk=obj.apontamento.pk)
+        return super().dispatch(request, *args, **kwargs)
     
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -655,9 +672,17 @@ class ApontamentoTempoUpdateView(ApontamentoPermissionMixin, UpdateView):
         return reverse_lazy('semeq:apontamento_detalhe', kwargs={'pk': self.object.apontamento.pk})
 
 
-class ApontamentoTempoDeleteView(ApontamentoPermissionMixin, DeleteView):
+class ApontamentoTempoDeleteView(LoginRequiredMixin, DeleteView):
     model = ApontamentoTempo
     template_name = 'atendimentos/apontamento_tempo_confirm_delete.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        # REGRA ESTRITA: Apenas o próprio responsável do apontamento pai pode excluir
+        if obj.apontamento.responsavel != request.user:
+            messages.error(request, 'Ação não permitida. Você só pode excluir os seus próprios apontamentos.')
+            return redirect('semeq:apontamento_detalhe', pk=obj.apontamento.pk)
+        return super().dispatch(request, *args, **kwargs)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

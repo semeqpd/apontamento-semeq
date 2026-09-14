@@ -98,9 +98,33 @@ def can_edit_apontamento(user, apontamento) -> bool:
     """
     Check if user can edit an apontamento.
     
-    Rules:
-    - ALL users (Admin, Gestor, Líder, Colaborador): can edit ONLY their own
-      (where they are the responsavel OR created it)
+    REGRA ESTRITA: APENAS o próprio responsável pode editar.
+    - Admin, Gestor, Líder, Colaborador: apenas se responsavel == user
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if not user.is_authenticated:
+        logger.warning(f'[PERM] can_edit_apontamento: user not authenticated')
+        return False
+    
+    perfil = get_user_perfil(user)
+    if not perfil or not perfil.ativo:
+        logger.warning(f'[PERM] can_edit_apontamento: user={user.id} ({user.username}) perfil inactive or missing')
+        return False
+    
+    # REGRA ESTRITA: Apenas o responsável pode editar
+    result = apontamento.responsavel_id == user.id
+    logger.warning(f'[PERM] can_edit_apontamento: user={user.id} ({user.username}) responsavel_id={apontamento.responsavel_id} RESULT={result}')
+    return result
+
+
+def can_delete_apontamento(user, apontamento) -> bool:
+    """
+    Check if user can delete an apontamento.
+    
+    REGRA ESTRITA: APENAS o próprio responsável pode excluir.
+    - Admin, Gestor, Líder, Colaborador: apenas se responsavel == user
     """
     if not user.is_authenticated:
         return False
@@ -109,19 +133,8 @@ def can_edit_apontamento(user, apontamento) -> bool:
     if not perfil or not perfil.ativo:
         return False
     
-    # Todos editam apenas seus próprios apontamentos
-    return apontamento.responsavel_id == user.id or apontamento.criado_por_id == user.id
-
-
-def can_delete_apontamento(user, apontamento) -> bool:
-    """
-    Check if user can delete an apontamento.
-    
-    Rules:
-    - ALL users (Admin, Gestor, Líder, Colaborador): can delete ONLY their own
-      (where they are the responsavel OR created it)
-    """
-    return can_edit_apontamento(user, apontamento)
+    # REGRA ESTRITA: Apenas o responsável pode excluir
+    return apontamento.responsavel_id == user.id
 
 
 def filter_apontamentos_queryset(user, qs):
