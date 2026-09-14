@@ -66,7 +66,7 @@ def can_view_apontamento(user, apontamento) -> bool:
     Rules:
     - Admin/Gestor: all apontamentos
     - Líder: apontamentos da própria equipe (apontamento.equipe == user.equipe)
-    - Colaborador: apenas próprios (apontamento.responsavel == user)
+    - Colaborador: apenas próprios (apontamento.responsavel == user OR apontamento.criado_por == user)
     """
     if not user.is_authenticated:
         return False
@@ -82,8 +82,8 @@ def can_view_apontamento(user, apontamento) -> bool:
         # Líder vê apontamentos da sua equipe
         return apontamento.equipe_id == perfil.equipe_id
     
-    # Colaborador vê apenas próprios
-    return apontamento.responsavel_id == user.id
+    # Colaborador vê apenas onde é responsavel OU criou
+    return apontamento.responsavel_id == user.id or apontamento.criado_por_id == user.id
 
 
 def can_create_apontamento(user) -> bool:
