@@ -13,6 +13,7 @@ from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -30,13 +31,19 @@ from .throttle import rate_limit
 import csv
 import openpyxl
 from io import BytesIO
+import logging
+
+# Logger para este módulo (usa o logger 'user' configurado em settings.py)
+logger = logging.getLogger('user')
+import openpyxl
+from io import BytesIO
 from apps.apontamentos.selectors.dashboard import (
     get_dashboard_queryset, calculate_kpis, get_daily_compliance, get_filter_options,
     agrupar_por_data
 )
 from apps.apontamentos.selectors.apontamentos import (
     get_apontamentos_list_qs, get_list_context_data, get_export_queryset,
-    get_apontamentos_list_qs, get_apontamento_context_data
+    get_apontamentos_list_qs, agrupar_por_data, agrupar_por_dia_equipe_usuario
 )
 from apps.apontamentos.services.apontamento_service import (
     criar_apontamento, criar_apontamento_tempo, atualizar_apontamento_tempo, pode_editar,
@@ -141,14 +148,23 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
         from django.core.paginator import Paginator
         
         perfil = getattr(self.request.user, 'perfil', None)
-        # Use the FULL queryset (before pagination) for grouping by day
+        is_admin_ou_gestor = self.request.user.is_superuser or (perfil and perfil.role in ['admin', 'gestor'])
+        
+        # Use the FULL queryset (before pagination) for grouping
         qs = self.get_queryset()
         selector_context = get_list_context_data(self.request, perfil, qs)
         
-        # Group by day (same as Dashboard) - using full queryset
-        agrupados, totais = agrupar_por_data(qs)
-        selector_context['apontamentos_por_data'] = agrupados
-        selector_context['totais_por_data'] = totais
+        if is_admin_ou_gestor:
+            # Admin/Gestor: Hierarchical grouping Data -> Equipe -> Usuario -> Apontamentos
+            agrupamento_admin = agrupar_por_dia_equipe_usuario(qs)
+            selector_context['agrupamento_admin'] = agrupamento_admin
+            selector_context['is_admin_ou_gestor'] = True
+        else:
+            # Lider/Colaborador: Simple daily grouping with totals
+            agrupados, totais = agrupar_por_data(qs)
+            selector_context['apontamentos_por_data'] = agrupados
+            selector_context['totais_por_data'] = totais
+            selector_context['is_admin_ou_gestor'] = False
         
         # Build filter params for pagination links
         from django.http import QueryDict
@@ -190,9 +206,6 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
         kwargs['user'] = self.request.user
         return kwargs
 
-    def get_queryset(self):
-        return filter_apontamentos_queryset(self.request.user, super().get_queryset())
-
     def dispatch(self, request, *args, **kwargs):
         obj = self.get_object()
         if not pode_editar(obj):
@@ -209,43 +222,19 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
         return redirect(self.get_success_url())
 
 
-class ApontamentoDeleteView(LoginRequiredMixin, DeleteView):
-    model = Apontamento
-    template_name = 'apontamentos/confirm_delete.html'
-    success_url = reverse_lazy('semeq:apontamento_lista')
-    
-    def get_queryset(self):
-        return filter_apontamentos_queryset(self.request.user, super().get_queryset())
-    
-    def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not can_delete_apontamento(request.user, obj):
-            raise PermDenied('Você não tem permissão para excluir este apontamento.')
-        return super().dispatch(request, *args, **kwargs)
-    
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Apontamento excluído com sucesso!')
-        return super().delete(request, *args, **kwargs)
-
-
 class ApontamentoDetailView(LoginRequiredMixin, DetailView):
     model = Apontamento
     template_name = 'apontamentos/detail.html'
     context_object_name = 'apontamento'
     
     def get_queryset(self):
-        return filter_apontamentos_queryset(
-            self.request.user, 
-            super().get_queryset().select_related('cliente', 'responsavel', 'equipamento', 'criado_por')
+        return super().get_queryset().select_related(
+            'cliente', 'projeto', 'solicitante', 'equipe', 'responsavel', 
+            'atividade', 'tipo_problema', 'status', 'prioridade', 'equipamento', 'criado_por'
         )
     
     def dispatch(self, request, *args, **kwargs):
-        # Check view permission using filtered queryset
-        pk = kwargs.get('pk')
-        qs = self.get_queryset()
-        if not qs.filter(pk=pk).exists():
-            return redirect('semeq:atendimento_detalhe', pk=pk)
-        obj = qs.get(pk=pk)
+        obj = self.get_object()
         if not can_view_apontamento(request.user, obj):
             raise PermDenied('Você não tem permissão para visualizar este apontamento.')
         return super().dispatch(request, *args, **kwargs)
@@ -291,35 +280,79 @@ class ApontamentoStatusView(LoginRequiredMixin, View):
         })
 
 
-@rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True)
+@login_required
+@require_POST
 def alterar_status_apontamento(request, pk):
     """AJAX endpoint for quick status change from list/dashboard."""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Método não permitido'}, status=405)
-    
     try:
         import json
         data = json.loads(request.body)
         novo_status_id = data.get('status')
-        
-        if not novo_status_id:
-            return JsonResponse({'success': False, 'error': 'Status não informado'}, status=400)
-        
+        tempo_investido = data.get('tempo_investido_minutos')
+
         ap = get_object_or_404(Apontamento, pk=pk)
-        
+
         if not can_edit_apontamento(request.user, ap):
             return JsonResponse({'success': False, 'error': 'Sem permissão para alterar este apontamento.'}, status=403)
-        
+
         status_obj = Status.objects.filter(pk=novo_status_id, ativo=True).first()
         if not status_obj:
             return JsonResponse({'success': False, 'error': 'Status inválido.'}, status=400)
-        
+
+        # Validar se status é Concluído e requer tempo investido > 0
+        if status_obj.is_concluido_fixo:
+            tempo_atual = ap.tempo_investido_minutos or 0
+            tempo_novo = int(tempo_investido) if tempo_investido else 0
+            tempo_final = tempo_novo if tempo_novo > 0 else tempo_atual
+
+            if tempo_final <= 0:
+                return JsonResponse({
+                    'success': False,
+                    'requires_time': True,
+                    'error': 'O tempo investido precisa ser maior que 0 para concluir.',
+                    'tempo_atual': tempo_atual
+                }, status=400)
+
+            if tempo_novo > 0:
+                ap.tempo_investido_minutos = tempo_novo
+
         ap.status = status_obj
         ap.save()
-        
+
         return JsonResponse({'success': True, 'status': status_obj.status})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido.'}, status=400)
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_POST
+def excluir_apontamento(request, pk):
+    """Exclui um apontamento via POST (usado pelo modal de confirmação)."""
+    apontamento = get_object_or_404(Apontamento, pk=pk)
+    
+    if not can_delete_apontamento(request.user, apontamento):
+        raise PermissionDenied('Você não tem permissão para excluir este apontamento.')
+    
+    # Log de auditoria
+    logger.info(
+        f'[excluir_apontamento] EXCLUSÃO DE APONTAMENTO - '
+        f'User: {request.user} (ID: {request.user.pk}), '
+        f'Apontamento PK: {apontamento.pk}, '
+        f'Ticket: {apontamento.ticket}, '
+        f'Cliente: {apontamento.cliente}, '
+        f'Responsável: {apontamento.responsavel}, '
+        f'Data: {apontamento.data_inicial}, '
+        f'Tempo: {apontamento.tempo_investido_minutos}min, '
+        f'Status: {apontamento.status}, '
+        f'Equipe: {apontamento.equipe}'
+    )
+    for handler in logger.handlers:
+        handler.flush()
+    
+    apontamento.delete()
+    messages.success(request, 'Apontamento excluído com sucesso!')
+    return redirect('semeq:apontamento_lista')
 
 
 class ApontamentoTipoProblemaView(LoginRequiredMixin, View):
@@ -469,6 +502,9 @@ class ApontamentoCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['cliente_queryset'] = Cliente.objects.all().order_by('corporation', 'plant')
+        # Add data for cascading dropdowns
+        context['corporacoes'] = Cliente.objects.values_list('corporation', flat=True).distinct().order_by('corporation')
+        context['todos_clientes'] = Cliente.objects.filter(ativo=True).values('id', 'corporation', 'plant', 'zone')
         return context
     
     def form_valid(self, form):
@@ -499,7 +535,7 @@ class ApontamentoCreateView(LoginRequiredMixin, CreateView):
             logger.info(f'[ApontamentoCreateView] Apontamento salvo com ID: {self.object.pk}, Data: {self.object.data_inicial}, Tempo: {self.object.tempo_investido_minutos}, Responsavel: {self.object.responsavel} (ID: {self.object.responsavel_id})')
             
             # Automatically create an ApontamentoTempo entry for the list view
-            if self.object.data_inicial and self.object.tempo_investido_minutos:
+            if self.object.data_inicial and self.object.tempo_investido_minutos is not None:
                 total_minutes = self.object.tempo_investido_minutos
                 
                 # Calculate end time properly using timedelta to handle overflow
@@ -552,7 +588,7 @@ class ApontamentoUpdateView(ApontamentoPermissionMixin, UpdateView):
         return super().form_valid(form)
 
 
-class ApontamentoDetailView(ApontamentoPermissionMixin, DetailView):
+class ApontamentoDetailViewAdmin(ApontamentoPermissionMixin, DetailView):
     model = Apontamento
     template_name = 'apontamentos/detail.html'
     context_object_name = 'apontamento'
@@ -562,16 +598,6 @@ class ApontamentoDetailView(ApontamentoPermissionMixin, DetailView):
             'cliente', 'responsavel', 'equipe', 'status', 'prioridade', 'projeto', 
             'atividade', 'tipo_problema', 'solicitante', 'equipamento', 'criado_por'
         ).prefetch_related('apontamentos_tempo__responsavel')
-
-
-class ApontamentoDeleteView(ApontamentoPermissionMixin, DeleteView):
-    model = Apontamento
-    template_name = 'apontamentos/confirm_delete.html'
-    success_url = reverse_lazy('semeq:apontamento_lista')
-    
-    def delete(self, request, *args, **kwargs):
-        messages.success(request, 'Apontamento excluído com sucesso!')
-        return super().delete(request, *args, **kwargs)
 
 
 class ApontamentoTempoCreateView(ApontamentoPermissionMixin, CreateView):
@@ -638,8 +664,28 @@ class ApontamentoTempoDeleteView(ApontamentoPermissionMixin, DeleteView):
         context['apontamento'] = self.object.apontamento
         return context
     
+    def delete(self, request, *args, **kwargs):
+        obj = self.get_object()
+        # Log antes da exclusão
+        logger.info(
+            f'[ApontamentoTempoDeleteView] EXCLUSÃO DE APONTAMENTO TEMPO - '
+            f'User: {request.user} (ID: {request.user.pk}), '
+            f'ApontamentoTempo PK: {obj.pk}, '
+            f'Apontamento: {obj.apontamento.pk} (Ticket: {obj.apontamento.ticket}), '
+            f'Data: {obj.data}, '
+            f'Hora Inicial: {obj.hora_inicial}, '
+            f'Hora Final: {obj.hora_final}, '
+            f'Tempo: {obj.tempo_investido_minutos}min, '
+            f'Responsável: {obj.responsavel}'
+        )
+        # Force flush to ensure log is written
+        for handler in logger.handlers:
+            handler.flush()
+        
+        messages.success(request, 'Apontamento de tempo excluído com sucesso!')
+        return super().delete(request, *args, **kwargs)
+    
     def get_success_url(self):
-        messages.success(self.request, 'Apontamento de tempo excluído com sucesso!')
         return reverse_lazy('semeq:apontamento_detalhe', kwargs={'pk': self.object.apontamento.pk})
 
 
@@ -782,7 +828,8 @@ class ClienteDeleteView(ClientePermissionMixin, DeleteView):
 
 
 class ClienteDeleteAllView(ClientePermissionMixin, View):
-    """Delete ALL clientes + cascade (equipamentos, apontamentos). Admin only."""
+    """Delete ALL clientes + cascade (equipamentos, apontamentos). Admin only.
+    Preserva o cliente padrão SEMEQ LIMEIRA."""
     
     def dispatch(self, request, *args, **kwargs):
         perfil = request.user.perfil if hasattr(request.user, 'perfil') else None
@@ -794,8 +841,8 @@ class ClienteDeleteAllView(ClientePermissionMixin, View):
     def get(self, request):
         from user.models import Apontamento, Equipamento, Cliente
         
-        # Count for confirmation page
-        clientes_count = Cliente.objects.count()
+        # Exclui o cliente padrão SEMEQ LIMEIRA da contagem
+        clientes_count = Cliente.objects.exclude(corporation='SEMEQ', plant='LIMEIRA').count()
         equipamentos_count = Equipamento.objects.count()
         apontamentos_count = Apontamento.objects.count()
         
@@ -814,20 +861,25 @@ class ClienteDeleteAllView(ClientePermissionMixin, View):
         
         from user.models import Apontamento, Equipamento, Cliente
         
-        # Count before deletion
-        apontamentos_count = Apontamento.objects.count()
+        # Preserva o cliente padrão SEMEQ LIMEIRA
+        cliente_padrao = Cliente.objects.filter(corporation='SEMEQ', plant='LIMEIRA').first()
+        
+        # Count before deletion (excluindo o padrão)
+        clientes_para_excluir = Cliente.objects.exclude(corporation='SEMEQ', plant='LIMEIRA')
+        clientes_count = clientes_para_excluir.count()
         equipamentos_count = Equipamento.objects.count()
-        clientes_count = Cliente.objects.count()
+        apontamentos_count = Apontamento.objects.count()
         
         # Delete in correct order (FK PROTECT)
-        Apontamento.objects.all().delete()
+        # First delete apontamentos of clients to be deleted
+        Apontamento.objects.filter(cliente__in=clientes_para_excluir).delete()
         Equipamento.objects.all().delete()
-        Cliente.objects.all().delete()
+        clientes_para_excluir.delete()
         
         messages.success(
             request, 
             f'Exclusão completa: {clientes_count} clientes, {equipamentos_count} equipamentos, '
-            f'{apontamentos_count} apontamentos removidos.'
+            f'{apontamentos_count} apontamentos removidos. Cliente padrão SEMEQ LIMEIRA preservado.'
         )
         return redirect('semeq:cadastro_clientes')
 
@@ -863,15 +915,30 @@ class ClienteImportView(ClientePermissionMixin, View):
                     corp = fix_encoding(row_data.get('corporation', ''))
                     plant = fix_encoding(row_data.get('plant', ''))
                     zone = fix_encoding(row_data.get('zone', ''))
+                    plant_id = fix_encoding(row_data.get('plant_id', ''))
 
-                    if not corp or not plant or not zone:
-                        erros.append(f'Linha {i}: Corporação e Planta e Zona são obrigatórios')
+                    if not corp or not plant:
+                        erros.append(f'Linha {i}: Corporação e Planta são obrigatórios')
                         continue
 
+                    # Try to find existing client by plant_id first (for unification)
+                    if plant_id:
+                        existing = Cliente.objects.filter(plant_id=plant_id).first()
+                        if existing:
+                            # Update existing client
+                            existing.corporation = corp
+                            existing.plant = plant
+                            if zone:
+                                existing.zone = zone
+                            existing.save()
+                            atualizados += 1
+                            continue
+
+                    # Standard logic: unique by corporation + plant + zone
                     obj, created = Cliente.objects.update_or_create(
                         corporation=corp,
                         plant=plant,
-                        zone=zone
+                        defaults={'zone': zone}
                     )
                     if created:
                         criados += 1
@@ -882,7 +949,11 @@ class ClienteImportView(ClientePermissionMixin, View):
 
             messages.success(request, f'Importação concluída: {criados} criados, {atualizados} atualizados.')
             if erros:
-                messages.warning(request, f'Erros: {"; ".join(erros[:5])}' + ('...' if len(erros) > 5 else ''))
+                # Agrupa erros iguais para não repetir
+                from collections import Counter
+                error_counts = Counter(erros)
+                error_msgs = [f'{msg} ({count}x)' if count > 1 else msg for msg, count in error_counts.items()]
+                messages.warning(request, 'Erros: ' + '; '.join(error_msgs[:10]) + ('...' if len(error_msgs) > 10 else ''))
             return redirect('semeq:cadastro_clientes')
 
         form = ClienteImportForm(request.POST, request.FILES)
@@ -920,26 +991,6 @@ class ClienteImportView(ClientePermissionMixin, View):
 class ClienteImportProcessView(LoginRequiredMixin, View):
     def post(self, request):
         return redirect('semeq:cliente_importar')
-
-
-class ClienteExportView(ClientePermissionMixin, View):
-    def get(self, request):
-        qs = Cliente.objects.all().order_by('corporation', 'plant')
-        
-        response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = f'attachment; filename="clientes_{date.today()}.csv"'
-        response.write('\ufeff'.encode('utf-8'))
-        
-        writer = csv.writer(response, delimiter=';')
-        writer.writerow([
-            'corporation', 'plant', 'zone'
-        ])
-        
-        for c in qs:
-            writer.writerow([
-                c.corporation, c.plant, c.zone
-            ])
-        return response
 
 
 class ClienteFilterOptionsView(ClientePermissionMixin, View):
@@ -1674,6 +1725,15 @@ class StatusDeleteView(PermissionMixin, DeleteView):
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
+        
+        # Impede exclusão de status fixos do sistema
+        if self.object.is_fixo:
+            messages.error(request, 
+                'Status fixo do sistema não pode ser excluído. '
+                'Apenas a cor e a ordem podem ser alteradas.'
+            )
+            return redirect('semeq:cadastro_status')
+        
         return super().dispatch(request, *args, **kwargs)
     
     def get_context_data(self, **kwargs):
@@ -1682,10 +1742,19 @@ class StatusDeleteView(PermissionMixin, DeleteView):
         context['is_admin'] = self.request.user.is_superuser or (
             hasattr(self.request.user, 'perfil') and self.request.user.perfil.is_admin()
         )
+        context['is_fixo'] = self.object.is_fixo
         return context
     
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
+        
+        # Impede exclusão de status fixos do sistema
+        if self.object.is_fixo:
+            messages.error(request, 
+                'Status fixo do sistema não pode ser excluído. '
+                'Apenas a cor e a ordem podem ser alteradas.'
+            )
+            return redirect('semeq:cadastro_status')
         
         if self.apontamentos_count > 0:
             if not (request.user.is_superuser or (
@@ -2037,6 +2106,8 @@ class CadastroBaseView(LoginRequiredMixin, View):
         page = self.request.GET.get('page', 1)
         
         from django.core.paginator import Paginator
+        from django.http import QueryDict
+        
         qs = self.get_queryset()
         paginator = Paginator(qs, self.paginate_by)
         page_obj = paginator.get_page(page)
@@ -2044,11 +2115,19 @@ class CadastroBaseView(LoginRequiredMixin, View):
         # Build delete URL path (e.g., 'clientes', 'usuarios', 'status', etc.)
         delete_url_path = self.get_tab_id()
         
+        # Build filter params for pagination (exclude 'page')
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        filter_params = params.urlencode()
+        
         context = {
             'perfil': getattr(self.request.user, 'perfil', None),
             'page_obj': page_obj,
+            'paginator': paginator,
             'object_list': page_obj.object_list,
             'search': q,
+            'filter_params': filter_params,
+            'is_paginated': page_obj.has_other_pages(),
             'title': self.title,
             'icon': self.icon,
             'create_url': reverse_lazy(self.create_url_name) if self.create_url_name else None,
@@ -2467,6 +2546,94 @@ def csrf_failure(request, reason=''):
     logger = logging.getLogger('django.security.csrf')
     logger.warning(f'CSRF failure: {reason} - IP: {request.META.get("REMOTE_ADDR")} - Path: {request.path}')
     return render(request, 'errors/403_csrf.html', {'reason': reason}, status=403)
+
+
+def api_zonas_por_corporacao(request):
+    """API endpoint para buscar zonas por corporação."""
+    corporacao_id = request.GET.get('corporation_id')
+    
+    if not corporacao_id:
+        return JsonResponse({'zonas': []})
+    
+    zonas = list(Cliente.objects.filter(
+        corporation=corporacao_id, ativo=True
+    ).values_list('zone', flat=True).distinct().order_by('zone'))
+    
+    # Filter out empty/None zones
+    zonas = [z for z in zonas if z]
+    
+    return JsonResponse({'zonas': zonas})
+
+
+def api_plantas_por_corporacao_zona(request):
+    """API endpoint para buscar plantas por corporação e zona."""
+    corporacao_id = request.GET.get('corporation_id')
+    zona = request.GET.get('zona')
+    
+    if not corporacao_id or not zona:
+        return JsonResponse({'plantas': []})
+    
+    plantas = list(Cliente.objects.filter(
+        corporation=corporacao_id, zone=zona, ativo=True
+    ).values('pk', 'plant').order_by('plant'))
+    
+    return JsonResponse({'plantas': plantas})
+
+
+def carregar_responsaveis(request):
+    """API endpoint para carregar responsáveis filtrados por equipe."""
+    equipe_id = request.GET.get('equipe_id')
+    
+    # Base queryset: usuários ativos com perfil ativo
+    responsaveis = User.objects.filter(
+        is_active=True, perfil__ativo=True
+    ).select_related('perfil', 'perfil__equipe').order_by('first_name', 'username')
+    
+    if equipe_id:
+        responsaveis = responsaveis.filter(perfil__equipe_id=equipe_id)
+    
+    data = [
+        {
+            'id': user.id,
+            'nome': user.get_full_name() or user.username,
+            'equipe_id': user.perfil.equipe_id if hasattr(user, 'perfil') and user.perfil.equipe_id else None
+        }
+        for user in responsaveis
+    ]
+    
+    return JsonResponse(data, safe=False)
+
+
+def api_zonas_por_corporacao(request):
+    """API endpoint para buscar zonas por corporação."""
+    corporacao_id = request.GET.get('corporation_id')
+    
+    if not corporacao_id:
+        return JsonResponse({'zonas': []})
+    
+    zonas = list(Cliente.objects.filter(
+        corporation=corporacao_id, ativo=True
+    ).values_list('zone', flat=True).distinct().order_by('zone'))
+    
+    # Filter out empty/None zones
+    zonas = [z for z in zonas if z]
+    
+    return JsonResponse({'zonas': zonas})
+
+
+def api_plantas_por_corporacao_zona(request):
+    """API endpoint para buscar plantas por corporação e zona."""
+    corporacao_id = request.GET.get('corporation_id')
+    zona = request.GET.get('zona')
+    
+    if not corporacao_id or not zona:
+        return JsonResponse({'plantas': []})
+    
+    plantas = list(Cliente.objects.filter(
+        corporation=corporacao_id, zone=zona, ativo=True
+    ).values('pk', 'plant').order_by('plant'))
+    
+    return JsonResponse({'plantas': plantas})
 
 
 def carregar_responsaveis(request):

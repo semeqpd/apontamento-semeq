@@ -28,34 +28,21 @@
                 <div class="section-title">Dados do Apontamento</div>
 
                 <div class="row g-3 mb-3">
-                    <div class="col-md-3 d-none">
-                        <label class="form-label">{{ form.corporacao.label }}</label>
-                        {{ form.corporacao }}
-                        {% if form.corporacao.errors %}
-                            <div class="text-danger small mt-1">{{ form.corporacao.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">Cliente (Planta) <span class="text-danger">*</span></label>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.cliente.label }} <span class="text-danger">*</span></label>
                         {{ form.cliente }}
-                        {% if form.cliente.errors %}
-                            <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
-                        {% endif %}
+                        {% if form.cliente.errors %}<div class="text-danger small mt-1">{{ form.cliente.errors }}</div>{% endif %}
                     </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.projeto.label }} <span class="text-danger">*</span></label>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.projeto.label }}</label>
                         {{ form.projeto }}
                         {% if form.projeto.errors %}<div class="text-danger small mt-1">{{ form.projeto.errors }}</div>{% endif %}
                     </div>
-                    
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.solicitante.label }} <span class="text-danger">*</span></label>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.solicitante.label }}</label>
                         {{ form.solicitante }}
                         {% if form.solicitante.errors %}<div class="text-danger small mt-1">{{ form.solicitante.errors }}</div>{% endif %}
                     </div>
-                </div>
 
                 <hr>
 
@@ -70,10 +57,14 @@
 
                     <div class="col-md-4">
                         <label class="form-label">{{ form.responsavel.label }} <span class="text-danger">*</span></label>
-                        {{ form.responsavel }}
+                        <select name="responsavel" id="id_responsavel" class="form-select responsavel-select" {% if form.responsavel.field.required %}required{% endif %}>
+                            {% for user in form.responsavel.field.queryset %}
+                                <option value="{{ user.pk }}" data-equipe-id="{{ user.perfil.equipe_id|default:'' }}">{{ user.get_full_name|default:user.username }}</option>
+                            {% endfor %}
+                        </select>
                         {% if form.responsavel.errors %}<div class="text-danger small mt-1">{{ form.responsavel.errors }}</div>{% endif %}
                     </div>
-
+                    
                     <div class="col-md-4">
                         <label class="form-label">{{ form.atividade.label }} <span class="text-danger">*</span></label>
                         {{ form.atividade }}
@@ -155,9 +146,9 @@
 
                 <!-- Campo condicional: Outro equipamento -->
                 <div id="outroEquipamentoContainer" class="mb-3" style="display: none;">
-                    <label class="form-label">{{ form.outro_equipamento.label }}</label>
-                    {{ form.outro_equipamento }}
-                    {% if form.outro_equipamento.errors %}<div class="text-danger small mt-1">{{ form.outro_equipamento.errors }}</div>{% endif %}
+                    <label class="form-label">{{ form.outro_equipamento_descricao.label }}</label>
+                    {{ form.outro_equipamento_descricao }}
+                    {% if form.outro_equipamento_descricao.errors %}<div class="text-danger small mt-1">{{ form.outro_equipamento_descricao.errors }}</div>{% endif %}
                     <div class="form-text">Descreva o equipamento que não está na lista</div>
                 </div>
 
@@ -200,80 +191,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const today = new Date().toISOString().split('T')[0];
     if (dataInicialInput) {
         dataInicialInput.max = today;
-        if (!dataInicialInput.value) dataInicialInput.value = today;
+if (!dataInicialInput.value) dataInicialInput.value = today;
     }
     if (dataFinalInput) {
         dataFinalInput.max = today;
     }
-
-// ===== CLIENTE CASCADING SELECTS (Corporação -> Planta) =====
-document.addEventListener('DOMContentLoaded', function() {
-    const corporacaoSelect = document.getElementById('id_corporacao');
-    const clienteSelect = document.getElementById('id_cliente');
-
-    if (!corporacaoSelect || !clienteSelect) return;
-
-    function buscarPlantas(corporacaoNome, clienteIdParaSelecionar = null) {
-        if (!corporacaoNome) {
-            clienteSelect.innerHTML = '<option value="">Selecione a corporação primeiro</option>';
-            clienteSelect.disabled = true;
-            return;
-        }
-
-        // Habilita o campo e exibe o estado de carregamento
-        clienteSelect.disabled = false;
-        clienteSelect.innerHTML = '<option value="">Carregando plantas...</option>';
-
-        fetch('/buscar-plantas/?corporacao=' + encodeURIComponent(corporacaoNome), {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Erro na rede: ' + response.status);
-            return response.json();
-        })
-        .then(plantas => {
-            if (plantas.length === 0) {
-                clienteSelect.innerHTML = '<option value="">Nenhuma planta cadastrada</option>';
-                return;
-            }
-
-            clienteSelect.innerHTML = '<option value="">Selecione a planta</option>' +
-                plantas.map(p => `<option value="${p.pk}">${p.plant}</option>`).join('');
-
-            // Caso esteja no modo de edição ou mantendo estado
-            if (clienteIdParaSelecionar) {
-                clienteSelect.value = clienteIdParaSelecionar;
-            }
-        })
-        .catch(err => {
-            console.error('Erro no filtro:', err);
-            clienteSelect.innerHTML = '<option value="">Erro ao carregar plantas</option>';
-        });
-    }
-
-    // Evento de disparo na mudança do Select de Corporação
-    corporacaoSelect.addEventListener('change', function() {
-        buscarPlantas(this.value);
-    });
-
-    // Se estiver no MODO DE EDIÇÃO ou reexibindo o formulário
-    {% if form.instance.pk and form.instance.cliente %}
-        const corpAtual = "{{ form.instance.cliente.corporation }}";
-        const clienteAtualId = "{{ form.instance.cliente.pk }}";
-        
-        corporacaoSelect.value = corpAtual;
-        buscarPlantas(corpAtual, clienteAtualId);
-    {% else %}
-        // Se for NOVO cadastro e o usuário selecionar algo que deu erro de validação
-        if (corporacaoSelect.value) {
-            buscarPlantas(corporacaoSelect.value);
-        } else {
-            clienteSelect.disabled = true;
-        }
-    {% endif %}
-});
 
     // ===== EQUIPAMENTO (TomSelect) =====
     function initEquipamentoTomSelect() {
@@ -486,8 +408,126 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     dataFinalInput?.addEventListener('change', checkDataFinal);
 
-    // Initialize on load
+// Initialize on load
     updateDataFinalLimits();
-    });
-</script>
+     
+// ===== CASCADING FILTER: EQUIPE -> RESPONSAVEL =====
+    function initResponsavelFilter() {
+        const equipeSelect = document.getElementById('id_equipe');
+        const responsavelSelect = document.getElementById('id_responsavel');
+        
+        console.log('[DEBUG] initResponsavelFilter called');
+        console.log('[DEBUG] equipeSelect:', equipeSelect);
+        console.log('[DEBUG] responsavelSelect:', responsavelSelect);
+        
+        if (!equipeSelect || !responsavelSelect) return;
+        
+        // Check if user is Colaborador or Líder (equipe field is disabled)
+        const isRestricted = equipeSelect.disabled || equipeSelect.readOnly;
+        const userEquipeId = equipeSelect.value || '';
+        
+        console.log('[DEBUG] isRestricted:', isRestricted, 'userEquipeId:', userEquipeId);
+        
+        // If Colaborador or Líder, disable equipe field and filter responsavel
+        if (equipeSelect.disabled || equipeSelect.readOnly) {
+            if (equipeSelect) {
+                equipeSelect.disabled = true;
+                equipeSelect.style.backgroundColor = '#f8f9fa';
+            }
+            
+            // Filter responsavel to only show users from user's team
+            const userEquipeId = equipeSelect.value || '';
+            if (responsavelSelect) {
+                // Store all options for filtering
+                const allOptions = Array.from(responsavelSelect.options).map(opt => ({
+                    value: opt.value,
+                    text: opt.text,
+                    equipeId: opt.dataset.equipeId || ''
+                }));
+                
+                console.log('[DEBUG] allOptions (restricted):', allOptions);
+                
+                function filterResponsaveisForUser() {
+                    const currentValue = responsavelSelect.value;
+                    responsavelSelect.innerHTML = '<option value="">Selecione o responsável</option>';
+                    
+                    allOptions.forEach(opt => {
+                        // Show only users from the same team or without team (admins)
+                        if (opt.equipeId === userEquipeId || opt.equipeId === '') {
+                            const option = document.createElement('option');
+                            option.value = opt.value;
+                            option.textContent = opt.text;
+                            option.dataset.equipeId = opt.equipeId;
+                            if (opt.value === responsavelSelect.value) option.selected = true;
+                            responsavelSelect.appendChild(option);
+                        }
+                    });
+                    
+                    // If current selection doesn't match the team, clear it
+                    const selectedOption = responsavelSelect.querySelector(`option[value="${responsavelSelect.value}"]`);
+                    if (selectedOption && selectedOption.dataset.equipeId && selectedOption.dataset.equipeId !== userEquipeId && selectedOption.dataset.equipeId !== '') {
+                        responsavelSelect.value = '';
+                    }
+                }
+                
+                // Apply filter on load
+                filterResponsaveisForUser();
+                
+                // Disable equipe select
+                if (equipeSelect) {
+                    equipeSelect.disabled = true;
+                    equipeSelect.style.backgroundColor = '#f8f9fa';
+                }
+                return;
+            }
+            
+            // Admin/Gestor: normal cascading filter
+            // Store all options for filtering
+            const allOptions = Array.from(responsavelSelect.options).map(opt => ({
+                value: opt.value,
+                text: opt.text,
+                equipeId: opt.dataset.equipeId || ''
+            }));
+            
+            console.log('[DEBUG] allOptions (admin/gestor):', allOptions);
+            
+            function filterResponsaveis(equipeId) {
+                console.log('[DEBUG] filterResponsaveis called with equipeId:', equipeId);
+                const currentValue = responsavelSelect.value;
+                responsavelSelect.innerHTML = '<option value="">Selecione o responsável</option>';
+                
+                allOptions.forEach(opt => {
+                    if (!equipeId || opt.equipeId === equipeId || opt.equipeId === '') {
+                        const option = document.createElement('option');
+                        option.value = opt.value;
+                        option.textContent = opt.text;
+                        option.dataset.equipeId = opt.equipeId;
+                        if (opt.value === currentValue) option.selected = true;
+                        responsavelSelect.appendChild(option);
+                    }
+                });
+                
+                // If current selection doesn't match the team, clear it
+                if (equipeId) {
+                    const selectedOption = responsavelSelect.querySelector(`option[value="${responsavelSelect.value}"]`);
+                    if (selectedOption && selectedOption.dataset.equipeId && selectedOption.dataset.equipeId !== equipeId) {
+                        responsavelSelect.value = '';
+                    }
+                }
+            }
+            
+            // Initial filter based on current equipe value
+            if (equipeSelect.value) {
+                console.log('[DEBUG] Initial filter with equipeSelect.value:', equipeSelect.value);
+                filterResponsaveis(equipeSelect.value);
+            }
+            
+            // Listen for changes on equipe select
+            equipeSelect.addEventListener('change', function() {
+                console.log('[DEBUG] equipeSelect changed to:', this.value);
+                filterResponsaveis(this.value);
+            });
+        }
+        
+        initResponsavelFilter();
 {% endblock %}

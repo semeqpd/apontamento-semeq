@@ -26,9 +26,14 @@
             {% endif %}
             {% can_delete_apontamento_tag request.user apontamento as can_delete %}
             {% if can_delete %}
-            <a href="{% url 'semeq:apontamento_excluir' apontamento.pk %}" class="btn btn-outline-danger">
-                <i class="bi bi-trash me-1"></i> Excluir
-            </a>
+            <button type="button" 
+            class="btn btn-outline-danger btn-excluir-apontamento" 
+            data-bs-toggle="modal" 
+            data-bs-target="#modalExcluirApontamento" 
+            data-id="{{ apontamento.pk }}" 
+            onclick="event.stopPropagation();">
+        <i class="bi bi-trash me-1"></i> Excluir
+    </button>
             {% endif %}
         </div>
     </div>
@@ -108,7 +113,7 @@
                 </div>
                 <div class="col-md-6">
                     <strong>Tempo Investido:</strong>
-                    <p class="mb-0 fw-medium text-primary">{{ apontamento.tempo_investido_minutos }} min</p>
+                    <p class="mb-0 fw-medium text-primary">{{ apontamento.tempo_investido_formatado }}</p>
                 </div>
                 <div class="col-md-6">
                     <strong>Equipamento:</strong>
@@ -129,4 +134,7 @@
         </a>
     </div>
 </div>
+
+{% include 'apontamentos/includes/modal_excluir.html' %}
+
 {% endblock %}

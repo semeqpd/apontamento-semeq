@@ -66,6 +66,13 @@
                         {{ form.equipe }}
                         {% for error in form.equipe.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch mt-4">
+                            {{ form.ativo }}
+                            <label class="form-check-label fw-semibold" for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
+                            {% for error in form.ativo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
                 </div>
                 <div class="d-flex justify-content-end gap-2 border-top pt-4">
                     <a href="{{ next_url|default:'/cadastros/usuarios/' }}" class="btn btn-semeq-secondary">

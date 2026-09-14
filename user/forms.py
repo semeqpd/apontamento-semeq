@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, AuthenticationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordResetForm, AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.conf import settings
@@ -15,11 +15,13 @@ class EquipamentoForm(forms.ModelForm):
     class Meta:
         model = Equipamento
         fields = [
-            'nome', 'descricao',
+            'nome', 'descricao', 'ativo', 'ordem',
         ]
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Notebook Dell Latitude'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição opcional...'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
+            'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 
@@ -27,12 +29,13 @@ class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         fields = [
-            'corporation',  'plant', 'zone'
+            'corporation',  'plant', 'zone', 'ativo'
         ]
         widgets = {
             'corporation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: SEMEQ Brasil'}),
             'plant': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: São Paulo'}),
-            'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'})
+            'zone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Zona 1'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
         }
 
 
@@ -102,6 +105,12 @@ class UsuarioForm(forms.ModelForm):
         empty_label='--- Selecione ---',
         widget=forms.Select(attrs={'class': 'form-select'})
     )
+    ativo = forms.BooleanField(
+        label='Ativo',
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
 
     class Meta:
         model = User
@@ -153,7 +162,7 @@ class UsuarioForm(forms.ModelForm):
         
         user.username = username
         user.email = email  # Save normalized email
-        user.is_active = True  # Ativo por padrão
+        user.is_active = self.cleaned_data.get('ativo', True)
         user.set_password(self.cleaned_data['password'])
         if commit:
             user.save()
@@ -162,6 +171,7 @@ class UsuarioForm(forms.ModelForm):
                 role=self.cleaned_data['role'],
                 telefone=self.cleaned_data['telefone'],
                 equipe=self.cleaned_data['equipe'],
+                ativo=self.cleaned_data.get('ativo', True),
             )
         return user
 
@@ -281,6 +291,23 @@ class UsuarioUpdateForm(forms.ModelForm):
 
 
 class ApontamentoForm(forms.ModelForm):
+    # Extra fields for "Outro" options in select dropdowns
+    outro_atividade = forms.CharField(
+        label='Outra Atividade',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descreva a atividade...'})
+    )
+    outro_tipo_problema = forms.CharField(
+        label='Outro Tipo de Problema',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descreva o tipo de problema...'})
+    )
+    outro_equipamento_descricao = forms.CharField(
+        label='Outro Equipamento',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descreva o equipamento...'})
+    )
+
     class Meta:
         model = Apontamento
         fields = [
@@ -295,14 +322,14 @@ class ApontamentoForm(forms.ModelForm):
             'ticket': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: INC123456'}),
             'equipamento': forms.Select(attrs={'class': 'form-select equipamento-select'}),
             'prioridade': forms.Select(attrs={'class': 'form-select'}),
-            'equipe': forms.Select(attrs={'class': 'form-select'}),
-            'responsavel': forms.Select(attrs={'class': 'form-select responsavel-select'}),
+            'equipe': forms.Select(attrs={'class': 'form-select', 'id': 'id_equipe'}),
+            'responsavel': forms.Select(attrs={'class': 'form-select responsavel-select', 'id': 'id_responsavel'}),
             'atividade': forms.Select(attrs={'class': 'form-select'}),
             'tipo_problema': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
-            'data_inicial': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'max': today_str}),
-            'data_final': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'max': today_str}),
-            'tempo_investido_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'data_inicial': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'max': today_str}, format='%Y-%m-%d'),
+            'data_final': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'max': today_str}, format='%Y-%m-%d'),
+            'tempo_investido_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'autocomplete': 'off'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Descreva o apontamento...'}),
         }
 
@@ -310,10 +337,17 @@ class ApontamentoForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Set default values
+        # Add max_value validator to tempo_investido_minutos (PostgreSQL integer max = 2147483647)
+        from django.core.validators import MaxValueValidator
+        self.fields['tempo_investido_minutos'].validators.append(
+            MaxValueValidator(2147483647, 'O tempo investido não pode exceder 2.147.483.647 minutos.')
+        )
+        
+        # Set default values for NEW apontamentos only
         from datetime import date
         today = date.today()
-        self.fields['data_inicial'].initial = today
+        if not (self.instance and self.instance.pk):
+            self.fields['data_inicial'].initial = today
         
         if self.instance and self.instance.pk:
             self.original_cliente = self.instance.cliente
@@ -359,17 +393,20 @@ class ApontamentoForm(forms.ModelForm):
                     # Colaborador e Líder: equipe travada na sua equipe
                     if user_equipe:
                         self.fields['equipe'].initial = user_equipe
-                        self.fields['equipe'].disabled = True
+                        self.fields['equipe'].queryset = Equipe.objects.filter(pk=user_equipe.pk)
+                        # Use readonly instead of disabled so value is submitted in POST
                         self.fields['equipe'].widget.attrs['readonly'] = True
+                        self.fields['equipe'].widget.attrs['disabled'] = False
                 
                 # --- CAMPO RESPONSÁVEL ---
                 if is_colaborador:
                     # Colaborador: só ele mesmo, campo travado
                     self.fields['responsavel'].queryset = User.objects.filter(id=self.user.id)
                     self.fields['responsavel'].initial = self.user
-                    self.fields['responsavel'].disabled = True
+                    # Use HiddenInput but NOT disabled - disabled fields don't submit!
                     self.fields['responsavel'].widget = forms.HiddenInput()
                     self.fields['responsavel'].required = False
+                    self.fields['responsavel'].disabled = False
                 elif is_lider:
                     # Líder: apenas usuários da mesma equipe
                     if user_equipe:
@@ -389,10 +426,15 @@ class ApontamentoForm(forms.ModelForm):
                     self.fields['responsavel'].queryset = qs
 
     def clean_tempo_investido_minutos(self):
-        """Ensure empty string is converted to 0 or None to allow saving."""
+        """Ensure empty string is converted to 0 or None to allow saving.
+        Also validate that the value doesn't exceed PostgreSQL integer max (2147483647)."""
         value = self.cleaned_data.get('tempo_investido_minutos')
         if value == '' or value is None:
             return 0
+        # Validate upper bound (PostgreSQL integer max = 2147483647)
+        if value > 2147483647:
+            from django.core.exceptions import ValidationError
+            raise ValidationError('O tempo investido não pode exceder 2.147.483.647 minutos.')
         return value
 
     def clean(self):
@@ -437,7 +479,7 @@ class ApontamentoForm(forms.ModelForm):
         if not data_inicial:
             raise ValidationError({'data_inicial': 'Data é obrigatória.'})
         
-        # Block future dates
+# Block future dates
         if data_inicial > today:
             raise ValidationError({'data_inicial': 'Não é possível criar apontamentos em datas futuras.'})
         
@@ -447,10 +489,14 @@ class ApontamentoForm(forms.ModelForm):
             if data_final < data_inicial:
                 raise ValidationError({'data_final': 'Data final não pode ser anterior à data inicial.'})
         
-        # Validate tempo_investido_minutos
-        if tempo_investido_minutos is not None and tempo_investido_minutos <= 0:
-            raise ValidationError({'tempo_investido_minutos': 'Tempo investido deve ser maior que zero.'})
-        
+        # Validate Concluído status requires tempo_investido_minutos > 0
+        status = cleaned_data.get('status')
+        if status and status.is_concluido_fixo:
+            if not tempo_investido_minutos or tempo_investido_minutos <= 0:
+                raise ValidationError({
+                    'tempo_investido_minutos': 'Para concluir o apontamento, o Tempo Investido deve ser maior que 0 minutos.'
+                })
+
         return cleaned_data
 
 
@@ -592,29 +638,73 @@ class SemeqPasswordResetForm(PasswordResetForm):
         )
 
 
+class SemeqPasswordChangeForm(PasswordChangeForm):
+    """Form para mudança de senha (usa senha atual + nova senha)"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Aplicar classes Bootstrap
+        for field_name, field in self.fields.items():
+            field.widget.attrs.update({'class': 'form-control'})
+            if field_name == 'old_password':
+                field.widget.attrs['placeholder'] = 'Senha atual'
+            elif field_name == 'new_password1':
+                field.widget.attrs['placeholder'] = 'Nova senha (mín. 8 caracteres)'
+            elif field_name == 'new_password2':
+                field.widget.attrs['placeholder'] = 'Confirmar nova senha'
+
+
 class StatusForm(forms.ModelForm):
     class Meta:
         model = Status
         fields = [
-            'status', 'cor', 'ordem', 'ativo'
+            'status', 'cor', 'ordem', 'ativo', 'is_concluido'
         ]
         widgets = {
             'status': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Concluído'}),
             'cor': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color', 'title': 'Escolha a cor'}),
             'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_concluido': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Se for status fixo, desabilita edição do nome e is_concluido
+        if self.instance and self.instance.pk and self.instance.is_fixo:
+            self.fields['status'].disabled = True
+            self.fields['status'].help_text = 'Status fixo do sistema - não pode ser alterado'
+            self.fields['is_concluido'].disabled = True
+            self.fields['is_concluido'].help_text = 'Status fixo do sistema - não pode ser alterado'
+            # Status fixos devem permanecer ativos
+            self.fields['ativo'].disabled = True
+            self.fields['ativo'].help_text = 'Status fixo do sistema - não pode ser desativado'
 
     def clean(self):
         cleaned_data = super().clean()
-        status =  cleaned_data.get('status')
+        status = cleaned_data.get('status')
         
         if status:
             qs = Status.objects.filter(status=status)
-
+            
             if self.instance.pk:
-                return cleaned_data
+                # Verifica se já existe (exceto o próprio)
+                if qs.exclude(pk=self.instance.pk).exists():
+                    raise forms.ValidationError({'status': 'Já existe um status com este nome.'})
+            else:
+                if qs.exists():
+                    raise forms.ValidationError({'status': 'Já existe um status com este nome.'})
+        
+        # Se for status fixo, garantir que campos protegidos não foram alterados
+        if self.instance and self.instance.pk and self.instance.is_fixo:
+            if 'status' in self.changed_data:
+                self.add_error('status', 'Status fixo do sistema não pode ser alterado.')
+            if 'is_concluido' in self.changed_data:
+                self.add_error('is_concluido', 'Status fixo do sistema não pode ser alterado.')
+            if 'ativo' in self.changed_data:
+                self.add_error('ativo', 'Status fixo do sistema não pode ser desativado.')
+
+        return cleaned_data
 
 
 class ApontamentoTempoForm(forms.ModelForm):
@@ -630,7 +720,7 @@ class ApontamentoTempoForm(forms.ModelForm):
             'data': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'hora_inicial': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'hora_final': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
-            'tempo_investido_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'tempo_investido_minutos': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'autocomplete': 'off'}),
             'observacao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
@@ -652,7 +742,7 @@ class PrioridadeForm(forms.ModelForm):
         fields = ['nome', 'ativo', 'ordem', 'cor']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
             'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
             'cor': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color', 'title': 'Escolha a cor'}),
         }
@@ -664,7 +754,7 @@ class TipoProblemaForm(forms.ModelForm):
         fields = ['nome', 'ativo', 'ordem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
             'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
@@ -675,7 +765,7 @@ class EquipeForm(forms.ModelForm):
         fields = ['nome', 'ativo', 'ordem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
             'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
@@ -725,20 +815,22 @@ class EquipeForm(forms.ModelForm):
 class ProjetoForm(forms.ModelForm):
     class Meta:
         model = Projeto
-        fields = ['nome', 'ativo']
+        fields = ['nome', 'ativo', 'ordem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
+            'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 
 class SolicitanteForm(forms.ModelForm):
     class Meta:
         model = Solicitante
-        fields = ['nome', 'ativo']
+        fields = ['nome', 'ativo', 'ordem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
+            'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 
@@ -748,7 +840,7 @@ class PrioridadeForm(forms.ModelForm):
         fields = ['nome', 'ativo', 'ordem', 'cor']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
             'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
             'cor': forms.TextInput(attrs={'class': 'form-control form-control-color', 'type': 'color', 'title': 'Escolha a cor'}),
         }
@@ -760,6 +852,6 @@ class AtividadeForm(forms.ModelForm):
         fields = ['nome', 'ativo', 'ordem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
             'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }

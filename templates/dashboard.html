@@ -87,18 +87,18 @@
               <div class="card-body p-0">
                 <div class="table-responsive">
                   <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                      <tr>
-                        <th>TICKET</th>
-                        <th>CLIENTE</th>
-                        <th>RESPONSÁVEL</th>
-                        <th>PROJETO</th>
-                        <th>SOLICITANTE</th>
-                        <th>PRIORIDADE</th>
-                        <th>DURAÇÃO</th>
-                        <th>STATUS</th>
-                      </tr>
-                    </thead>
+<thead class="table-light">
+                        <tr>
+                          <th>TICKET</th>
+                          <th>CLIENTE</th>
+                          <th>RESPONSÁVEL</th>
+                          <th>PROJETO</th>
+                          <th>SOLICITANTE</th>
+                          <th>PRIORIDADE</th>
+                          <th>STATUS</th>
+                          <th>DURAÇÃO</th>
+                        </tr>
+                      </thead>
                     <tbody>
                       {% for a in lista %}
                       <tr onclick="window.location='{% url 'semeq:apontamento_lista' %}?data_inicio={{ a.data|date:'Y-m-d' }}&data_fim={{ a.data|date:'Y-m-d' }}'" style="cursor: pointer;">
@@ -116,7 +116,6 @@
                             <span class="badge bg-secondary">—</span>
                             {% endif %}
                         </td>
-                        <td class="fw-medium text-primary text-nowrap">{{ a.apontamento.tempo_investido_minutos|default:a.get_tempo_exibicao_minutos }} min</td>
                         <td>
                             {% if a.apontamento.status %}
                             <span class="badge" style="background-color: {{ a.apontamento.status.cor }}; color: {{ a.apontamento.status.cor|contrast_color }};">{{ a.apontamento.status.status }}</span>
@@ -124,6 +123,7 @@
                             <span class="badge bg-secondary">—</span>
                             {% endif %}
                         </td>
+                        <td class="fw-medium text-primary text-nowrap">{{ a.apontamento.tempo_investido_minutos|default:a.get_tempo_exibicao_minutos }} min</td>
                       </tr>
                       {% endfor %}
                     </tbody>

@@ -179,9 +179,9 @@ def agrupar_por_data(qs: QuerySet) -> tuple[OrderedDict, dict]:
         total = 0
         for ap_tempo in lista:
             ap = ap_map.get(ap_tempo.apontamento_id)
-            if ap and ap.tempo_investido_minutos:
+            if ap and ap.tempo_investido_minutos is not None:
                 total += ap.tempo_investido_minutos
-            elif ap_tempo.tempo_investido_minutos:
+            elif ap_tempo.tempo_investido_minutos is not None:
                 total += ap_tempo.tempo_investido_minutos
             else:
                 total += ap_tempo.tempo_calculado_minutos

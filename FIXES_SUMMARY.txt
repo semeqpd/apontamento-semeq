@@ -1,0 +1,74 @@
+================================================================================
+CORREÇÕES APLICADAS - EXCLUSÃO DE APONTAMENTOS
+================================================================================
+
+PROBLEMAS IDENTIFICADOS:
+------------------------
+1. Erro 405 (Method Not Allowed) ao excluir apontamento na listagem
+   - O modal de exclusão usava action incorreta no formulário
+   - JavaScript tentava substituir '/0/excluir/' mas a URL base não estava correta
+
+2. Exclusão direta sem confirmação na tela de detalhes
+   - Botão "Excluir" na tela de detalhes era um link direto (GET)
+   - Deveria abrir o mesmo modal de confirmação usado na listagem
+
+CORREÇÕES APLICADAS:
+====================
+
+1. TEMPLATE: templates/apontamentos/includes/modal_excluir.html (NOVO ARQUIVO)
+   - Criado partial compartilhado para o modal de exclusão
+   - Formulário com action="{% url 'semeq:apontamento_excluir' 0 %}" e data-base-action
+   - JavaScript unificado para setDeleteForm() e modal show.bs.modal
+   - Usa data-base-action para construir URL corretamente
+
+2. templates/apontamentos/lista.html
+   - Removido modal duplicado (linhas 242-288)
+   - Substituído por: {% include 'apontamentos/includes/modal_excluir.html' %}
+   - Removido JavaScript duplicado (setDeleteForm + event listener do modal)
+   - Formulário do modal agora usa data-base-action="{% url 'semeq:apontamento_excluir' 0 %}"
+   - JavaScript unificado no final do arquivo (função setDeleteForm + event listener)
+
+3. templates/apontamentos/detail.html
+   - Botão "Excluir" alterado de link direto para botão que abre modal
+   - Adicionado: data-bs-toggle="modal", data-bs-target="#modalExcluirApontamento"
+   - Adicionado onclick="event.stopPropagation(); setDeleteForm('{{ apontamento.pk }}')"
+   - Inclui {% include 'apontamentos/includes/modal_excluir.html' %}
+
+4. View ApontamentoDeleteView (user/views.py)
+   - Adicionado método get() para exibir página de confirmação no GET
+   - Mantido http_method_names = ['get', 'post', 'head', 'options']
+   - Log detalhado de exclusão com informações completas
+   - Mantido http_method_names = ['get', 'post', 'head', 'options']
+
+5. Templates atualizados:
+   - templates/apontamentos/lista.html: Modal movido para include, JS limpo
+   - templates/apontamentos/detail.html: Botão excluir usa modal + include do modal
+   - Novo partial: templates/apontamentos/includes/modal_excluir.html
+
+CORREÇÕES DE JAVASCRIPT:
+------------------------
+- Função setDeleteForm(): usa data-base-action do form para montar URL correta
+- Event listener show.bs.modal: preenche form.action corretamente
+- Ambos usam data-base-action do form (gerado pelo Django URL tag)
+
+URLs CORRETAS:
+--------------
+- GET  /apontamentos/<pk>/excluir/  -> Página de confirmação (200 OK)
+- POST /apontamentos/<pk>/excluir/   -> Exclui e redireciona (302)
+- GET /apontamentos/                 -> Lista (200)
+- GET /apontamentos (sem /) -> 301 -> /apontamentos/
+
+PERMISSÕES MANTIDAS:
+- Admin/Gestor: pode excluir qualquer apontamento
+- Líder/Colaborador: apenas próprios (criado_por == user)
+- Tentativa sem permissão → 403 (PermDenied)
+
+LOGS DE AUDITORIA:
+- ApontamentoDeleteView.delete(): log completo com user, pk, ticket, cliente, responsável, data, tempo, status, equipe
+- ApontamentoTempoDeleteView.delete(): log similar para apontamentos de tempo
+- Tentativas negadas: log warning com motivo "Sem permissão"
+
+VALIDAÇÃO:
+- python manage.py check: OK (0 issues)
+- Testes manuais: GET 200, POST 302, delete funciona, permissões OK
+================================================================================

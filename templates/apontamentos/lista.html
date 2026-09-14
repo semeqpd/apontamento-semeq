@@ -64,7 +64,7 @@
                     <select name="usuario" class="form-select">
                         <option value="">Todos</option>
                         {% for user in usuarios %}
-                        <option value="{{ user.pk }}" {% if usuario_filter == user.pk|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
+                        <option value="{{ user.pk }}" {% if usuario_filter == user.pk|stringformat:"s" %}selected{% endif %} data-equipe-id="{{ user.perfil.equipe_id|default:'' }}">{{ user.get_full_name|default:user.username }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -78,111 +78,13 @@
         </div>
     </div>
 
-    <!-- Lista de Apontamentos (estilo Dashboard: cards por dia) -->
+<!-- Lista de Apontamentos -->
     <div class="row">
         <div class="col-md-12">
-            {% if apontamentos_por_data %}
-            {% for data, aps in apontamentos_por_data.items %}
-            <div class="card card-dashboard mb-4 shadow-sm{% if not forloop.first %} border-top{% endif %}" style="{% if not forloop.first %}border-top-width: 3px; border-top-color: #dee2e6;{% endif %}">
-              <!-- Cabeçalho do Dia -->
-              <div class="card-header d-flex justify-content-between align-items-center bg-light">
-                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar3 me-2"></i>{{ data|date:"l, d/m/Y" }}</h6>
-              </div>
-              
-              <!-- Tabela das Tarefas do Dia -->
-              <div class="card-body p-0">
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                      <tr>
-                        <th>TICKET</th>
-                        <th>CLIENTE</th>
-                        <th>RESPONSÁVEL</th>
-                        <th>PROJETO</th>
-                        <th>SOLICITANTE</th>
-                        <th>PRIORIDADE</th>
-                        <th>DURAÇÃO</th>
-                        <th>STATUS</th>
-                        <th class="text-end">AÇÕES</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for a in aps %}
-                      <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.apontamento.pk %}'" style="cursor: pointer;">
-                        <td class="fw-semibold text-dark">{{ a.apontamento.ticket|default:"—" }}</td>
-                        <td>{{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}</td>
-                        <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
-                        <td>{{ a.apontamento.projeto|truncatechars:30|default:"—" }}</td>
-                        <td>{{ a.apontamento.solicitante|default:"—" }}</td>
-                        <td>
-                            {% if a.apontamento.prioridade %}
-                            <span class="badge" style="background-color: {{ a.apontamento.prioridade.cor }}; color: {{ a.apontamento.prioridade.cor|contrast_color }};">
-                                {{ a.apontamento.prioridade.nome }}
-                            </span>
-                            {% else %}
-                            <span class="badge bg-secondary">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="fw-medium text-primary text-nowrap">{{ a.apontamento.tempo_investido_minutos|default:a.get_tempo_exibicao_minutos }} min</td>
-                        <td onclick="event.stopPropagation();">
-                            {% if a.apontamento.status %}
-                            {% with st=a.apontamento.status id=a.apontamento.pk %}
-                            <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center ps-3 pe-4" 
-                                    data-apontamento-id="{{ id }}" 
-                                    style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: auto; min-width: 120px; padding-top: 4px; padding-bottom: 4px; border-radius: 4px; cursor: pointer; background-position: right 8px center;"
-                                    onclick="event.stopPropagation();">
-                                {% for status_obj in lista_status %}
-                                    <option value="{{ status_obj.id }}" 
-                                            data-cor="{{ status_obj.cor }}" 
-                                            {% if st.id == status_obj.id %}selected{% endif %} 
-                                            style="background-color: #fff; color: #333;">
-                                        {{ status_obj.status }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                            {% endwith %}
-                            {% else %}
-                            <span class="badge bg-secondary">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">
-                            <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-outline-primary btn-sm me-1" title="Editar">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir"
-                                    data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento"
-                                    data-pk="{{ a.pk }}"
-                                    data-apontamento-pk="{{ a.apontamento.pk }}"
-                                    onclick="event.stopPropagation()">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                      </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <!-- Rodapé com Total do Dia -->
-              <div class="card-footer bg-light border-top-0 text-end py-2">
-                <span class="text-muted me-2">Total do dia:</span>
-                <strong class="text-primary fs-6">{{ totais_por_data|get_item:data|default:0 }} min</strong>
-              </div>
-            </div>
-            {% endfor %}
+            {% if is_admin_ou_gestor %}
+                {% include 'apontamentos/includes/layout_admin.html' %}
             {% else %}
-            <div class="card card-dashboard">
-              <div class="card-body p-0">
-                <div class="text-center py-5">
-                  <i class="bi bi-journal-text fs-1 text-muted"></i>
-                  <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
-                  <p class="text-muted">Clique em "Novo Apontamento" para criar o primeiro.</p>
-                  <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
-                      <i class="bi bi-plus-lg me-1"></i> Criar Apontamento
-                  </a>
-                </div>
-              </div>
-            </div>
+                {% include 'apontamentos/includes/layout_simples.html' %}
             {% endif %}
         </div>
     </div>
@@ -240,61 +142,15 @@
 </div>
 
 <!-- Modal: Excluir Apontamento (Red Card Confirmation) -->
-<div class="modal fade" id="modalExcluirApontamento" tabindex="-1" aria-labelledby="modalExcluirApontamentoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="modalExcluirApontamentoLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Exclusão</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
-                    <div>
-                        <strong>Esta ação não pode ser desfeita!</strong>
-                        <div class="small mt-1">O registro será removido permanentemente do sistema.</div>
-                    </div>
-                </div>
-                
-                <div class="card bg-warning bg-opacity-10 border-warning mb-4">
-                    <div class="card-body">
-                        <h6 class="card-title mb-2"><i class="bi bi-info-circle me-1"></i>Registro a ser excluído:</h6>
-                        <div class="row g-2 small">
-                            <div class="col-12">
-                                <strong>Apontamento #</strong> <span id="excluirApontamentoInfo"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <p class="text-danger small">
-                    <i class="bi bi-exclamation-triangle me-1"></i>
-                    <strong>Esta ação não pode ser desfeita.</strong>
-                </p>
-                
-                <form method="post" id="formExcluirApontamento" class="d-inline">
-                    {% csrf_token %}
-                    <input type="hidden" id="excluirApontamentoPk">
-                    <div class="d-flex gap-2 justify-content-end">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                            <i class="bi bi-x-lg me-1"></i> Cancelar
-                        </button>
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash me-1"></i> Sim, Excluir
-                        </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+{% include 'apontamentos/includes/modal_excluir.html' %}
 
-{% block extra_js %}
+<!-- Modal Confirmação de Conclusão com Tempo Investido -->
+{% include 'apontamentos/includes/modal_tempo_conclusao.html' %}
+
 {% load static %}
-<script src="{% static 'js/status.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-submit filter form on change/typing (with debounce)
+    // ===== AUTO-SUBMIT FILTROS (com debounce) =====
     let filterTimeout;
     document.querySelectorAll('#apontamentoFilters select, #apontamentoFilters input').forEach(el => {
         const event = el.tagName === 'SELECT' ? 'change' : 'input';
@@ -306,63 +162,230 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Delete modal: carrega o pk e define a action do form de exclusão
-    const modalExcluir = document.getElementById('modalExcluirApontamento');
-    if (modalExcluir) {
-        modalExcluir.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            const pk = button.getAttribute('data-pk');
-            const apontamentoPk = button.getAttribute('data-apontamento-pk');
-            document.getElementById('excluirApontamentoPk').value = pk;
-            document.getElementById('formExcluirApontamento').setAttribute('action', '/apontamentos/' + apontamentoPk + '/apontamento/' + pk + '/excluir/');
-            document.getElementById('excluirApontamentoInfo').textContent = 'Apontamento #' + pk;
+    // ===== CASCATA EQUIPE -> COLABORADOR =====
+    const equipeSelect = document.querySelector('#apontamentoFilters select[name="time"]');
+    const colaboradorSelect = document.querySelector('#apontamentoFilters select[name="usuario"]');
+    
+    if (equipeSelect && colaboradorSelect) {
+        // Build map of equipe -> usuarios from existing options
+        const usuariosPorEquipe = {};
+        const allOptions = Array.from(colaboradorSelect.options).slice(1); // Skip "Todos"
+        allOptions.forEach(opt => {
+            const equipeId = opt.dataset.equipeId;
+            if (equipeId) {
+                if (!usuariosPorEquipe[equipeId]) usuariosPorEquipe[equipeId] = [];
+                usuariosPorEquipe[equipeId].push({
+                    value: opt.value,
+                    text: opt.text,
+                    selected: opt.selected
+                });
+            }
+        });
+
+        function filtrarColaboradores(equipeId) {
+            const currentValue = colaboradorSelect.value;
+            colaboradorSelect.innerHTML = '<option value="">Todos</option>';
+            
+            if (equipeId && usuariosPorEquipe[equipeId]) {
+                usuariosPorEquipe[equipeId].forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.value;
+                    opt.textContent = u.text;
+                    opt.dataset.equipeId = equipeId;
+                    if (u.value === currentValue) opt.selected = true;
+                    colaboradorSelect.appendChild(opt);
+                });
+            } else if (!equipeId) {
+                // Show all users when no team selected
+                allOptions.forEach(opt => {
+                    const newOpt = opt.cloneNode(true);
+                    colaboradorSelect.appendChild(newOpt);
+                });
+                if (currentValue) colaboradorSelect.value = currentValue;
+            }
+        }
+
+        equipeSelect.addEventListener('change', function() {
+            const equipeId = this.value;
+            filtrarColaboradores(equipeId);
+            // Auto-submit after a short delay to allow UI update
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                document.getElementById('apontamentoFilters').submit();
+            }, 350);
+        });
+
+        // Initialize on load if equipe is pre-selected
+        if (equipeSelect.value) {
+            filtrarColaboradores(equipeSelect.value);
+        }
+    }
+
+    // ===== STATUS QUICK-CHANGE DROPDOWN + MODAL CONFIRMAÇÃO CONCLUSÃO =====
+    let selectAtual = null;
+    let statusAnteriorValue = null;
+    let apontamentoIdAtual = null;
+    let aguardandoConfirmacao = false;
+
+    function getCsrfToken() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        const cookie = document.cookie.split('; ').find(r => r.trim().startsWith('csrftoken='));
+        return cookie ? cookie.trim().split('=')[1] : '';
+    }
+
+    function reverterSelect() {
+        if (selectAtual && statusAnteriorValue) {
+            selectAtual.value = statusAnteriorValue;
+        }
+        selectAtual = null;
+        statusAnteriorValue = null;
+        apontamentoIdAtual = null;
+        aguardandoConfirmacao = false;
+    }
+
+    function mostrarModalConclusao(tempoAtual) {
+        const modalEl = document.getElementById('modalTempoConclusao');
+        const containerTempo = document.getElementById('containerTempoInvestido');
+        const inputTempo = document.getElementById('inputTempoMinutos');
+        
+        if (!modalEl) return;
+
+        // Se tempo atual for 0 ou nulo, exibe o container de input
+        if (!tempoAtual || parseInt(tempoAtual) === 0) {
+            containerTempo.classList.remove('d-none');
+            inputTempo.value = '';
+            inputTempo.required = true;
+        } else {
+            containerTempo.classList.add('d-none');
+            inputTempo.required = false;
+        }
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+
+    // Salva o valor inicial quando o usuário clica/foca no select
+    document.addEventListener('focusin', function(e) {
+        if (e.target && e.target.classList.contains('select-status-rapido')) {
+            selectAtual = e.target;
+            statusAnteriorValue = e.target.value;
+        }
+    });
+
+    // Trata a alteração do select
+    document.addEventListener('change', function(e) {
+        const select = e.target.closest('.select-status-rapido');
+        if (!select) return;
+
+        // Se já está aguardando confirmação de outro select, ignora
+        if (aguardandoConfirmacao && select !== selectAtual) {
+            select.value = select.value; // mantém valor atual
+            return;
+        }
+
+        const optionSelecionada = select.options[select.selectedIndex];
+        const isConcluido = optionSelecionada.dataset.isConcluido === 'true';
+        const tempoAtual = select.dataset.tempoInvestido;
+
+        selectAtual = select;
+        apontamentoIdAtual = select.dataset.apontamentoId;
+        const novoStatusId = select.value;
+        aguardandoConfirmacao = true;
+
+        // Se NÃO for status "Concluído", envia direto
+        if (!isConcluido) {
+            aguardandoConfirmacao = false;
+            enviarAlteracaoStatus(novoStatusId, null);
+            return;
+        }
+
+        // É "Concluído" - verifica tempo e abre modal de confirmação
+        mostrarModalConclusao(tempoAtual);
+    });
+
+    // Envia a alteração de status para o backend
+    function enviarAlteracaoStatus(statusId, tempoInvestido) {
+        const body = { status: statusId };
+        if (tempoInvestido !== null && tempoInvestido !== undefined && tempoInvestido !== '') {
+            body.tempo_investido_minutos = parseInt(tempoInvestido);
+        }
+
+        fetch(`/apontamentos/${apontamentoIdAtual}/alterar-status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(body)
+        })
+        .then(res => res.json())
+        .then(data => {
+            aguardandoConfirmacao = false;
+            if (data.success) {
+                location.reload();
+            } else if (data.requires_time) {
+                // Backend pediu tempo - abre modal com tempo atual
+                const inputTempo = document.getElementById('inputTempoMinutos');
+                if (inputTempo) inputTempo.value = data.tempo_atual || '';
+                mostrarModalConclusao(data.tempo_atual);
+            } else {
+                alert(data.error || 'Erro ao alterar status');
+                reverterSelect();
+            }
+        })
+        .catch(err => {
+            aguardandoConfirmacao = false;
+            console.error('Erro:', err);
+            alert('Erro de comunicação com o servidor.');
+            reverterSelect();
         });
     }
 
-    // Status quick-change dropdown
-    document.querySelectorAll('.select-status-rapido').forEach(select => {
-        select.addEventListener('change', function(e) {
-            e.stopPropagation();
-            
-            const apontamentoId = this.dataset.apontamentoId;
-            const novoStatusId = this.value;
-            
-            // Pega a opção selecionada e sua cor no data-cor
-            const optionSelecionada = this.options[this.selectedIndex];
-            const novaCor = optionSelecionada.dataset.cor;
+    // Botão "Confirmar e Concluir" no modal
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'btnConfirmarConclusao') {
+            const inputTempo = document.getElementById('inputTempoMinutos');
+            const containerTempo = document.getElementById('containerTempoInvestido');
+            const tempoVisivel = !containerTempo.classList.contains('d-none');
 
-            // 1. Atualização em TEMPO REAL no frontend (Feedback instantâneo ao usuário)
-            if (novaCor) {
-                this.style.backgroundColor = novaCor;
+            let tempoParaEnviar = null;
+            if (tempoVisivel) {
+                const valor = inputTempo.value.trim();
+                if (!valor || isNaN(valor) || parseInt(valor) <= 0) {
+                    inputTempo.classList.add('is-invalid');
+                    inputTempo.focus();
+                    return;
+                }
+                tempoParaEnviar = parseInt(valor);
+                inputTempo.classList.remove('is-invalid');
             }
 
-            // 2. Persistência no Banco via API
-            fetch(`/apontamentos/${apontamentoId}/alterar-status/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({ status: novoStatusId })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => {
-                        alert('Erro: ' + (data.error || 'Falha ao atualizar status'));
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data && data.success) {
-                    // Status atualizado com sucesso
-                }
-            })
-            .catch(err => {
-                alert('Erro de conexão ao alterar status.');
-            });
-        });
+            const modalEl = document.getElementById('modalTempoConclusao');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+
+            enviarAlteracaoStatus(selectAtual.value, tempoParaEnviar);
+        }
     });
+
+    // Cancelar/Fechar modal - reverte select
+    ['btnCancelarConclusao', 'btnFecharModalTempo'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.addEventListener('click', reverterSelect);
+        }
+    });
+
+    // Também reverte ao fechar modal por backdrop/ESC
+    const modalEl = document.getElementById('modalTempoConclusao');
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', function() {
+            if (aguardandoConfirmacao) {
+                reverterSelect();
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

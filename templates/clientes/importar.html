@@ -83,24 +83,24 @@
                     <hr>
 
                     <div class="section-title">Formato Esperado</div>
-                    <p class="text-muted small mb-3">O arquivo Excel deve conter as seguintes colunas (cabeçalho na primeira linha):</p>
+                    <p class="text-muted small mb-3">O arquivo Excel/CSV deve conter as seguintes colunas (cabeçalho na primeira linha, case-insensitive):</p>
 
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered">
                             <thead class="table-light">
-                                <tr><th>Coluna</th><th>Descrição</th><th>Obrigatório</th></tr>
+                                <tr><th>Coluna no Arquivo</th><th>Campo no Sistema</th><th>Obrigatório</th></tr>
                             </thead>
                             <tbody>
-                                <tr><td>CORPORATION</td><td>Nome da corporação</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
-                                <tr><td>PLANT</td><td>Nome da planta</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
+                                <tr><td>CORPORATION</td><td>Corporação</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
+                                <tr><td>PLANT</td><td>Planta</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
                                 <tr><td>ZONE</td><td>Zona</td><td class="text-center"><span class="badge bg-danger">Sim</span></td></tr>
-                                <tr><td>CORPORATION_ID</td><td>ID único da corporação</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
-                                <tr><td>PLANT_ID</td><td>ID único da planta</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
+                                <tr><td>PLANT_ID</td><td>ID da Planta (opcional)</td><td class="text-center"><span class="badge bg-success">Não</span></td></tr>
                             </tbody>
                         </table>
                     </div>
 
                     <p class="text-muted small mt-3"><strong>Chave única:</strong> CORPORATION + PLANT + ZONE. Se "Atualizar clientes existentes" estiver marcado, registros com mesma chave serão atualizados.</p>
+                    <p class="text-muted small"><strong>Colunas extras</strong> no arquivo serão ignoradas automaticamente.</p>
 
                     <div class="text-end">
                         <a href="{% url 'semeq:cadastro_clientes' %}" class="btn btn-semeq-secondary">

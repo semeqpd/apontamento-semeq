@@ -1,0 +1,23 @@
+<!-- Modal: Tempo Investido Obrigatório para Conclusão -->
+<div class="modal fade" id="modalTempoConclusao" tabindex="-1" aria-labelledby="modalTempoConclusaoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title" id="modalTempoConclusaoLabel"><i class="bi bi-clock-history me-2"></i>Tempo Investido Obrigatório</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p>Para marcar como <strong>Concluído</strong>, informe o tempo investido (em minutos):</p>
+        <div class="mb-3">
+          <label for="inputTempoMinutos" class="form-label">Tempo (minutos)</label>
+          <input type="number" class="form-control" id="inputTempoMinutos" min="1" placeholder="Ex: 60">
+          <div class="invalid-feedback">Informe um tempo válido maior que zero.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" id="btnFecharModalTempo" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-warning" id="btnSalvarTempoConclusao">Salvar e Concluir</button>
+      </div>
+    </div>
+  </div>
+</div>

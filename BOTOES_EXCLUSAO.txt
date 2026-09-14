@@ -1,0 +1,111 @@
+================================================================================
+ARQUIVOS E CÓDIGOS RELACIONADOS AO BOTÃO DE EXCLUSÃO
+================================================================================
+
+1. ARQUIVO: templates/apontamentos/lista.html
+   LINHA: 152-157 (Botão Excluir na listagem - abre modal de confirmação)
+
+   Código:
+   ----------------------------------------------------------------
+   <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir"
+           data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento"
+           data-pk="{{ a.apontamento.pk }}"
+           onclick="event.stopPropagation(); setDeleteForm('{{ a.apontamento.pk }}')">
+       <i class="bi bi-trash"></i>
+   </button>
+   ----------------------------------------------------------------
+   LINHA: 152-157
+
+2. ARQUIVO: templates/apontamentos/detail.html
+   LINHA: 29-34 (Botão Excluir na tela de detalhes - abre modal de confirmação)
+
+   Código:
+   ----------------------------------------------------------------
+   {% can_delete_apontamento_tag request.user apontamento as can_delete %}
+   {% if can_delete %}
+   <button type="button" class="btn btn-outline-danger" title="Excluir"
+           data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento"
+           data-pk="{{ apontamento.pk }}"
+           onclick="event.stopPropagation(); setDeleteForm('{{ apontamento.pk }}')">
+       <i class="bi bi-trash me-1"></i> Excluir
+   </button>
+   {% endif %}
+   ----------------------------------------------------------------
+   LINHA: 29-34
+
+3. Modal de confirmação de exclusão (compartilhado por listagem e detalhes)
+   Arquivo: templates/apontamentos/lista.html
+   LINHAS: 274-285 (Formulário dentro do modal)
+
+   Código:
+   ----------------------------------------------------------------
+   <form method="post" id="formExcluirApontamento" class="d-inline" data-base-action="/apontamentos/">
+       {% csrf_token %}
+       <input type="hidden" id="excluirApontamentoPk">
+       <div class="d-flex gap-2 justify-content-end">
+           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+               <i class="bi bi-x-lg me-1"></i> Cancelar
+           </button>
+           <button type="submit" class="btn btn-danger">
+               <i class="bi bi-trash me-1"></i> Sim, Excluir
+           </button>
+       </div>
+   </form>
+   ----------------------------------------------------------------
+   LINHAS: 274-285 (no arquivo templates/apontamentos/lista.html)
+
+3. JavaScript - Função setDeleteForm (preenche o formulário de exclusão)
+   Arquivo: templates/apontamentos/lista.html
+   LINHAS: 397-407
+
+   Código:
+   ----------------------------------------------------------------
+   window.setDeleteForm = function(apontamentoPk) {
+       document.getElementById('excluirApontamentoPk').value = apontamentoPk;
+       const form = document.getElementById('formExcluirApontamento');
+       // Use the form's current action and replace the PK placeholder
+       const baseAction = form.getAttribute('action').replace('0/excluir/', '');
+       form.setAttribute('action', baseAction + apontamentoPk + '/excluir/');
+       document.getElementById('excluirApontamentoInfo').textContent = 'Apontamento #' + apontamentoPk;
+   };
+   ----------------------------------------------------------------
+   LINHAS: 397-407
+
+4. Event listener do modal (show.bs.modal) - preenche formulário ao abrir modal
+   Arquivo: templates/apontamentos/lista.html
+   LINHAS: 409-448
+
+   Código:
+   ----------------------------------------------------------------
+   const modalExcluir = document.getElementById('modalExcluirApontamento');
+   if (modalExcluir) {
+       modalExcluir.addEventListener('show.bs.modal', function (event) {
+           const button = event.relatedTarget;
+           const apontamentoPk = button.getAttribute('data-pk');
+           document.getElementById('excluirApontamentoPk').value = apontamentoPk;
+           const form = document.getElementById('formExcluirApontamento');
+           // Update form action with correct pk
+           form.action = form.action.replace('/0/excluir/', '/' + apontamentoPk + '/excluir/');
+           document.getElementById('excluirApontamentoInfo').textContent = 'Apontamento #' + apontamentoPk;
+       });
+   });
+   ----------------------------------------------------------------
+   LINHAS: 409-448
+
+================================================================================
+RESUMO DOS ARQUIVOS E LINHAS:
+================================================================================
+1. templates/apontamentos/lista.html
+   - Botão excluir na listagem: linhas 152-157
+   - Modal de confirmação (form): linhas 274-285
+   - JavaScript setDeleteForm: linhas 397-407
+   - Event listener modal: linhas 409-448
+
+2. templates/apontamentos/detail.html
+   - Botão excluir na tela de detalhes: linhas 29-34
+
+3. Modal de confirmação compartilhado (em lista.html):
+   - Formulário: linhas 274-285
+   - JavaScript setDeleteForm: linhas 397-407
+   - Event listener modal: linhas 409-448
+================================================================================

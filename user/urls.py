@@ -2,7 +2,7 @@ from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from . import views
-from .forms import SemeqPasswordResetForm
+from .forms import SemeqPasswordResetForm, SemeqPasswordChangeForm
 
 app_name = 'semeq'
 
@@ -18,7 +18,7 @@ urlpatterns = [
     path('apontamentos/<int:pk>/status/', views.ApontamentoStatusView.as_view(), name='apontamento_mudar_status'),
     path('apontamentos/<int:pk>/alterar-status/', views.alterar_status_apontamento, name='apontamento_alterar_status'),
     path('apontamentos/<int:pk>/tipo-problema/', views.ApontamentoTipoProblemaView.as_view(), name='apontamento_mudar_tipo_problema'),
-    path('apontamentos/<int:pk>/excluir/', views.ApontamentoDeleteView.as_view(), name='apontamento_excluir'),
+    path('apontamentos/<int:pk>/excluir/', views.excluir_apontamento, name='apontamento_excluir'),
     path('apontamentos/exportar/', views.ApontamentoExportView.as_view(), name='apontamento_exportar'),
 
     # Apontamento Tempo (apontamentos)
@@ -31,7 +31,7 @@ urlpatterns = [
     path('apontamentos/novo/', views.ApontamentoCreateView.as_view(), name='atendimento_novo'),
     path('apontamentos/<int:pk>/', views.ApontamentoDetailView.as_view(), name='atendimento_detalhe'),
     path('apontamentos/<int:pk>/editar/', views.ApontamentoUpdateView.as_view(), name='atendimento_editar'),
-    path('apontamentos/<int:pk>/excluir/', views.ApontamentoDeleteView.as_view(), name='atendimento_excluir'),
+    path('apontamentos/<int:pk>/excluir/', views.excluir_apontamento, name='atendimento_excluir'),
     path('atendimentos/<int:apontamento_pk>/apontamento/novo/', views.ApontamentoTempoCreateView.as_view(), name='apontamentotempo_novo'),
     path('atendimentos/<int:apontamento_pk>/apontamento/<int:pk>/editar/', views.ApontamentoTempoUpdateView.as_view(), name='apontamentotempo_editar'),
     path('atendimentos/<int:apontamento_pk>/apontamento/<int:pk>/excluir/', views.ApontamentoTempoDeleteView.as_view(), name='apontamentotempo_excluir'),
@@ -60,7 +60,6 @@ urlpatterns = [
     path('cadastros/clientes/excluir-todos/', views.ClienteDeleteAllView.as_view(), name='cliente_excluir_todos'),
     path('cadastros/clientes/importar/', views.ClienteImportView.as_view(), name='cliente_importar'),
     path('cadastros/clientes/importar/processar/', views.ClienteImportProcessView.as_view(), name='cliente_importar_processo'),
-    path('cadastros/clientes/exportar/', views.ClienteExportView.as_view(), name='cliente_exportar'),
     path('cadastros/clientes/filtro-opcoes/', views.ClienteFilterOptionsView.as_view(), name='cliente_filtro_opcoes'),
     path('cadastros/clientes/autocomplete/', views.ClienteAutocompleteView.as_view(), name='cliente_autocomplete'),
     path('cadastros/clientes/buscar/', views.ClienteBuscaView.as_view(), name='cliente_buscar'),
@@ -123,6 +122,10 @@ urlpatterns = [
     
     # API Endpoints
     path('api/responsaveis/', views.carregar_responsaveis, name='carregar_responsaveis'),
+    path('cadastros/clientes/api/zonas/', views.api_zonas_por_corporacao, name='cliente_api_zonas'),
+    path('cadastros/clientes/api/plantas/', views.api_plantas_por_corporacao_zona, name='cliente_api_plantas'),
+    path('cadastros/clientes/api/zonas/', views.api_zonas_por_corporacao, name='cliente_api_zonas'),
+    path('cadastros/clientes/api/plantas/', views.api_plantas_por_corporacao_zona, name='cliente_api_plantas'),
 
     # Health Check
     path('health/', views.HealthCheckView.as_view(), name='health_check'),
@@ -132,7 +135,7 @@ urlpatterns = [
     path('logout/', views.CustomLogoutView.as_view(next_page='semeq:login'), name='logout'),
     path('senha/alterar/', auth_views.PasswordChangeView.as_view(
         template_name='registration/password_change.html',
-        form_class=SemeqPasswordResetForm,
+        form_class=SemeqPasswordChangeForm,
         success_url=reverse_lazy('semeq:configuracoes')
     ), name='password_change'),
     

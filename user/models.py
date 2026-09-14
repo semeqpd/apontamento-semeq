@@ -107,7 +107,9 @@ class Cliente(models.Model):
     """Modelo para gerenciar Clientes (Corporação + Planta + Zona)."""
     corporation = models.CharField(max_length=200, verbose_name="Corporação", db_index=True)
     plant = models.CharField(max_length=200, verbose_name="Planta", db_index=True)
+    plant_id = models.CharField(max_length=50, blank=True, verbose_name="ID da Planta", db_index=True)
     zone = models.CharField(max_length=50, blank=True, verbose_name="Zona")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -129,13 +131,18 @@ class Equipamento(models.Model):
 
     nome = models.CharField(max_length=100, verbose_name="Nome", default="Equipamento")
     descricao = models.TextField(blank=True, verbose_name="Descrição")
+    ativo = models.BooleanField(default=True, verbose_name="Ativo")
+    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Equipamento"
         verbose_name_plural = "Equipamentos"
-        ordering = ['nome']
+        ordering = ['ordem', 'nome']
+        indexes = [
+            models.Index(fields=['ativo', 'ordem'], name='equipamento_ativo_ordem_idx'),
+        ]
 
     def __str__(self):
         return self.nome
@@ -147,6 +154,7 @@ class Status(models.Model):
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
     ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição")
     cor = models.CharField(max_length=7, default='#6c757d', verbose_name="Cor (Hex)")
+    is_concluido = models.BooleanField(default=False, verbose_name="Status de Conclusão")
     criado_em = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     atualizado_em = models.DateTimeField(auto_now=True, blank=True, null=True)
 
@@ -161,6 +169,24 @@ class Status(models.Model):
 
     def __str__(self):
         return self.status
+
+    @property
+    def is_fixo(self):
+        """Retorna True se for um dos 3 status fixos do sistema."""
+        return self.status.lower() in ['aberto', 'executando', 'concluído', 'concluido']
+
+    @property
+    def is_concluido_fixo(self):
+        """Retorna True se for o status fixo de Conclusão."""
+        return self.is_concluido and self.status.lower() in ['concluído', 'concluido']
+
+    def can_edit_name(self):
+        """Verifica se o nome pode ser editado (não é status fixo)."""
+        return not self.is_fixo
+
+    def can_delete(self):
+        """Verifica se pode ser deletado (não é status fixo)."""
+        return not self.is_fixo
 
     @classmethod
     def get_next_ordem(cls):
@@ -352,7 +378,7 @@ class Apontamento(models.Model):
     """
     
     class Meta:
-        db_table = 'user_atendimento'
+        db_table = 'user_apontamento'
         verbose_name = "Apontamento"
         verbose_name_plural = "Apontamentos"
         ordering = ['-criado_em']
@@ -364,7 +390,7 @@ class Apontamento(models.Model):
         ]
 
     # ID automático sequencial (formato: YYYYMMDDNNN)
-    numero_sequencial = models.PositiveIntegerField(
+    numero_sequencial = models.PositiveBigIntegerField(
         unique=True,
         blank=True,
         null=True,
@@ -476,6 +502,21 @@ class Apontamento(models.Model):
     
     def tempo_minutos(self) -> int | None:
         return self.tempo_investido_minutos
+    
+    @property
+    def tempo_investido_formatado(self) -> str:
+        """Retorna tempo investido formatado para exibição (ex: '9h 30min' ou '540min')."""
+        total_min = self.tempo_investido_minutos or 0
+        if total_min == 0:
+            return "0min"
+        horas = total_min // 60
+        minutos = total_min % 60
+        if horas > 0 and minutos > 0:
+            return f"{horas}h {minutos}min"
+        elif horas > 0:
+            return f"{horas}h"
+        else:
+            return f"{minutos}min"
     
     @property
     def tempo_total_minutos(self) -> int:

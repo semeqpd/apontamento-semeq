@@ -26,6 +26,10 @@ def calcular_tempo_total(data: date, hora_inicial: time, hora_final: time) -> ti
     if not (hora_inicial and hora_final):
         return None
 
+    # Se as horas são iguais, retorna 0 (não adiciona 24h)
+    if hora_inicial == hora_final:
+        return timedelta(0)
+
     dt_inicial = datetime.combine(data, hora_inicial)
     dt_final = datetime.combine(data, hora_final)
 

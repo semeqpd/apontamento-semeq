@@ -3,9 +3,19 @@
 {% block table_headers %}
 <th>Nome</th>
 <th>Descrição</th>
+<th>Ordem</th>
+<th>Status</th>
 {% endblock %}
 
 {% block table_row %}
 <td>{{ obj.nome }}</td>
 <td>{{ obj.descricao|default:"—"|truncatechars:50 }}</td>
+<td class="text-center">{{ obj.ordem }}</td>
+<td>
+    {% if obj.ativo %}
+    <span class="badge bg-success">Ativo</span>
+    {% else %}
+    <span class="badge bg-secondary">Inativo</span>
+    {% endif %}
+</td>
 {% endblock %}

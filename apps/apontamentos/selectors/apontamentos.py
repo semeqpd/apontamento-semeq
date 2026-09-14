@@ -5,11 +5,25 @@ from typing import Any
 
 from django.db.models import Q, QuerySet, Sum, F, ExpressionWrapper, DurationField
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.utils.dateformat import format as django_format
 
 from user.models import Apontamento, ApontamentoTempo, PerfilUsuario, Equipe, Status, Prioridade, Atividade, TipoProblema
 from user.permissions import filter_apontamentostempo_queryset, filter_apontamentos_queryset, is_admin, is_gestor, is_lider, get_user_perfil
 
 User = get_user_model()
+
+
+def format_data_portugues(data):
+    """Formata data para português: 'Segunda-feira, 14/09/2026'"""
+    if not data:
+        return ''
+    dias_semana = [
+        'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
+        'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'
+    ]
+    dia_semana = dias_semana[data.weekday()]
+    return f'{dia_semana}, {data.strftime("%d/%m/%Y")}'
 
 
 def get_apontamentos_list_qs(request, perfil: PerfilUsuario | None) -> QuerySet:
@@ -156,15 +170,151 @@ def agrupar_por_data(qs: QuerySet) -> tuple[OrderedDict, dict]:
         total = 0
         for ap_tempo in lista:
             ap = ap_map.get(ap_tempo.apontamento_id)
-            if ap and ap.tempo_investido_minutos:
+            # Use Apontamento.tempo_investido_minutos as single source of truth
+            # Check explicitly for None (not falsy) because 0 is a valid value
+            if ap and ap.tempo_investido_minutos is not None:
                 total += ap.tempo_investido_minutos
-            elif ap_tempo.tempo_investido_minutos:
+            elif ap_tempo.tempo_investido_minutos is not None:
                 total += ap_tempo.tempo_investido_minutos
             else:
                 total += ap_tempo.tempo_calculado_minutos
         totais[data] = total
 
     return agrupados, totais
+
+
+def agrupar_por_dia_equipe_usuario(qs: QuerySet) -> list:
+    """
+    Group ApontamentoTempo entries hierarchically: Data -> Equipe -> Usuario -> Apontamentos
+    Returns a list of daily groups, each containing equipe groups, each containing usuario groups.
+    """
+    from user.models import Apontamento
+    from collections import OrderedDict
+    from django.db.models import Sum
+    
+    # Get unique apontamento IDs from this queryset
+    apontamento_ids = list(qs.values_list('apontamento_id', flat=True).distinct())
+    
+    # Fetch Apontamento objects with related data
+    ap_qs = Apontamento.objects.filter(id__in=apontamento_ids).select_related(
+        'equipe', 'responsavel', 'responsavel__perfil', 'responsavel__perfil__equipe',
+        'status', 'prioridade', 'cliente', 'projeto', 
+        'atividade', 'tipo_problema', 'solicitante', 'equipamento'
+    )
+    
+    # Build a map of apontamento_id -> Apontamento object
+    ap_map = {ap.id: ap for ap in ap_qs}
+    
+    # Structure: {data: {equipe_id: {usuario_id: [ap_tempo, ...]}}}
+    data_map = {}
+    
+    for ap_tempo in qs:
+        ap = ap_map.get(ap_tempo.apontamento_id)
+        if not ap:
+            continue
+        
+        data = ap_tempo.data
+        # Use the RESPONSAVEL'S team (perfil.equipe), not the Apontamento's equipe
+        responsavel = ap.responsavel
+        
+        if not data:
+            continue
+            
+        # Get the user's team from their profile
+        equipe = None
+        equipe_nome = "Sem Equipe"
+        equipe_id = 0
+        if responsavel and responsavel.perfil and responsavel.perfil.equipe:
+            equipe = responsavel.perfil.equipe
+            equipe_nome = equipe.nome
+            equipe_id = equipe.id
+        else:
+            equipe_nome = "Sem Equipe"
+            equipe_id = 0
+        
+        if not data:
+            continue
+            
+        # Initialize nested structure
+        if data not in data_map:
+            data_map[data] = {}
+        
+        if equipe_id not in data_map[data]:
+            data_map[data][equipe_id] = {
+                'equipe_nome': equipe_nome,
+                'equipe_id': equipe_id,
+                'usuarios': {}
+            }
+        
+        # User grouping
+        if responsavel:
+            user_id = responsavel.id
+            user_nome = responsavel.get_full_name() or responsavel.username
+        else:
+            user_id = 0
+            user_nome = "Sem Responsável"
+            
+        if user_id not in data_map[data][equipe_id]['usuarios']:
+            data_map[data][equipe_id]['usuarios'][user_id] = {
+                'usuario_nome': user_nome,
+                'usuario_id': user_id,
+                'apontamentos': []
+            }
+        
+        data_map[data][equipe_id]['usuarios'][user_id]['apontamentos'].append(ap_tempo)
+    
+    # Convert to list structure for template rendering
+    result = []
+    
+    for data, equipes in data_map.items():
+        # Sort teams by name
+        equipes_sorted = sorted(equipes.items(), key=lambda x: x[1]['equipe_nome'])
+        
+        dia = {
+            'data': data,
+            'data_formatada': format_data_portugues(data) if data else '',
+            'equipes': []
+        }
+        
+        for equipe_id, equipe_data in equipes_sorted:
+            usuarios_sorted = sorted(
+                equipe_data['usuarios'].items(), 
+                key=lambda x: x[1]['usuario_nome']
+            )
+            
+            equipe = {
+                'equipe_id': equipe_id,
+                'equipe_nome': equipe_data['equipe_nome'],
+                'usuarios': []
+            }
+            
+            for user_id, user_data in usuarios_sorted:
+                # Calculate total minutes for this user
+                total_user_minutos = 0
+                for ap_tempo in user_data['apontamentos']:
+                    ap = ap_map.get(ap_tempo.apontamento_id)
+                    if ap and ap.tempo_investido_minutos is not None:
+                        total_user_minutos += ap.tempo_investido_minutos
+                    elif ap_tempo.tempo_investido_minutos is not None:
+                        total_user_minutos += ap_tempo.tempo_investido_minutos
+                    else:
+                        total_user_minutos += ap_tempo.tempo_calculado_minutos
+                
+                equipe['usuarios'].append({
+                    'usuario_id': user_id,
+                    'usuario_nome': user_data['usuario_nome'],
+                    'apontamentos': user_data['apontamentos'],
+                    'total_minutos': total_user_minutos
+                })
+            
+            dia['equipes'].append(equipe)
+        
+        result.append(dia)
+    
+    # Sort by date (most recent first)
+    result.sort(key=lambda x: x['data'], reverse=True)
+    
+    return result
 
 
 def get_export_queryset(perfil: PerfilUsuario | None, user) -> QuerySet:

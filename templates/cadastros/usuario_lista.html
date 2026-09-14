@@ -24,12 +24,4 @@
 </td>
 {% endblock %}
 
-{% block extra_content %}
-{% if request.user.is_superuser or request.user.perfil.is_gestor_or_above %}
-<div class="mt-3">
-    <a href="{% url 'semeq:usuario_novo' %}" class="btn btn-semeq-primary">
-        <i class="bi bi-plus-lg me-1"></i> Novo Usuário
-    </a>
-</div>
-{% endif %}
-{% endblock %}
+{% block extra_content %}{% endblock %}

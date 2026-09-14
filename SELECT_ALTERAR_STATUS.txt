@@ -1,0 +1,185 @@
+================================================================================
+ARQUIVOS E CÓDIGOS RELACIONADOS AO SELECT DE ALTERAR STATUS NA LISTAGEM
+================================================================================
+
+1. ARQUIVO: templates/apontamentos/lista.html
+   LINHAS: 127-147 (Select de alteração de status na listagem)
+
+   Código:
+   ----------------------------------------------------------------
+   <td onclick="event.stopPropagation();">
+       {% if a.apontamento.status %}
+       {% with st=a.apontamento.status id=a.apontamento.pk %}
+       <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center ps-3 pe-4" 
+               data-apontamento-id="{{ id }}" 
+               style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: auto; min-width: 120px; padding-top: 4px; padding-bottom: 4px; border-radius: 4px; cursor: pointer; background-position: right 8px center;"
+               onclick="event.stopPropagation();">
+           {% for status_obj in lista_status %}
+               <option value="{{ status_obj.id }}" 
+                       data-cor="{{ status_obj.cor }}" 
+                       {% if st.id == status_obj.id %}selected{% endif %} 
+                       style="background-color: #fff; color: #333;">
+                   {{ status_obj.status }}
+               </option>
+           {% endfor %}
+       </select>
+       {% endwith %}
+       {% else %}
+       <span class="badge bg-secondary">—</span>
+       {% endif %}
+   </td>
+   ----------------------------------------------------------------
+   LINHAS: 127-147
+
+2. JavaScript - Event listener para mudança de status (change event)
+   Arquivo: templates/apontamentos/lista.html
+   LINHAS: 445-473
+
+   Código:
+   ----------------------------------------------------------------
+   document.querySelectorAll('.select-status-rapido').forEach(select => {
+       // Armazena o valor anterior para reverter se o usuário cancelar no modal
+       select.addEventListener('focus', function() {
+           statusAnteriorValue = this.value;
+       });
+
+       select.addEventListener('change', function(e) {
+           e.stopPropagation();
+           selectAtual = this;
+           apontamentoIdAtual = this.dataset.apontamentoId;
+           const novoStatusId = this.value;
+           const optionSelecionada = this.options[this.selectedIndex];
+           const novaCor = optionSelecionada.dataset.cor;
+           const nomeStatus = optionSelecionada.text.trim().toLowerCase();
+
+           // 1. Atualização em TEMPO REAL no frontend (Feedback instantâneo ao usuário)
+           if (novaCor) {
+               this.style.backgroundColor = novaCor;
+           }
+
+           // 2. Persistência no Banco via API
+           fetch(`/apontamentos/${apontamentoIdAtual}/alterar-status/`, {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json',
+                   'X-CSRFToken': '{{ csrf_token }}'
+               },
+               body: JSON.stringify({ status: novoStatusId })
+           })
+           .then(async response => {
+               const data = await response.json();
+               if (response.ok && data.success) {
+                   // Status atualizado com sucesso - recarrega para atualizar totais
+                   location.reload();
+               } else if (data.requires_time) {
+                   // Backend exigiu o tempo investido -> Abre o Modal
+                   document.getElementById('inputTempoMinutos').value = data.tempo_atual || '';
+                   if (modalTempo) modalTempo.show();
+               } else {
+                   alert('Erro: ' + (data.error || 'Falha ao atualizar status'));
+                   if (statusAnteriorValue) selectAtual.value = statusAnteriorValue;
+               }
+           })
+           .catch(err => {
+               alert('Erro de conexão ao alterar status.');
+               if (statusAnteriorValue) selectAtual.value = statusAnteriorValue;
+           });
+       });
+   });
+   ----------------------------------------------------------------
+   LINHAS: 445-473
+
+3. Event listener para salvar tempo no modal de conclusão
+   Arquivo: templates/apontamentos/lista.html
+   LINHAS: 476-531
+
+   Código:
+   ----------------------------------------------------------------
+   const btnSalvarTempo = document.getElementById('btnSalvarTempoConclusao');
+   if (btnSalvarTempo) {
+       btnSalvarTempo.addEventListener('click', function() {
+           const inputTempo = document.getElementById('inputTempoMinutos');
+           const tempoStr = inputTempo.value.trim();
+           
+           // Validação: valor vazio
+           if (tempoStr === '') {
+               inputTempo.classList.add('is-invalid');
+               return;
+           }
+           
+           // Validação: deve ser número inteiro
+           if (!/^\d+$/.test(tempoStr)) {
+               inputTempo.classList.add('is-invalid');
+               return;
+           }
+           
+           const tempoValor = parseInt(tempoStr, 10);
+           
+           // Validação: zero ou negativo
+           if (tempoValor <= 0) {
+               inputTempo.classList.add('is-invalid');
+               return;
+           }
+           
+           inputTempo.classList.remove('is-invalid');
+   
+           if (modalTempo) modalTempo.hide();
+   
+           // Reenvia a requisição com o tempo preenchido no modal
+           if (apontamentoIdAtual && selectAtual) {
+               const novoStatusId = selectAtual.value;
+               fetch(`/apontamentos/${apontamentoIdAtual}/alterar-status/`, {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json',
+                       'X-CSRFToken': '{{ csrf_token }}'
+                   },
+                   body: JSON.stringify({
+                       status: novoStatusId,
+                       tempo_investido_minutos: tempoValor
+                   })
+               })
+               .then(res => res.json())
+               .then(data => {
+                   if (data.success) {
+                       location.reload();
+                   } else {
+                       alert(data.error || 'Erro ao atualizar.');
+                       if (statusAnteriorValue && selectAtual) selectAtual.value = statusAnteriorValue;
+                   }
+               });
+           }
+       });
+   });
+   ----------------------------------------------------------------
+   LINHAS: 476-531
+
+4. Event listener para cancelar modal de tempo (reverte seleção)
+   Arquivo: templates/apontamentos/lista.html
+   LINHAS: 534-543
+
+   Código:
+   ----------------------------------------------------------------
+   // Se cancelar o modal, reverte a seleção do dropdown para o status anterior
+   ['btnFecharModalTempo', 'btnCancelarModalTempo'].forEach(id => {
+       const btn = document.getElementById(id);
+       if (btn) {
+           btn.addEventListener('click', function() {
+               if (selectAtual && statusAnteriorValue) {
+                   selectAtual.value = statusAnteriorValue;
+               }
+           });
+       });
+   });
+   ----------------------------------------------------------------
+   LINHAS: 534-543
+
+================================================================================
+RESUMO DOS ARQUIVOS E LINHAS - SELECT DE ALTERAR STATUS:
+================================================================================
+1. templates/apontamentos/lista.html
+   - Select de status na listagem: linhas 127-147
+   - JavaScript change event (select-status-rapido): linhas 445-473
+   - Botão salvar tempo no modal: linhas 476-531
+   - Event listeners cancelar modal: linhas 534-543
+================================================================================

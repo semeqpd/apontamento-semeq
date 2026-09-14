@@ -2,11 +2,13 @@
 
 {% block table_headers %}
 <th>Nome</th>
+<th>Ordem</th>
 <th>Status</th>
 {% endblock %}
 
 {% block table_row %}
 <td>{{ obj.nome }}</td>
+<td class="text-center">{{ obj.ordem }}</td>
 <td>
     {% if obj.ativo %}
     <span class="badge bg-success">Ativo</span>

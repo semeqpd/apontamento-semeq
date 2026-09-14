@@ -1,0 +1,44 @@
+<div class="modal fade" id="modalExcluirApontamento" tabindex="-1" aria-labelledby="modalExcluirLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalExcluirLabel">Confirmar Exclusão</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        Esta ação não pode ser desfeita. Tem certeza que deseja excluir o <strong id="excluirApontamentoInfo">Apontamento</strong>?
+      </div>
+      <div class="modal-footer">
+        <form method="post" id="formExcluirApontamento" action="">
+          {% csrf_token %}
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const modalEl = document.getElementById('modalExcluirApontamento');
+  if (modalEl) {
+    modalEl.addEventListener('show.bs.modal', function(event) {
+      // Obtém o botão que disparou o modal
+      const button = event.relatedTarget;
+      if (!button) return;
+
+      const apontamentoId = button.getAttribute('data-id');
+      const form = document.getElementById('formExcluirApontamento');
+      const infoText = document.getElementById('excluirApontamentoInfo');
+
+      if (form && apontamentoId) {
+        form.action = `/apontamentos/${apontamentoId}/excluir/`;
+      }
+      if (infoText && apontamentoId) {
+        infoText.textContent = `Apontamento #${apontamentoId}`;
+      }
+    });
+  }
+});
+</script>
