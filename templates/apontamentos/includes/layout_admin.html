@@ -89,6 +89,7 @@
                                         </td>
                                         <td class="text-end" onclick="event.stopPropagation();">
                                             {% can_edit_apontamento_tag request.user a.apontamento as can_edit %}
+                                            <!-- DEBUG: user={{ request.user.id }} resp={{ a.apontamento.responsavel_id }} criador={{ a.apontamento.criado_por_id }} can_edit={{ can_edit }} -->
                                             {% if can_edit %}
                                             <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-outline-primary btn-sm me-1" title="Editar">
                                                 <i class="bi bi-pencil"></i>
