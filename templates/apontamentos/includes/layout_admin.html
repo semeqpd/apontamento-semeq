@@ -88,6 +88,7 @@
                                             {% endif %}
                                         </td>
                                         <td class="text-end" onclick="event.stopPropagation();">
+                                            {% if a.apontamento|can_edit_apontamento_tag:request.user %}
                                             <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-outline-primary btn-sm me-1" title="Editar">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
@@ -99,6 +100,7 @@
                                                 onclick="event.stopPropagation();">
                                                 <i class="bi bi-trash"></i>
                                             </button>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                     {% endfor %}
