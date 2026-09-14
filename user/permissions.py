@@ -117,10 +117,9 @@ def can_delete_apontamento(user, apontamento) -> bool:
     """
     Check if user can delete an apontamento.
     
-    Rules (same as edit):
-    - Admin/Gestor: can delete any
-    - Líder: can delete ONLY own (criado_por == user)
-    - Colaborador: can delete ONLY own (criado_por == user)
+    Rules:
+    - ALL users (Admin, Gestor, Líder, Colaborador): can delete ONLY their own
+      (where they are the responsavel OR created it)
     """
     return can_edit_apontamento(user, apontamento)
 
