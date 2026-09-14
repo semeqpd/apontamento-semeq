@@ -100,10 +100,8 @@ def can_edit_apontamento(user, apontamento) -> bool:
     
     Rules:
     - Admin/Gestor: can edit any
-    - Líder: can edit ONLY own (criado_por == user)
-    - Colaborador: can edit ONLY own (criado_por == user)
-    
-    Note: Ownership is determined by 'criado_por', not 'responsavel'.
+    - Líder: can edit if created it (criado_por) OR if from their team (via equipe)
+    - Colaborador: can edit if they are the responsavel OR created it (criado_por)
     """
     if not user.is_authenticated:
         return False
@@ -115,8 +113,12 @@ def can_edit_apontamento(user, apontamento) -> bool:
     if is_admin(user) or is_gestor(user):
         return True
     
-    # Líder e Colaborador: apenas se criou o apontamento
-    return apontamento.criado_por_id == user.id
+    if is_lider(user):
+        # Líder pode editar se criou OU se é da equipe dele
+        return apontamento.criado_por_id == user.id or (apontamento.equipe_id and apontamento.equipe_id == perfil.equipe_id)
+    
+    # Colaborador: pode editar se é o responsavel OU se criou
+    return apontamento.responsavel_id == user.id or apontamento.criado_por_id == user.id
 
 
 def can_delete_apontamento(user, apontamento) -> bool:
