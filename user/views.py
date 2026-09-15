@@ -1373,7 +1373,9 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
         
         if perfil and perfil.is_gestor_or_above():
             if not is_admin:
+                # Gestor (não admin) não vê outros admins/superusers
                 qs = qs.exclude(is_superuser=True).exclude(perfil__role='admin')
+            # Se for admin, vê todos (incluindo outros admins)
         elif perfil and perfil.is_lider_or_above():
             qs = qs.filter(perfil__ativo=True, perfil__equipe=perfil.equipe)
         else:
@@ -1387,8 +1389,13 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
         if obj == self.request.user:
             messages.error(self.request, 'Você não pode excluir seu próprio usuário.')
             raise PermissionDenied
-        # Impede exclusão de admins/superusers
-        if obj.is_superuser or (hasattr(obj, 'perfil') and obj.perfil.role == 'admin'):
+        
+        # Verifica se o usuário logado é admin
+        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
+        is_admin = self.request.user.is_superuser or (perfil and perfil.is_admin())
+        
+        # Impede exclusão de admins/superusers APENAS se o usuário logado NÃO for admin
+        if not is_admin and (obj.is_superuser or (hasattr(obj, 'perfil') and obj.perfil.role == 'admin')):
             messages.error(self.request, 'Não é possível excluir usuários administradores.')
             raise PermissionDenied
         return obj
