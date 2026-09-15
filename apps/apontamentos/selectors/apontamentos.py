@@ -76,7 +76,22 @@ def get_apontamentos_list_qs(request, perfil: PerfilUsuario | None) -> QuerySet:
             qs = qs.filter(responsavel_id=usuario_id, responsavel=request.user)
 
     # Most recent first
-    return qs.order_by('-data', '-hora_inicial')
+    # For admin/gestor: show their own first (responsavel == user), then others
+    if perfil and perfil.is_gestor_or_above():
+        user = perfil.user
+        # Annotate with is_own flag
+        from django.db.models import Case, When, Value, BooleanField
+        qs = qs.annotate(
+            is_own=Case(
+                When(responsavel=user, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            )
+        ).order_by('-is_own', '-data', '-hora_inicial')
+    else:
+        qs = qs.order_by('-data', '-hora_inicial')
+    
+    return qs
 
 
 def apply_permission_filter(qs: QuerySet, perfil: PerfilUsuario | None) -> QuerySet:
@@ -103,13 +118,15 @@ def get_list_context_data(request, perfil: PerfilUsuario | None, qs: QuerySet) -
     equipe_filter = request.GET.get('equipe', '')
 
     # Responsáveis para o filtro - usuários ativos com perfil ativo
-    # Se equipe_filter estiver presente, filtra apenas membros daquela equipe
+    # Inclui usuários sem equipe (perfil__equipe__isnull=True)
     responsaveis_qs = User.objects.filter(
         is_active=True, perfil__ativo=True
     ).select_related('perfil', 'perfil__equipe').order_by('first_name', 'username')
 
-    if equipe_filter:
+    if equipe_filter and equipe_filter != 'sem_equipe':
         responsaveis_qs = responsaveis_qs.filter(perfil__equipe_id=equipe_filter)
+    elif equipe_filter == 'sem_equipe':
+        responsaveis_qs = responsaveis_qs.filter(perfil__equipe__isnull=True)
 
     context['responsavel_choices'] = responsaveis_qs
 
@@ -124,12 +141,22 @@ def get_list_context_data(request, perfil: PerfilUsuario | None, qs: QuerySet) -
     context['responsavel_filter'] = request.GET.get('responsavel', '')
 
     if perfil and perfil.is_gestor_or_above():
-        context['times'] = Equipe.objects.filter(ativo=True)
+        # Add "Sem equipe" as first choice
+        from itertools import chain
+        times = list(Equipe.objects.filter(ativo=True).order_by('ordem', 'nome'))
+        context['times'] = [{'id': 'sem_equipe', 'nome': 'Sem equipe'}] + [
+            {'id': t.pk, 'nome': t.nome} for t in times
+        ]
         time_filter = request.GET.get('time', '')
         if time_filter:
-            context['usuarios'] = User.objects.filter(
-                perfil__ativo=True, perfil__equipe_id=time_filter
-            ).select_related('perfil')
+            if time_filter == 'sem_equipe':
+                context['usuarios'] = User.objects.filter(
+                    perfil__ativo=True, perfil__equipe__isnull=True
+                ).select_related('perfil')
+            else:
+                context['usuarios'] = User.objects.filter(
+                    perfil__ativo=True, perfil__equipe_id=time_filter
+                ).select_related('perfil')
         else:
             context['usuarios'] = User.objects.filter(perfil__ativo=True).select_related('perfil')
         context['usuario_filter'] = request.GET.get('usuario', '')

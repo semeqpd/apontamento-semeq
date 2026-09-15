@@ -76,6 +76,7 @@ def get_dashboard_queryset(request, perfil: PerfilUsuario | None) -> QuerySet:
     """
     Returns queryset for dashboard - shows current month by default, 
     most recent first (-data, -hora_inicial).
+    For admin/gestor: show their own first, then others.
     """
     qs = get_apontamentos_base_qs()
     qs = apply_permission_filter(qs, perfil)
@@ -90,8 +91,22 @@ def get_dashboard_queryset(request, perfil: PerfilUsuario | None) -> QuerySet:
     else:
         qs = month_qs
 
-    # Always order by most recent first
-    return qs.order_by('-data', '-hora_inicial')
+    # For admin/gestor: order by own first, then most recent
+    if perfil and perfil.is_gestor_or_above():
+        user = perfil.user
+        from django.db.models import Case, When, Value, BooleanField
+        qs = qs.annotate(
+            is_own=Case(
+                When(responsavel=user, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            )
+        ).order_by('-is_own', '-data', '-hora_inicial')
+    else:
+        # Always order by most recent first
+        qs = qs.order_by('-data', '-hora_inicial')
+    
+    return qs
 
 
 def calculate_kpis(qs: QuerySet) -> dict[str, Any]:

@@ -1117,6 +1117,39 @@
             });
         });
 
+        // ==================== PERMISSÃO NEGADA MODAL ====================
+        window.showPermissaoNegada = function(message) {
+            const modalEl = document.getElementById('modalPermissaoNegada');
+            if (modalEl) {
+                const msgEl = document.getElementById('modalPermissaoNegadaMsg');
+                if (msgEl) msgEl.textContent = message || 'Você não tem permissão para realizar esta ação.';
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            }
+        };
+
+        // Handle 403 responses from AJAX
+        document.addEventListener('DOMContentLoaded', function() {
+            // Intercept fetch/XHR for 403
+            const originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                return originalFetch.apply(this, args).then(response => {
+                    if (response.status === 403) {
+                        response.clone().json().then(data => {
+                            if (data.message) {
+                                window.showPermissaoNegada(data.message);
+                            } else {
+                                window.showPermissaoNegada('Ação não permitida. Você só pode alterar os seus próprios apontamentos.');
+                            }
+                        }).catch(() => {
+                            window.showPermissaoNegada('Ação não permitida. Você só pode alterar os seus próprios apontamentos.');
+                        });
+                    }
+                    return response;
+                });
+            };
+        });
+
         // ==================== SIDEBAR TOGGLE ====================
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
@@ -1172,6 +1205,35 @@
             }
         })();
     </script>
+
+    {% block extra_js %}{% endblock %}
+    </script>
+
+    <!-- Modal Permissão Negada -->
+    <div class="modal fade" id="modalPermissaoNegada" tabindex="-1" aria-labelledby="modalPermissaoNegadaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalPermissaoNegadaLabel">
+                        <i class="bi bi-shield-exclamation me-2"></i> Ação Não Permitida
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="bi bi-x-circle-fill text-danger" style="font-size: 4rem;"></i>
+                    </div>
+                    <h6 class="fw-bold mb-2">Acesso Restrito</h6>
+                    <p class="text-muted mb-4" id="modalPermissaoNegadaMsg">
+                        Você não tem permissão para realizar esta ação.
+                    </p>
+                    <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal">
+                        <i class="bi bi-check-lg me-1"></i> Entendi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     {% block extra_js %}{% endblock %}
 </body>

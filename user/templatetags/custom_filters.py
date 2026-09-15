@@ -67,11 +67,7 @@ def cliente_display(value):
 @register.simple_tag
 def can_edit_apontamento_tag(user, apontamento):
     """Check if user can edit apontamento."""
-    import logging
-    logger = logging.getLogger(__name__)
-    result = can_edit_apontamento(user, apontamento)
-    logger.warning(f'[TEMPLATE_TAG] can_edit_apontamento_tag: user={user.id if user else None} ({user.username if user else "None"}), apontamento={apontamento.pk if apontamento else None}, responsavel_id={apontamento.responsavel_id if apontamento else None}, RESULT={result}')
-    return result
+    return can_edit_apontamento(user, apontamento)
 
 
 @register.simple_tag

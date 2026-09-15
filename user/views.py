@@ -114,31 +114,12 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
     paginate_by = 15
 
     def get_queryset(self):
-        import logging
-        logger = logging.getLogger(__name__)
-        
         perfil = getattr(self.request.user, 'perfil', None)
         qs = get_apontamentos_list_qs(self.request, perfil)
         
         # Ensure select_related for 'apontamento' is included
         qs = qs.select_related('apontamento', 'apontamento__cliente', 'apontamento__status', 
                                'apontamento__prioridade', 'apontamento__equipe', 'responsavel')
-        
-        # FORCE ordering at the very end of pipeline (most recent first)
-        qs = qs.order_by('-data', '-hora_inicial')
-        
-        # Log para debug - ver o que está vindo
-        logger.info(f'[ApontamentoListView] User: {self.request.user}, Perfil: {perfil.role if perfil else "None"}')
-        logger.info(f'[ApontamentoListView] Query count: {qs.count()}')
-        
-        # Verificar se há órfãos no queryset
-        orphans = [a for a in qs if not a.apontamento or not a.apontamento.pk]
-        if orphans:
-            logger.warning(f'[ApontamentoListView] ÓRFÃOS ENCONTRADOS: {len(orphans)} - IDs: {[o.pk for o in orphans]}')
-            for o in orphans:
-                logger.warning(f'  - ApontamentoTempo PK={o.pk}, apontamento_id={o.apontamento_id}, apontamento={o.apontamento}')
-        else:
-            logger.info(f'[ApontamentoListView] Nenhum órfão no queryset')
         
         return qs
 
@@ -211,8 +192,8 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
         if not pode_editar(obj):
             messages.error(request, 'Não é possível editar um apontamento com status "Concluído".')
             return redirect('semeq:apontamento_lista')
-        # REGRA ESTRITA: Apenas o próprio responsável pode editar
-        if obj.responsavel != request.user:
+        # Use permission function (admin/gestor can edit any, others only own)
+        if not can_edit_apontamento(request.user, obj):
             messages.error(request, 'Ação não permitida. Você só pode editar os seus próprios apontamentos.')
             return redirect('semeq:apontamento_lista')
         return super().dispatch(request, *args, **kwargs)
@@ -253,8 +234,8 @@ class ApontamentoStatusView(LoginRequiredMixin, View):
         pk = kwargs.get('pk')
         ap = get_object_or_404(Apontamento, pk=pk)
         
-        # REGRA ESTRITA: Apenas o próprio responsável pode alterar status
-        if ap.responsavel != request.user:
+        # Use permission function (admin/gestor can edit any, others only own)
+        if not can_edit_apontamento(request.user, ap):
             return JsonResponse({'success': False, 'message': 'Ação não permitida. Você só pode alterar os seus próprios apontamentos.'}, status=403)
 
         # Support both form data and JSON
@@ -294,8 +275,8 @@ def alterar_status_apontamento(request, pk):
 
         ap = get_object_or_404(Apontamento, pk=pk)
 
-        # REGRA ESTRITA: Apenas o próprio responsável pode alterar status
-        if ap.responsavel != request.user:
+        # Use permission function (admin/gestor can edit any, others only own)
+        if not can_edit_apontamento(request.user, ap):
             return JsonResponse({'success': False, 'error': 'Ação não permitida. Você só pode alterar os seus próprios apontamentos.'}, status=403)
 
         status_obj = Status.objects.filter(pk=novo_status_id, ativo=True).first()
@@ -334,8 +315,8 @@ def excluir_apontamento(request, pk):
     """Exclui um apontamento via POST (usado pelo modal de confirmação)."""
     apontamento = get_object_or_404(Apontamento, pk=pk)
     
-    # REGRA ESTRITA: Apenas o próprio responsável pode excluir
-    if apontamento.responsavel != request.user:
+    # Use permission function (admin/gestor can delete any, others only own)
+    if not can_delete_apontamento(request.user, apontamento):
         raise PermissionDenied('Ação não permitida. Você só pode excluir os seus próprios apontamentos.')
     
     # Log de auditoria
@@ -371,8 +352,8 @@ class ApontamentoTipoProblemaView(LoginRequiredMixin, View):
         pk = kwargs.get('pk')
         ap = get_object_or_404(Apontamento, pk=pk)
         
-        # REGRA ESTRITA: Apenas o próprio responsável pode alterar
-        if ap.responsavel != request.user:
+        # Use permission function (admin/gestor can edit any, others only own)
+        if not can_edit_apontamento(request.user, ap):
             return JsonResponse({'success': False, 'message': 'Ação não permitida. Você só pode alterar os seus próprios apontamentos.'}, status=403)
 
         tipo_obj = TipoProblema.objects.filter(nome=request.POST.get('tipo_problema', '').strip(), ativo=True).first()
