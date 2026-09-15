@@ -2,54 +2,57 @@
 {# Layout para Líder e Colaborador (Simples) #}
 {% if apontamentos_por_data %}
 {% for data, aps in apontamentos_por_data.items %}
-<div class="card card-dashboard mb-4 shadow-sm{% if not forloop.first %} border-top{% endif %}" style="{% if not forloop.first %}border-top-width: 3px; border-top-color: #dee2e6;{% endif %}">
+<div class="card card-dashboard mb-4 shadow-sm border border-secondary-subtle">
   <!-- Cabeçalho do Dia -->
-  <div class="card-header d-flex justify-content-between align-items-center bg-light">
-    <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar3 me-2"></i>{{ data|date:"l, d/m/Y" }}</h6>
+  <div class="card-header bg-white fw-bold py-2 border-bottom border-secondary-subtle">
+    <h5 class="fw-bold text-dark m-0">
+        <i class="bi bi-calendar3 me-2 text-primary"></i> {{ data|date:"l, d/m/Y" }}
+    </h5>
   </div>
   
   <!-- Tabela das Tarefas do Dia -->
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+      <table class="table table-hover align-middle mb-0" style="table-layout: fixed; width: 100%; font-size: 0.78rem;">
         <thead class="table-light">
-          <tr>
-            <th>TICKET</th>
-            <th>CLIENTE</th>
-            <th>RESPONSÁVEL</th>
-            <th>PROJETO</th>
-            <th>SOLICITANTE</th>
-            <th>PRIORIDADE</th>
-            <th>DURAÇÃO</th>
-            <th>STATUS</th>
-            <th class="text-end">AÇÕES</th>
+          <tr class="text-uppercase text-muted border-bottom" style="font-size: 0.65rem;">
+            <th style="width: 12%;">TICKET</th>
+            <th style="width: 25%;">CLIENTE</th>
+            <th style="width: 12%;">RESPONSÁVEL</th>
+            <th style="width: 10%;">PROJETO</th>
+            <th style="width: 8%;">SOLICITANTE</th>
+            <th style="width: 8%;" class="text-center">PRIORIDADE</th>
+            <th style="width: 8%;" class="text-center">DURAÇÃO</th>
+            <th style="width: 8%;" class="text-center">STATUS</th>
+            <th style="width: 10%;" class="text-center">AÇÕES</th>
           </tr>
         </thead>
         <tbody>
           {% for a in aps %}
           <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.apontamento.pk %}'" style="cursor: pointer;">
-            <td class="fw-semibold text-dark">{{ a.apontamento.ticket|default:"—" }}</td>
-            <td>{{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}</td>
-            <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
-            <td>{{ a.apontamento.projeto|truncatechars:30|default:"—" }}</td>
-            <td>{{ a.apontamento.solicitante|default:"—" }}</td>
-            <td>
+            <td class="fw-semibold text-dark text-truncate" style="max-width: 0;">{{ a.apontamento.ticket|default:"—" }}</td>
+            <td class="text-truncate" style="max-width: 0;">{{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}</td>
+            <td class="text-truncate" style="max-width: 0;">{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
+            <td class="text-truncate" style="max-width: 0;">{{ a.apontamento.projeto|truncatechars:25|default:"—" }}</td>
+            <td class="text-truncate" style="max-width: 0;">{{ a.apontamento.solicitante|default:"—" }}</td>
+            <td class="text-center">
                 {% if a.apontamento.prioridade %}
-                <span class="badge" style="background-color: {{ a.apontamento.prioridade.cor }}; color: {{ a.apontamento.prioridade.cor|contrast_color }};">
+                <span class="badge" style="background-color: {{ a.apontamento.prioridade.cor }}; color: {{ a.apontamento.prioridade.cor|contrast_color }}; font-size: 0.65rem;">
                     {{ a.apontamento.prioridade.nome }}
                 </span>
                 {% else %}
-                <span class="badge bg-secondary">—</span>
+                <span class="badge bg-secondary" style="font-size: 0.65rem;">—</span>
                 {% endif %}
             </td>
-            <td class="fw-medium text-primary text-nowrap">{% if a.apontamento.tempo_investido_minutos is not None %}{{ a.apontamento.tempo_investido_minutos }}{% else %}{{ a.get_tempo_exibicao_minutos }}{% endif %} min</td>
-            <td onclick="event.stopPropagation();">
+            <td class="fw-medium text-primary text-nowrap text-center">{% if a.apontamento.tempo_investido_minutos is not None %}{{ a.apontamento.tempo_investido_minutos }}{% else %}{{ a.get_tempo_exibicao_minutos }}{% endif %} min</td>
+            <td onclick="event.stopPropagation();" class="text-center">
                 {% if a.apontamento.status %}
                 {% with st=a.apontamento.status id=a.apontamento.pk %}
-                <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center ps-3 pe-4" 
+                {% if a.apontamento.responsavel == request.user %}
+                <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center ps-2 pe-4" 
                         data-apontamento-id="{{ id }}" 
                         data-tempo-investido="{{ a.apontamento.tempo_investido_minutos|default:0 }}"
-                        style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: auto; min-width: 120px; padding-top: 4px; padding-bottom: 4px; border-radius: 4px; cursor: pointer; background-position: right 8px center;"
+                        style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: auto; min-width: 110px; padding-top: 3px; padding-bottom: 3px; border-radius: 4px; cursor: pointer; background-position: right 6px center; font-size: 0.75rem;"
                         onclick="event.stopPropagation();">
                     {% for status_obj in lista_status %}
                         <option value="{{ status_obj.id }}" 
@@ -61,25 +64,35 @@
                         </option>
                     {% endfor %}
                 </select>
+                {% else %}
+                <span class="badge rounded-pill px-3 py-2 d-inline-block text-center w-100 
+                    {% if st.status == 'CONCLUIDO' or st.status == 'Concluído' or st.status == 'concluido' %}bg-success
+                    {% elif st.status == 'EXECUTANDO' or st.status == 'Executando' or st.status == 'executando' %}bg-primary
+                    {% else %}bg-warning text-dark{% endif %}">
+                    {{ st.status }}
+                </span>
+                {% endif %}
                 {% endwith %}
                 {% else %}
                 <span class="badge bg-secondary">—</span>
                 {% endif %}
             </td>
-            <td class="text-end" onclick="event.stopPropagation();">
+            <td class="text-center" onclick="event.stopPropagation();">
                 {% can_edit_apontamento_tag request.user a.apontamento as can_edit %}
                 {% if can_edit %}
-                <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-outline-primary btn-sm me-1" title="Editar">
-                    <i class="bi bi-pencil"></i>
-                </a>
-                <button type="button" 
-                    class="btn btn-outline-danger btn-sm btn-excluir-apontamento" 
-                    data-bs-toggle="modal" 
-                    data-bs-target="#modalExcluirApontamento" 
-                    data-id="{{ a.apontamento.pk }}" 
-                    onclick="event.stopPropagation();">
-                    <i class="bi bi-trash"></i>
-                </button>
+                <div class="d-flex flex-wrap justify-content-center gap-1">
+                    <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-outline-primary btn-sm px-2 py-1 flex-fill flex-sm-grow-0 text-nowrap" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button type="button" 
+                        class="btn btn-outline-danger btn-sm px-2 py-1 btn-excluir-apontamento flex-fill flex-sm-grow-0 text-nowrap" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalExcluirApontamento" 
+                        data-id="{{ a.apontamento.pk }}" 
+                        onclick="event.stopPropagation();">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
                 {% endif %}
             </td>
           </tr>
@@ -89,14 +102,14 @@
     </div>
   </div>
   <!-- Rodapé com Total do Dia -->
-  <div class="card-footer bg-light border-top-0 text-end py-2">
+  <div class="card-footer bg-light border-top-0 text-end py-2 border-top border-secondary-subtle">
     <span class="text-muted me-2">Total do dia:</span>
     <strong class="text-primary fs-6">{{ totais_por_data|get_item:data|default:0 }} min</strong>
   </div>
 </div>
 {% endfor %}
 {% else %}
-<div class="card card-dashboard">
+<div class="card card-dashboard shadow-sm border border-secondary-subtle">
   <div class="card-body p-0">
     <div class="text-center py-5">
       <i class="bi bi-journal-text fs-1 text-muted"></i>

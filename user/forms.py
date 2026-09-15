@@ -245,18 +245,24 @@ class UsuarioUpdateForm(forms.ModelForm):
                 # Cannot promote to admin
                 self.fields['role'].choices = [c for c in PerfilUsuario.ROLE_CHOICES if c[0] != 'admin']
         
-        # Users cannot edit themselves (prevent privilege escalation)
+# Users cannot edit themselves (prevent privilege escalation)
         if self.request_user and self.request_user == self.instance:
             self.fields['role'].disabled = True
             self.fields['ativo'].disabled = True
-
+    
     def clean_email(self):
         from user.backends import normalize_email
         email = normalize_email(self.cleaned_data['email'])
+        
+        # Only check for duplicates if email is actually being changed
+        current_email = self.instance.email
+        if current_email and normalize_email(current_email) == email:
+            return email.lower()
+        
         if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
             raise ValidationError('Este e-mail já está cadastrado.')
         return email.lower()
-
+    
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')

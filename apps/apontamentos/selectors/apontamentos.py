@@ -114,19 +114,12 @@ def get_list_context_data(request, perfil: PerfilUsuario | None, qs: QuerySet) -
     context['atividade_choices'] = [(a.pk, a.nome) for a in Atividade.objects.filter(ativo=True).order_by('ordem', 'nome')]
     context['tipoproblema_choices'] = [(t.pk, t.nome) for t in TipoProblema.objects.filter(ativo=True).order_by('ordem', 'nome')]
 
-    # Filtro de equipe selecionada (para encadeamento Equipe -> Responsável)
-    equipe_filter = request.GET.get('equipe', '')
-
     # Responsáveis para o filtro - usuários ativos com perfil ativo
-    # Inclui usuários sem equipe (perfil__equipe__isnull=True)
+    # SEMPRE retorna todos os usuários (para JS filtrar no cliente)
+    # O filtro de equipe é aplicado apenas no queryset principal (qs), não no dropdown de usuários
     responsaveis_qs = User.objects.filter(
         is_active=True, perfil__ativo=True
     ).select_related('perfil', 'perfil__equipe').order_by('first_name', 'username')
-
-    if equipe_filter and equipe_filter != 'sem_equipe':
-        responsaveis_qs = responsaveis_qs.filter(perfil__equipe_id=equipe_filter)
-    elif equipe_filter == 'sem_equipe':
-        responsaveis_qs = responsaveis_qs.filter(perfil__equipe__isnull=True)
 
     context['responsavel_choices'] = responsaveis_qs
 
@@ -136,7 +129,7 @@ def get_list_context_data(request, perfil: PerfilUsuario | None, qs: QuerySet) -
     context['prioridade_filter'] = request.GET.get('prioridade', '')
     context['data_inicio'] = request.GET.get('data_inicio', '')
     context['data_fim'] = request.GET.get('data_fim', '')
-    context['equipe_filter'] = equipe_filter
+    context['equipe_filter'] = request.GET.get('equipe', '')
     context['time_filter'] = request.GET.get('time', '')
     context['responsavel_filter'] = request.GET.get('responsavel', '')
 
@@ -147,18 +140,8 @@ def get_list_context_data(request, perfil: PerfilUsuario | None, qs: QuerySet) -
         context['times'] = [{'id': 'sem_equipe', 'nome': 'Sem equipe'}] + [
             {'id': t.pk, 'nome': t.nome} for t in times
         ]
-        time_filter = request.GET.get('time', '')
-        if time_filter:
-            if time_filter == 'sem_equipe':
-                context['usuarios'] = User.objects.filter(
-                    perfil__ativo=True, perfil__equipe__isnull=True
-                ).select_related('perfil')
-            else:
-                context['usuarios'] = User.objects.filter(
-                    perfil__ativo=True, perfil__equipe_id=time_filter
-                ).select_related('perfil')
-        else:
-            context['usuarios'] = User.objects.filter(perfil__ativo=True).select_related('perfil')
+        # SEMPRE carrega todos os usuários para o dropdown (JS filtra no cliente)
+        context['usuarios'] = User.objects.filter(perfil__ativo=True).select_related('perfil').order_by('first_name', 'username')
         context['usuario_filter'] = request.GET.get('usuario', '')
     elif perfil and perfil.is_lider_or_above():
         context['usuarios'] = perfil.get_visible_users()

@@ -23,22 +23,22 @@ class EmailBackend(ModelBackend):
     """
     
     def authenticate(self, request, username=None, password=None, **kwargs):
-        # Normalize username/email
-        if username:
-            username = normalize_email(username)
+        if not username or not password:
+            return None
         
         # Se username contém @, trata como email
-        if username and '@' in username:
+        if '@' in username:
+            # Normalize email
+            username = normalize_email(username)
             try:
                 user = User.objects.get(email__iexact=username)
             except User.DoesNotExist:
-                # Run the default password hasher once to reduce timing difference
                 User().set_password(password)
                 return None
             except User.MultipleObjectsReturned:
                 return None
         else:
-            # Fallback: tenta buscar por username (compatibilidade)
+            # Username login (case-insensitive, no normalization that strips whitespace)
             try:
                 user = User.objects.get(username__iexact=username)
             except User.DoesNotExist:
@@ -53,7 +53,6 @@ class EmailBackend(ModelBackend):
             is_active = getattr(user, 'is_active', False)
             
             if not is_active:
-                # User exists but is inactive
                 raise ValidationError(
                     'Sua conta está desativada.',
                     code='inactive_user'

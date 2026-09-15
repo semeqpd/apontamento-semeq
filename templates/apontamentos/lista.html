@@ -53,7 +53,7 @@
                     <select name="time" class="form-select">
                         <option value="">Todas</option>
                         {% for time in times %}
-                        <option value="{{ time.pk }}" {% if time_filter == time.pk|stringformat:"s" %}selected{% endif %}>{{ time.nome }}</option>
+                        <option value="{{ time.id }}" {% if time_filter == time.id|stringformat:"s" %}selected{% endif %}>{{ time.nome }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -167,44 +167,62 @@ document.addEventListener('DOMContentLoaded', function() {
     const colaboradorSelect = document.querySelector('#apontamentoFilters select[name="usuario"]');
     
     if (equipeSelect && colaboradorSelect) {
-        // Build map of equipe -> usuarios from existing options
-        const usuariosPorEquipe = {};
-        const allOptions = Array.from(colaboradorSelect.options).slice(1); // Skip "Todos"
-        allOptions.forEach(opt => {
-            const equipeId = opt.dataset.equipeId;
-            if (equipeId) {
-                if (!usuariosPorEquipe[equipeId]) usuariosPorEquipe[equipeId] = [];
-                usuariosPorEquipe[equipeId].push({
-                    value: opt.value,
-                    text: opt.text,
-                    selected: opt.selected
-                });
-            }
-        });
-
+        // Store original all options on first load (before any filtering)
+        // This is done once when page loads
+        if (!window.allUsuariosOptions) {
+            window.allUsuariosOptions = Array.from(colaboradorSelect.options).slice(1).map(opt => ({
+                value: opt.value,
+                text: opt.text,
+                equipeId: opt.dataset.equipeId || '',
+                selected: opt.selected
+            }));
+        }
+        
         function filtrarColaboradores(equipeId) {
             const currentValue = colaboradorSelect.value;
             colaboradorSelect.innerHTML = '<option value="">Todos</option>';
             
-            if (equipeId && usuariosPorEquipe[equipeId]) {
-                usuariosPorEquipe[equipeId].forEach(u => {
-                    const opt = document.createElement('option');
-                    opt.value = u.value;
-                    opt.textContent = u.text;
-                    opt.dataset.equipeId = equipeId;
-                    if (u.value === currentValue) opt.selected = true;
-                    colaboradorSelect.appendChild(opt);
-                });
-            } else if (!equipeId) {
-                // Show all users when no team selected
-                allOptions.forEach(opt => {
-                    const newOpt = opt.cloneNode(true);
-                    colaboradorSelect.appendChild(newOpt);
-                });
-                if (currentValue) colaboradorSelect.value = currentValue;
+            if (equipeId && equipeId !== 'sem_equipe' && window.allUsuariosOptions) {
+                // Filter by equipe
+                window.allUsuariosOptions
+                    .filter(u => u.equipeId === equipeId)
+                    .forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.value;
+                        opt.textContent = u.text;
+                        opt.dataset.equipeId = u.equipeId;
+                        if (u.value === currentValue) opt.selected = true;
+                        colaboradorSelect.appendChild(opt);
+                    });
+            } else if (!equipeId || equipeId === 'sem_equipe') {
+                // Show all users when no team selected or "Sem equipe"
+                if (window.allUsuariosOptions) {
+                    if (equipeId === 'sem_equipe') {
+                        window.allUsuariosOptions
+                            .filter(u => !u.equipeId || u.equipeId === '')
+                            .forEach(u => {
+                                const opt = document.createElement('option');
+                                opt.value = u.value;
+                                opt.textContent = u.text;
+                                opt.dataset.equipeId = u.equipeId;
+                                if (u.value === currentValue) opt.selected = true;
+                                colaboradorSelect.appendChild(opt);
+                            });
+                    } else {
+                        // Show all
+                        window.allUsuariosOptions.forEach(u => {
+                            const opt = document.createElement('option');
+                            opt.value = u.value;
+                            opt.textContent = u.text;
+                            opt.dataset.equipeId = u.equipeId;
+                            if (u.value === currentValue) opt.selected = true;
+                            colaboradorSelect.appendChild(opt);
+                        });
+                    }
+                }
             }
         }
-
+        
         equipeSelect.addEventListener('change', function() {
             const equipeId = this.value;
             filtrarColaboradores(equipeId);
@@ -214,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('apontamentoFilters').submit();
             }, 350);
         });
-
+        
         // Initialize on load if equipe is pre-selected
         if (equipeSelect.value) {
             filtrarColaboradores(equipeSelect.value);
@@ -330,14 +348,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (inputTempo) inputTempo.value = data.tempo_atual || '';
                 mostrarModalConclusao(data.tempo_atual);
             } else {
-                alert(data.error || 'Erro ao alterar status');
+                window.showPermissaoNegada(data.error || 'Erro ao alterar status');
                 reverterSelect();
             }
         })
         .catch(err => {
             aguardandoConfirmacao = false;
             console.error('Erro:', err);
-            alert('Erro de comunicação com o servidor.');
+            window.showPermissaoNegada('Erro de comunicação com o servidor.');
             reverterSelect();
         });
     }

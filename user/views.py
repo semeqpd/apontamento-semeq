@@ -199,6 +199,8 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
+        # REGRA ESTRITA: responsavel SEMPRE é o usuário logado
+        form.instance.responsavel = self.request.user
         atualizar_apontamento(self.object, **form.cleaned_data)
         messages.success(self.request, 'Apontamento atualizado com sucesso!')
         return redirect(self.get_success_url())
@@ -1370,7 +1372,7 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
         
         qs = User.objects.select_related('perfil', 'perfil__equipe')
         
-        # Admin/Gestor: veem todos os usuários EXCETO eles mesmos (editam em Configurações)
+        # Admin/Gestor: veem todos os usuários EXCETO eles mesmos
         if perfil and perfil.is_gestor_or_above():
             return qs.exclude(pk=self.request.user.pk).order_by('first_name', 'last_name', 'username')
         
@@ -1383,11 +1385,19 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
         if obj == self.request.user:
             messages.error(self.request, 'Você não pode excluir seu próprio usuário.')
             raise PermissionDenied
-        # REGRA ESTRITA: cada usuário só gerencia seu próprio cadastro
-        # (mesmo admin não exclui outros admins)
-        raise PermissionDenied
+        return obj
     
     def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Count related apontamentos
+        from user.models import Apontamento
+        user = self.object
+        context['apontamentos_count'] = Apontamento.objects.filter(responsavel=user).count()
+        # Check if current user is admin
+        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
+        context['is_admin'] = self.request.user.is_superuser or (perfil and perfil.is_admin())
+        context['show_delete_apontamentos_checkbox'] = context['is_admin'] and context['apontamentos_count'] > 0
+        return context
         context = super().get_context_data(**kwargs)
         # Count related apontamentos
         from user.models import Apontamento

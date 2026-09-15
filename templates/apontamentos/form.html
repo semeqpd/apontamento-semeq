@@ -57,8 +57,15 @@
 
                     <div class="col-md-4">
                         <label class="form-label">{{ form.responsavel.label }} <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" value="{{ request.user.get_full_name|default:request.user.username }}" readonly>
+                            <span class="input-group-text bg-light">
+                                <i class="bi bi-person-lock"></i>
+                            </span>
+                        </div>
                         {{ form.responsavel }}
                         {% if form.responsavel.errors %}<div class="text-danger small mt-1">{{ form.responsavel.errors }}</div>{% endif %}
+                    
                     </div>
                     
                     <div class="col-md-4">
