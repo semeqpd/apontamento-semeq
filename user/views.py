@@ -57,7 +57,7 @@ from apps.core.views.base import (
     BaseCRUDUpdateView, BaseCRUDDeleteView
 )
 from .permissions import (
-    can_view_apontamento,
+    can_view_apontamento, can_edit_apontamento, can_delete_apontamento,
     can_view_user, can_edit_user, can_delete_user, can_manage_users,
     filter_apontamentos_queryset, filter_apontamentostempo_queryset,
     filter_users_queryset, PermissionDenied as PermDenied
