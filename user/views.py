@@ -1370,8 +1370,11 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
         
         qs = User.objects.select_related('perfil', 'perfil__equipe')
         
-        # REGRA ESTRITA: cada usuário vê apenas seu próprio registro
-        # (exceto em Configurações onde edita a si mesmo)
+        # Admin/Gestor: veem todos os usuários EXCETO eles mesmos (editam em Configurações)
+        if perfil and perfil.is_gestor_or_above():
+            return qs.exclude(pk=self.request.user.pk).order_by('first_name', 'last_name', 'username')
+        
+        # Líder/Colaborador: veem apenas seu próprio registro
         return qs.filter(pk=self.request.user.pk)
     
     def get_object(self, queryset=None):
