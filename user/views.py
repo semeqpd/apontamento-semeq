@@ -2199,9 +2199,10 @@ class CadastroUsuarioView(CadastroBaseView):
     def get_queryset(self):
         qs = super().get_queryset()
         # Show ALL users (including inativos, sem perfil) for gestor/admin
+        # EXCEPT the currently logged-in user (they edit themselves in Configurações)
         return qs.select_related(
             'perfil', 'perfil__equipe'
-        ).order_by('first_name', 'last_name', 'username')
+        ).exclude(pk=self.request.user.pk).order_by('first_name', 'last_name', 'username')
 
 
 class CadastroEquipeView(CadastroBaseView):
