@@ -98,8 +98,9 @@ def can_edit_apontamento(user, apontamento) -> bool:
     """
     Check if user can edit an apontamento.
     
-    REGRA ESTRITA: APENAS o próprio responsável pode editar.
-    - Admin, Gestor, Líder, Colaborador: apenas se responsavel == user
+    Regras:
+    - Admin: pode editar QUALQUER apontamento (inclusive de outros admins)
+    - Gestor, Líder, Colaborador: APENAS se responsavel == user
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -113,7 +114,12 @@ def can_edit_apontamento(user, apontamento) -> bool:
         logger.warning(f'[PERM] can_edit_apontamento: user={user.id} ({user.username}) perfil inactive or missing')
         return False
     
-    # REGRA ESTRITA: Apenas o responsável pode editar
+    # Admin: pode editar QUALQUER apontamento
+    if is_admin(user):
+        logger.warning(f'[PERM] can_edit_apontamento: user={user.id} ({user.username}) is ADMIN -> True')
+        return True
+    
+    # Demais: apenas se for o responsável
     result = apontamento.responsavel_id == user.id
     logger.warning(f'[PERM] can_edit_apontamento: user={user.id} ({user.username}) responsavel_id={apontamento.responsavel_id} RESULT={result}')
     return result
@@ -123,18 +129,31 @@ def can_delete_apontamento(user, apontamento) -> bool:
     """
     Check if user can delete an apontamento.
     
-    REGRA ESTRITA: APENAS o próprio responsável pode excluir.
-    - Admin, Gestor, Líder, Colaborador: apenas se responsavel == user
+    Regras:
+    - Admin: pode excluir QUALQUER apontamento (inclusive de outros admins)
+    - Gestor, Líder, Colaborador: APENAS se responsavel == user
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     if not user.is_authenticated:
+        logger.warning(f'[PERM] can_delete_apontamento: user not authenticated')
         return False
     
     perfil = get_user_perfil(user)
     if not perfil or not perfil.ativo:
+        logger.warning(f'[PERM] can_delete_apontamento: user={user.id} ({user.username}) perfil inactive or missing')
         return False
     
-    # REGRA ESTRITA: Apenas o responsável pode excluir
-    return apontamento.responsavel_id == user.id
+    # Admin: pode excluir QUALQUER apontamento
+    if is_admin(user):
+        logger.warning(f'[PERM] can_delete_apontamento: user={user.id} ({user.username}) is ADMIN -> True')
+        return True
+    
+    # Demais: apenas se for o responsável
+    result = apontamento.responsavel_id == user.id
+    logger.warning(f'[PERM] can_delete_apontamento: user={user.id} ({user.username}) responsavel_id={apontamento.responsavel_id} RESULT={result}')
+    return result
 
 
 def filter_apontamentos_queryset(user, qs):
