@@ -98,9 +98,8 @@ def can_edit_apontamento(user, apontamento) -> bool:
     """
     Check if user can edit an apontamento.
     
-    Regras:
-    - Admin: pode editar QUALQUER apontamento (inclusive de outros admins)
-    - Gestor, Líder, Colaborador: APENAS se responsavel == user
+    REGRA ESTRITA PARA TODOS (Admin, Gestor, Líder, Colaborador):
+    - APENAS o próprio responsável pode editar (responsavel == user)
     """
     if not user.is_authenticated:
         return False
@@ -109,11 +108,7 @@ def can_edit_apontamento(user, apontamento) -> bool:
     if not perfil or not perfil.ativo:
         return False
     
-    # Admin: pode editar QUALQUER apontamento
-    if is_admin(user):
-        return True
-    
-    # Demais: apenas se for o responsável
+    # TODOS: apenas se for o responsável
     return apontamento.responsavel_id == user.id
 
 
@@ -121,9 +116,8 @@ def can_delete_apontamento(user, apontamento) -> bool:
     """
     Check if user can delete an apontamento.
     
-    Regras:
-    - Admin: pode excluir QUALQUER apontamento (inclusive de outros admins)
-    - Gestor, Líder, Colaborador: APENAS se responsavel == user
+    REGRA ESTRITA PARA TODOS (Admin, Gestor, Líder, Colaborador):
+    - APENAS o próprio responsável pode excluir (responsavel == user)
     """
     if not user.is_authenticated:
         return False
@@ -132,11 +126,7 @@ def can_delete_apontamento(user, apontamento) -> bool:
     if not perfil or not perfil.ativo:
         return False
     
-    # Admin: pode excluir QUALQUER apontamento
-    if is_admin(user):
-        return True
-    
-    # Demais: apenas se for o responsável
+    # TODOS: apenas se for o responsável
     return apontamento.responsavel_id == user.id
 
 

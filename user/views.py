@@ -1367,21 +1367,12 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
     
     def get_queryset(self):
         perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        is_admin = self.request.user.is_superuser or (perfil and perfil.is_admin())
         
         qs = User.objects.select_related('perfil', 'perfil__equipe')
         
-        if perfil and perfil.is_gestor_or_above():
-            if not is_admin:
-                # Gestor (não admin) não vê outros admins/superusers
-                qs = qs.exclude(is_superuser=True).exclude(perfil__role='admin')
-            # Se for admin, vê todos (incluindo outros admins)
-        elif perfil and perfil.is_lider_or_above():
-            qs = qs.filter(perfil__ativo=True, perfil__equipe=perfil.equipe)
-        else:
-            qs = qs.filter(id=self.request.user.id)
-        
-        return qs
+        # REGRA ESTRITA: cada usuário vê apenas seu próprio registro
+        # (exceto em Configurações onde edita a si mesmo)
+        return qs.filter(pk=self.request.user.pk)
     
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -1389,16 +1380,9 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
         if obj == self.request.user:
             messages.error(self.request, 'Você não pode excluir seu próprio usuário.')
             raise PermissionDenied
-        
-        # Verifica se o usuário logado é admin
-        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        is_admin = self.request.user.is_superuser or (perfil and perfil.is_admin())
-        
-        # Impede exclusão de admins/superusers APENAS se o usuário logado NÃO for admin
-        if not is_admin and (obj.is_superuser or (hasattr(obj, 'perfil') and obj.perfil.role == 'admin')):
-            messages.error(self.request, 'Não é possível excluir usuários administradores.')
-            raise PermissionDenied
-        return obj
+        # REGRA ESTRITA: cada usuário só gerencia seu próprio cadastro
+        # (mesmo admin não exclui outros admins)
+        raise PermissionDenied
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
