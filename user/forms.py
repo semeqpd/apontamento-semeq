@@ -399,31 +399,12 @@ class ApontamentoForm(forms.ModelForm):
                         self.fields['equipe'].widget.attrs['disabled'] = False
                 
                 # --- CAMPO RESPONSÁVEL ---
-                if is_colaborador:
-                    # Colaborador: só ele mesmo, campo travado
-                    self.fields['responsavel'].queryset = User.objects.filter(id=self.user.id)
-                    self.fields['responsavel'].initial = self.user
-                    # Use HiddenInput but NOT disabled - disabled fields don't submit!
-                    self.fields['responsavel'].widget = forms.HiddenInput()
-                    self.fields['responsavel'].required = False
-                    self.fields['responsavel'].disabled = False
-                elif is_lider:
-                    # Líder: apenas usuários da mesma equipe
-                    if user_equipe:
-                        qs = User.objects.filter(
-                            perfil__equipe=user_equipe,
-                            perfil__ativo=True,
-                            is_active=True
-                        ).select_related('perfil').order_by('first_name', 'last_name')
-                        self.fields['responsavel'].queryset = qs
-                        self.fields['responsavel'].initial = self.user
-                elif is_admin_or_gestor:
-                    # Gestor/Admin: todos os usuários ativos
-                    qs = User.objects.filter(
-                        perfil__ativo=True,
-                        is_active=True
-                    ).select_related('perfil').order_by('first_name', 'last_name')
-                    self.fields['responsavel'].queryset = qs
+                # REGRA ESTRITA: cada usuário só cria/aponta para si mesmo
+                self.fields['responsavel'].queryset = User.objects.filter(id=self.user.id)
+                self.fields['responsavel'].initial = self.user
+                self.fields['responsavel'].widget = forms.HiddenInput()
+                self.fields['responsavel'].required = False
+                self.fields['responsavel'].disabled = False
 
     def clean_tempo_investido_minutos(self):
         """Ensure empty string is converted to 0 or None to allow saving.

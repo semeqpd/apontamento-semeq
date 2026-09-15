@@ -57,11 +57,7 @@
 
                     <div class="col-md-4">
                         <label class="form-label">{{ form.responsavel.label }} <span class="text-danger">*</span></label>
-                        <select name="responsavel" id="id_responsavel" class="form-select responsavel-select" {% if form.responsavel.field.required %}required{% endif %}>
-                            {% for user in form.responsavel.field.queryset %}
-                                <option value="{{ user.pk }}" data-equipe-id="{{ user.perfil.equipe_id|default:'' }}">{{ user.get_full_name|default:user.username }}</option>
-                            {% endfor %}
-                        </select>
+                        {{ form.responsavel }}
                         {% if form.responsavel.errors %}<div class="text-danger small mt-1">{{ form.responsavel.errors }}</div>{% endif %}
                     </div>
                     
