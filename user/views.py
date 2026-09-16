@@ -19,6 +19,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
 from datetime import date, timedelta, datetime, time
+from collections import OrderedDict
 from .models import Cliente, Equipamento, PerfilUsuario, Time, Apontamento, EmailVerificationToken, Status, Atividade, Prioridade, TipoProblema, Equipe, Projeto, Solicitante, ApontamentoTempo
 from .forms import (
     ClienteForm, ClienteImportForm,
@@ -155,7 +156,7 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
     model = ApontamentoTempo
     template_name = 'apontamentos/lista.html'
     context_object_name = 'apontamentos'
-    paginate_by = 15
+    paginate_by = 10  # 10 grupos/dias por página
 
     def get_queryset(self):
         perfil = getattr(self.request.user, 'perfil', None)
@@ -182,40 +183,106 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
         if is_admin_ou_gestor:
             # Admin/Gestor: Hierarchical grouping Data -> Equipe -> Usuario -> Apontamentos
             agrupamento_admin = agrupar_por_dia_equipe_usuario(qs, current_user=self.request.user)
-            selector_context['agrupamento_admin'] = agrupamento_admin
+            
+            # Paginate at the day level (10 days per page)
+            dias = list(agrupamento_admin)
+            paginator = Paginator(dias, 10)
+            page_number = self.request.GET.get('page')
+            page_obj = paginator.get_page(self.request.GET.get('page'))
+            
+            # Slice the agrupamento_admin for current page
+            agrupamento_admin_paginado = page_obj.object_list
+            
+            selector_context = get_list_context_data(self.request, perfil, qs)
+            selector_context['agrupamento_admin'] = agrupamento_admin_paginado
             selector_context['is_admin_ou_gestor'] = True
+            selector_context['page_obj'] = page_obj
+            selector_context['paginator'] = paginator
+            selector_context['is_paginated'] = page_obj.has_other_pages()
         else:
             # Lider/Colaborador: Simple daily grouping with totals
             agrupados, totais = agrupar_por_data(qs, current_user=self.request.user)
-            selector_context['apontamentos_por_data'] = agrupados
-            selector_context['totais_por_data'] = totais
+            
+            # Paginate at the day level (10 days per page)
+            dias = list(agrupados.items())
+            paginator = Paginator(dias, 10)
+            page_obj = paginator.get_page(self.request.GET.get('page'))
+            
+            # Slice the agrupados for current page
+            agrupados_paginado = OrderedDict(page_obj.object_list)
+            totais_paginado = {data: totais[data] for data, _ in page_obj.object_list}
+            
+            selector_context = get_list_context_data(self.request, perfil, qs)
+            selector_context['apontamentos_por_data'] = agrupados_paginado
+            selector_context['totais_por_data'] = totais_paginado
             selector_context['is_admin_ou_gestor'] = False
+            selector_context['page_obj'] = page_obj
+            selector_context['paginator'] = paginator
+            selector_context['is_paginated'] = page_obj.has_other_pages()
         
-        # Build filter params for pagination links
+        # Build filter params for pagination links (preserve all filters except 'page')
         from django.http import QueryDict
-        get_params = self.request.GET
-        if hasattr(get_params, 'urlencode'):
-            query_string = get_params.urlencode()
-        else:
-            query_string = '&'.join(f'{k}={v}' for k, v in get_params.items())
-        filter_params = QueryDict(query_string)
+        filter_params = self.request.GET.copy()
         if 'page' in filter_params:
-            filter_params = filter_params.copy()
             filter_params.pop('page')
         selector_context['filter_params'] = filter_params.urlencode()
+        
+        # Status choices for dropdown
+        status_choices = [(s.pk, s.status) for s in Status.objects.filter(ativo=True).order_by('ordem', 'status')]
+        lista_status = list(Status.objects.filter(ativo=True).order_by('ordem', 'status'))
         
         # Botão Voltar - Apontamentos volta para Dashboard
         selector_context['previous_page_url'] = '/dashboard/'
         selector_context['hide_back_button'] = False
         
         # Add paginator/page_obj for template compatibility
-        paginator = Paginator(qs, self.paginate_by)
-        page_number = self.request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
         selector_context['paginator'] = paginator
         selector_context['page_obj'] = page_obj
-        selector_context['object_list'] = page_obj.object_list
         selector_context['is_paginated'] = page_obj.has_other_pages()
+        selector_context['filter_params'] = filter_params.urlencode() if 'filter_params' in locals() else ''
+        
+        # Add status choices and other context
+        status_choices = [(s.pk, s.status) for s in Status.objects.filter(ativo=True).order_by('ordem', 'status')]
+        lista_status = list(Status.objects.filter(ativo=True).order_by('ordem', 'status'))
+        prioridade_choices = [(p.pk, p.nome) for p in Prioridade.objects.filter(ativo=True).order_by('ordem', 'nome')]
+        equipe_choices = [(e.pk, e.nome) for e in Equipe.objects.filter(ativo=True).order_by('ordem', 'nome')]
+        atividade_choices = [(a.pk, a.nome) for a in Atividade.objects.filter(ativo=True).order_by('ordem', 'nome')]
+        tipoproblema_choices = [(t.pk, t.nome) for t in TipoProblema.objects.filter(ativo=True).order_by('ordem', 'nome')]
+        equipe_choices = [(e.pk, e.nome) for e in Equipe.objects.filter(ativo=True).order_by('ordem', 'nome')]
+        
+        # Responsáveis para filtro
+        if perfil and perfil.is_gestor_or_above():
+            responsavel_choices = User.objects.filter(perfil__ativo=True).select_related('perfil').order_by('first_name', 'last_name')
+        else:
+            responsavel_choices = User.objects.filter(perfil__ativo=True, id=self.request.user.id)
+        
+        selector_context.update({
+            'status_choices': status_choices,
+            'lista_status': lista_status,
+            'prioridade_choices': prioridade_choices,
+            'equipe_choices': equipe_choices,
+            'atividade_choices': atividade_choices,
+            'tipoproblema_choices': tipoproblema_choices,
+            'responsavel_choices': responsavel_choices,
+            'filter_params': self.request.GET.copy(),
+            'is_admin_ou_gestor': is_admin_ou_gestor,
+        })
+        
+        # Build filter params for pagination links (exclude 'page')
+        filter_params = self.request.GET.copy()
+        if 'page' in filter_params:
+            filter_params.pop('page')
+        selector_context['url_params'] = filter_params.urlencode()
+        
+        # Botão Voltar - Apontamentos volta para Dashboard
+        selector_context['previous_page_url'] = '/dashboard/'
+        selector_context['hide_back_button'] = False
+        
+        # Add paginator/page_obj for template compatibility
+        selector_context['paginator'] = paginator
+        selector_context['page_obj'] = page_obj
+        selector_context['is_paginated'] = page_obj.has_other_pages()
+        selector_context['filter_params'] = filter_params.urlencode() if 'filter_params' in locals() else ''
         
         return selector_context
 
