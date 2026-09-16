@@ -133,6 +133,11 @@
             overflow-x: hidden;
             white-space: nowrap;
             z-index: 100;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
         }
 
         .sidebar.collapsed {
@@ -177,6 +182,12 @@
             flex-direction: column;
             min-height: 100vh;
             background-color: var(--bg-body);
+            margin-left: 260px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.sidebar-collapsed {
+            margin-left: 72px;
         }
 
         .sidebar-brand {
@@ -447,13 +458,14 @@
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
+        const mainContent = document.querySelector('.main-content');
         const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed';
         const isMobile = () => window.innerWidth < 992;
-        if (!isMobile()) { const collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY); if (collapsed === null ? true : collapsed === 'true') sidebar.classList.add('collapsed'); else sidebar.classList.remove('collapsed'); }
+        if (!isMobile()) { const collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY); if (collapsed === null ? true : collapsed === 'true') { sidebar.classList.add('collapsed'); if (mainContent) mainContent.classList.add('sidebar-collapsed'); } else { sidebar.classList.remove('collapsed'); if (mainContent) mainContent.classList.remove('sidebar-collapsed'); } }
         if (sidebarToggle && sidebar && overlay) {
             sidebarToggle.addEventListener('click', () => {
                 if (isMobile()) { sidebar.classList.toggle('show'); overlay.classList.toggle('show'); }
-                else { const isCollapsed = sidebar.classList.toggle('collapsed'); localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed); }
+                else { const isCollapsed = sidebar.classList.toggle('collapsed'); localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed); if (mainContent) mainContent.classList.toggle('sidebar-collapsed', isCollapsed); }
             });
             overlay.addEventListener('click', () => { sidebar.classList.remove('show'); overlay.classList.remove('show'); });
         }
