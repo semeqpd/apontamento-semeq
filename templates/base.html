@@ -35,7 +35,6 @@
             --text-primary: #e2e8f0;
             --text-muted: #94a3b8;
             --semeq-navy-hover: #1e2a4a;
-            /* Input backgrounds - slightly lighter for visibility */
             --input-bg: #1e2d4a;
             --input-border: #3a4f7a;
         }
@@ -56,7 +55,6 @@
             color: var(--text-primary) !important;
             border-color: var(--input-border) !important;
         }
-        /* Dropdown nativo: options legiveis ao abrir (fundo claro + texto escuro) */
         [data-theme="dark"] select option,
         [data-theme="dark"] .form-select option {
             background-color: #ffffff;
@@ -67,33 +65,7 @@
             background-color: #dbeafe;
             color: #1e3a8a;
         }
-        /* Select value display (closed state) - garantir contraste */
-        [data-theme="dark"] select.form-select,
-        [data-theme="dark"] .form-select:not([multiple]) {
-            background-color: var(--bg-body);
-            color: var(--text-primary);
-        }
-        [data-theme="dark"] .form-select:not([multiple]) option:checked {
-            color: #1e293b !important;
-        }
-        /* Placeholder no dark mode: cinza claro para diferenciar do texto digitado (azul) */
-        [data-theme="dark"] .form-control::placeholder,
-        [data-theme="dark"] .form-select::placeholder {
-            color: var(--text-muted);
-            opacity: 1;
-        }
-        /* Select closed state - usar input-bg para visibilidade */
-        [data-theme="dark"] select.form-select,
-        [data-theme="dark"] .form-select:not([multiple]) {
-            background-color: var(--input-bg) !important;
-            color: var(--text-primary) !important;
-            border-color: var(--input-border) !important;
-        }
-        [data-theme="dark"] .form-select:not([multiple]) option:checked {
-            color: #1e293b !important;
-        }
         [data-theme="dark"] .form-label { color: var(--text-primary); }
-        /* Autocomplete wrapper (cliente) - dark mode */
         [data-theme="dark"] .autocomplete-wrapper input {
             background-color: var(--input-bg) !important;
             color: var(--text-primary) !important;
@@ -111,258 +83,30 @@
             color: var(--text-primary) !important;
         }
         [data-theme="dark"] .ts-control, [data-theme="dark"] .ts-dropdown { background-color: var(--card-bg); color: var(--text-primary); }
-        /* TomSelect input text visibility in dark mode */
-        [data-theme="dark"] .ts-control input {
-            color: var(--text-primary) !important;
-            background-color: transparent !important;
-        }
-        [data-theme="dark"] .ts-control input::placeholder {
-            color: var(--text-muted) !important;
-        }
-        /* TomSelect selected items display */
-        [data-theme="dark"] .ts-control .item {
-            background-color: var(--semeq-navy) !important;
-            color: var(--text-primary) !important;
-        }
-        [data-theme="dark"] .ts-control .item .remove {
-            color: var(--text-muted) !important;
-        }
-        [data-theme="dark"] .ts-control .item .remove:hover {
-            color: var(--text-primary) !important;
-        }
-        /* TomSelect dropdown options in dark mode */
-        [data-theme="dark"] .ts-dropdown .option {
-            background-color: var(--card-bg) !important;
-            color: var(--text-primary) !important;
-        }
-        [data-theme="dark"] .ts-dropdown .option:hover,
-        [data-theme="dark"] .ts-dropdown .option.active {
-            background-color: var(--semeq-navy-hover) !important;
-            color: var(--text-primary) !important;
-        }
-        /* TomSelect control styling in dark mode */
-        [data-theme="dark"] .ts-control {
-            background-color: var(--card-bg) !important;
-            border-color: var(--border-color) !important;
-            color: var(--text-primary) !important;
-        }
-        [data-theme="dark"] .ts-control:focus {
-            border-color: var(--semeq-navy) !important;
-            box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15) !important;
-        }
-        /* TomSelect dropdown in dark mode */
-        [data-theme="dark"] .ts-dropdown {
-            background-color: var(--card-bg) !important;
-            border-color: var(--border-color) !important;
-        }
-        /* TomSelect multi-select tag removal button */
-        [data-theme="dark"] .ts-control .item {
-            background-color: var(--semeq-navy) !important;
-            color: var(--text-primary) !important;
-        }
-        [data-theme="dark"] .ts-control .item .remove {
-            color: var(--text-muted) !important;
-        }
-        [data-theme="dark"] .ts-control .item .remove:hover {
-            color: var(--text-primary) !important;
-        }
-        /* Native select - selected value visibility in closed state */
-        [data-theme="dark"] select.form-select:not([multiple]) {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e2e8f0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
-        }
-        /* Searchable Select Component - dark mode */
+        [data-theme="dark"] .ts-control input { color: var(--text-primary) !important; background-color: transparent !important; }
+        [data-theme="dark"] .ts-control input::placeholder { color: var(--text-muted) !important; }
+        [data-theme="dark"] .ts-control .item { background-color: var(--semeq-navy) !important; color: var(--text-primary) !important; }
+        [data-theme="dark"] .ts-control .item .remove { color: var(--text-muted) !important; }
+        [data-theme="dark"] .ts-control .item .remove:hover { color: var(--text-primary) !important; }
+        [data-theme="dark"] .ts-dropdown .option { background-color: var(--card-bg) !important; color: var(--text-primary) !important; }
+        [data-theme="dark"] .ts-dropdown .option:hover, [data-theme="dark"] .ts-dropdown .option.active { background-color: var(--semeq-navy-hover) !important; color: var(--text-primary) !important; }
+        [data-theme="dark"] .ts-control { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; color: var(--text-primary) !important; }
+        [data-theme="dark"] .ts-control:focus { border-color: var(--semeq-navy) !important; box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15) !important; }
+        [data-theme="dark"] .ts-dropdown { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
         [data-theme="dark"] .searchable-select-wrapper { position: relative; }
-        [data-theme="dark"] .searchable-select-input {
-            background-color: var(--input-bg) !important;
-            color: var(--text-primary) !important;
-            border-color: var(--input-border) !important;
-        }
-        [data-theme="dark"] .searchable-select-input:focus {
-            border-color: var(--semeq-navy) !important;
-            box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15) !important;
-        }
-        [data-theme="dark"] .searchable-select-dropdown {
-            background-color: var(--card-bg) !important;
-            border-color: var(--border-color) !important;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
-        }
-        [data-theme="dark"] .searchable-select-item {
-            color: var(--text-primary) !important;
-            background-color: transparent !important;
-        }
-        [data-theme="dark"] .searchable-select-item:hover,
-        [data-theme="dark"] .searchable-select-item.highlighted {
-            color: var(--text-primary) !important;
-            background-color: var(--semeq-navy-hover) !important;
-        }
-        [data-theme="dark"] .searchable-select-item.selected {
-            color: #ffffff !important;
-            background-color: var(--semeq-navy) !important;
-        }
-        [data-theme="dark"] .searchable-select-empty {
-            color: var(--text-muted) !important;
-        }
-        /* Corrigir cabecalho table-light, grupo bg-light e total table-secondary */
-        [data-theme="dark"] .table .table-light,
-        [data-theme="dark"] table.table thead.table-light th,
-        [data-theme="dark"] .table thead.table-light th {
-            --bs-table-bg: var(--bg-body);
-            background-color: var(--bg-body) !important;
-            color: var(--text-muted);
-        }
-        [data-theme="dark"] .bg-light {
-            background-color: var(--bg-body) !important;
-            color: var(--text-primary);
-        }
-        [data-theme="dark"] .table-secondary,
-        [data-theme="dark"] .table .table-secondary,
-        [data-theme="dark"] .table-secondary td,
-        [data-theme="dark"] .table-secondary > * {
-            --bs-table-bg: var(--semeq-navy-hover);
-            background-color: var(--semeq-navy-hover) !important;
-            color: var(--text-muted) !important;
-        }
-        /* Texto escuro/Bootstrap vira claro no dark mode (exceto badges coloridos, que mantêm contraste) */
-        [data-theme="dark"] .text-dark:not(.bg-warning):not(.bg-info):not([class*="bg-warning"]):not([class*="bg-info"]) { color: var(--text-primary) !important; }
-        [data-theme="dark"] .badge.text-dark { color: var(--text-primary) !important; }
-        [data-theme="dark"] .badge.bg-warning.text-dark,
-        [data-theme="dark"] .badge.bg-info.text-dark,
-        [data-theme="dark"] .badge-warning .text-dark,
-        [data-theme="dark"] .badge-info .text-dark,
-        [data-theme="dark"] .badge.bg-warning,
-        [data-theme="dark"] .badge.bg-info { color: #1e293b !important; }
-        [data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
-        [data-theme="dark"] .form-control[readonly] {
-            background-color: var(--bg-body) !important;
-            color: var(--text-primary);
-        }
-        [data-theme="dark"] .btn-semeq-outline:hover {
-            background-color: var(--semeq-navy-hover);
-            color: var(--text-primary);
-        }
-        [data-theme="dark"] .btn-semeq-cancel {
-            background-color: transparent;
-            color: var(--text-primary) !important;
-            border-color: var(--border-color);
-        }
-        [data-theme="dark"] .btn-semeq-cancel:hover {
-            background-color: var(--semeq-navy-hover);
-            color: var(--text-primary);
-            box-shadow: none;
-        }
-        [data-theme="dark"] .card-footer { background-color: var(--card-bg) !important; color: var(--text-primary); }
-        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
-        [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6,
-        [data-theme="dark"] strong { color: var(--text-primary); }
-        /* Cards de métricas do dashboard: valores em branco/cinza-claro no dark */
-        [data-theme="dark"] .card-metric h2 { color: var(--text-primary) !important; }
-        [data-theme="dark"] .card-metric h6 { color: var(--text-muted) !important; }
-        /* Dark mode: NADA de texto azul em fundo escuro. Links/textos brancos ou cinza. */
-        [data-theme="dark"] a:not(.btn):not(.badge) { color: var(--text-primary) !important; }
-        [data-theme="dark"] a.btn-semeq-primary { color: #ffffff !important; }
-        /* Botao de fundo claro (secundario/Limpar): texto pode ser azul */
-        [data-theme="dark"] .btn-semeq-secondary,
-        [data-theme="dark"] a.btn-semeq-secondary {
-            background-color: #e2e8f0 !important;
-            color: var(--semeq-blue-accent) !important;
-        }
-        [data-theme="dark"] .btn-semeq-secondary:hover,
-        [data-theme="dark"] a.btn-semeq-secondary:hover {
-            background-color: #cbd5e1 !important;
-            color: var(--semeq-blue-accent) !important;
-        }
-        [data-theme="dark"] .text-primary, [data-theme="dark"] .icon-card.text-primary { color: var(--text-primary) !important; }
-        [data-theme="dark"] .form-text { color: var(--text-muted) !important; }
-        [data-theme="dark"] .section-title { color: var(--text-primary) !important; }
-        /* Asterisco obrigatório vira cinza claro em vez de vermelho */
-        [data-theme="dark"] .text-danger:not(.progress-bar) { color: #f87171 !important; }
-        [data-theme="dark"] .sidebar-nav a.active { border-left-color: var(--semeq-blue-accent); }
-        /* Home: logo/texto principal em branco no dark mode (inline color seria navy) */
-        [data-theme="dark"] .home-logo,
-        [data-theme="dark"] .home-title { color: var(--text-primary) !important; }
-        [data-theme="dark"] .home-title i,
-        [data-theme="dark"] .home-logo i { color: #ffffff !important; }
-
-        /* ============================================================
-           DARK MODE: Força TODO texto a usar variáveis CSS (sem cinza escuro)
-           ============================================================ */
-        [data-theme="dark"] .fw-medium,
-        [data-theme="dark"] .fw-semibold,
-        [data-theme="dark"] .fw-bold,
-        [data-theme="dark"] .fw-normal,
-        [data-theme="dark"] .fw-light,
-        [data-theme="dark"] p,
-        [data-theme="dark"] span,
-        [data-theme="dark"] div,
-        [data-theme="dark"] td,
-        [data-theme="dark"] th,
-        [data-theme="dark"] li,
-        [data-theme="dark"] label,
-        [data-theme="dark"] small,
-        [data-theme="dark"] .form-label,
-        [data-theme="dark"] .card-body,
-        [data-theme="dark"] .card-text,
-        [data-theme="dark"] .text-body,
-        [data-theme="dark"] .text-body-secondary,
-        [data-theme="dark"] .text-body-tertiary {
-            color: var(--text-primary) !important;
-        }
-        [data-theme="dark"] .text-muted,
-        [data-theme="dark"] .text-secondary,
-        [data-theme="dark"] small.text-muted,
-        [data-theme="dark"] .form-text,
-        [data-theme="dark"] .card-metric h6 {
-            color: var(--text-muted) !important;
-        }
-        /* Exceções: badges coloridos mantêm seu contraste */
-        [data-theme="dark"] .badge.bg-danger,
-        [data-theme="dark"] .badge.bg-success,
-        [data-theme="dark"] .badge.bg-warning,
-        [data-theme="dark"] .badge.bg-info,
-        [data-theme="dark"] .badge.bg-primary,
-        [data-theme="dark"] .badge.bg-secondary,
-        [data-theme="dark"] .badge.bg-light,
-        [data-theme="dark"] .badge.bg-dark {
-            color: inherit !important;
-        }
-        [data-theme="dark"] .badge.text-dark,
-        [data-theme="dark"] .badge.bg-warning.text-dark,
-        [data-theme="dark"] .badge.bg-info.text-dark {
-            color: #1e293b !important;
-        }
-
-[data-theme="dark"] .badge-subtle-success { background-color: #134e3a; color: #d1fae5; }
-        [data-theme="dark"] .badge-subtle-warning { background-color: #3b2f10; color: #fef3c7; }
-        [data-theme="dark"] .badge-subtle-primary { background-color: #1e3a5f; color: #dbeafe; }
-
-        /* ============================================================
-           DARK MODE: Dropdown menus (Exportar, filtros, etc.)
-           ============================================================ */
-        [data-theme="dark"] .dropdown-menu {
-            background-color: var(--card-bg) !important;
-            border-color: var(--border-color) !important;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
-        }
-        [data-theme="dark"] .dropdown-item {
-            color: var(--text-primary) !important;
-            background-color: transparent !important;
-        }
-        [data-theme="dark"] .dropdown-item:hover,
-        [data-theme="dark"] .dropdown-item:focus {
-            color: var(--text-primary) !important;
-            background-color: var(--semeq-navy-hover) !important;
-        }
-        [data-theme="dark"] .dropdown-item.active,
-        [data-theme="dark"] .dropdown-item:active {
-            color: #ffffff !important;
-            background-color: var(--semeq-navy) !important;
-        }
-        [data-theme="dark"] .dropdown-divider {
-            border-top-color: var(--border-color) !important;
-        }
-        [data-theme="dark"] .dropdown-header {
-            color: var(--text-muted) !important;
-        }
+        [data-theme="dark"] .searchable-select-input { background-color: var(--input-bg) !important; color: var(--text-primary) !important; border-color: var(--input-border) !important; }
+        [data-theme="dark"] .searchable-select-input:focus { border-color: var(--semeq-navy) !important; box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15) !important; }
+        [data-theme="dark"] .searchable-select-dropdown { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important; }
+        [data-theme="dark"] .searchable-select-item { color: var(--text-primary) !important; background-color: transparent !important; }
+        [data-theme="dark"] .searchable-select-item:hover, [data-theme="dark"] .searchable-select-item.highlighted { color: var(--text-primary) !important; background-color: var(--semeq-navy-hover) !important; }
+        [data-theme="dark"] .searchable-select-item.selected { color: #ffffff !important; background-color: var(--semeq-navy) !important; }
+        [data-theme="dark"] .searchable-select-empty { color: var(--text-muted) !important; }
+        [data-theme="dark"] .dropdown-menu { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important; }
+        [data-theme="dark"] .dropdown-item { color: var(--text-primary) !important; background-color: transparent !important; }
+        [data-theme="dark"] .dropdown-item:hover, [data-theme="dark"] .dropdown-item:focus { color: var(--text-primary) !important; background-color: var(--semeq-navy-hover) !important; }
+        [data-theme="dark"] .dropdown-item.active, [data-theme="dark"] .dropdown-item:active { color: #ffffff !important; background-color: var(--semeq-navy) !important; }
+        [data-theme="dark"] .dropdown-divider { border-top-color: var(--border-color) !important; }
+        [data-theme="dark"] .dropdown-header { color: var(--text-muted) !important; }
 
         body {
             background-color: var(--bg-body);
@@ -370,30 +114,86 @@
             color: var(--text-primary);
         }
 
+        /* WRAPPER - Flex container for sidebar + main content */
+        .wrapper {
+            display: flex;
+            width: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
         /* SIDEBAR */
         .sidebar {
             min-height: 100vh;
             background-color: var(--semeq-navy);
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+            transition: width 0.3s ease;
+            width: 260px;
+            flex-shrink: 0;
+            overflow-x: hidden;
+            white-space: nowrap;
+            z-index: 100;
+        }
+
+        .sidebar.collapsed {
+            width: 72px;
+        }
+
+        .sidebar.collapsed .logo-text,
+        .sidebar.collapsed .logo-subtitle,
+        .sidebar.collapsed .sidebar-text {
+            display: none !important;
+        }
+
+        .sidebar.collapsed .sidebar-brand {
+            padding: 1.5rem 0;
+            justify-content: center !important;
+        }
+
+        .sidebar.collapsed .logo-icon {
+            margin: 0 auto !important;
+            font-size: 1.8rem !important;
+        }
+
+        .sidebar.collapsed .sidebar a {
+            justify-content: center;
+            padding: 12px 0;
+        }
+
+        .sidebar.collapsed .sidebar a.active {
+            border-left: none;
+            border-bottom: 3px solid var(--semeq-blue-accent);
+            padding: 12px 0;
+        }
+
+        .sidebar.collapsed .sidebar-nav {
+            padding-top: 1rem;
+        }
+
+        /* MAIN CONTENT - fills remaining space */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: var(--bg-body);
         }
 
         .sidebar-brand {
             padding: 1.5rem 1rem;
             text-align: center;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
-        .sidebar-brand h4 {
-            color: #ffffff;
-            font-weight: 700;
-            font-size: 1.1rem;
-            letter-spacing: 1px;
-            margin: 0;
-        }
+        .sidebar-brand .logo-icon { font-size: 1.5rem; }
+        .sidebar-brand .logo-text { white-space: nowrap; }
+        .sidebar-brand .logo-subtitle { width: 100%; text-align: center; margin-top: 0.25rem; }
 
-        .sidebar-nav {
-            padding-top: 1rem;
-        }
+        .sidebar-nav { padding-top: 1rem; }
 
         .sidebar a {
             color: #94a3b8;
@@ -407,14 +207,9 @@
             transition: all 0.2s ease;
         }
 
-        .sidebar a i {
-            font-size: 1.1rem;
-        }
+        .sidebar a i { font-size: 1.1rem; width: 24px; text-align: center; }
 
-        .sidebar a:hover {
-            color: #ffffff;
-            background: var(--semeq-navy-hover);
-        }
+        .sidebar a:hover { color: #ffffff; background: var(--semeq-navy-hover); }
 
         .sidebar a.active {
             color: #ffffff;
@@ -423,401 +218,95 @@
             padding-left: 20px;
         }
 
+        /* SIDEBAR TOGGLE BUTTON */
+        #sidebarToggle {
+            display: flex; align-items: center; justify-content: center;
+            width: 36px; height: 36px; border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        #sidebarToggle:hover { background-color: #f1f5f9; }
+        [data-theme="dark"] #sidebarToggle:hover { background-color: var(--semeq-navy-hover); }
+
         /* NAVBAR */
         .navbar-custom {
             background-color: #ffffff;
             border-bottom: 1px solid var(--border-color);
             padding: 0.9rem 1.5rem;
         }
-
-        .navbar-brand-text {
-            font-weight: 600;
-            color: var(--semeq-navy);
-            font-size: 1rem;
-        }
+        .navbar-brand-text { font-weight: 600; color: var(--semeq-navy); font-size: 1rem; }
 
         /* CARDS & DASHBOARD */
-        .card-dashboard {
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(10, 16, 51, 0.04);
-            background: var(--card-bg);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .card-dashboard:hover {
-            box-shadow: 0 4px 16px rgba(10, 16, 51, 0.08);
-        }
-
-        .card-dashboard .card-header {
-            background-color: transparent;
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 1.25rem;
-        }
-
-        .card-metric {
-            border-top: 3.5px solid transparent;
-        }
-
+        .card-dashboard { border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 2px 10px rgba(10, 16, 51, 0.04); background: var(--card-bg); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card-dashboard:hover { box-shadow: 0 4px 16px rgba(10, 16, 51, 0.08); }
+        .card-dashboard .card-header { background-color: transparent; border-bottom: 1px solid var(--border-color); padding: 1rem 1.25rem; }
+        .card-metric { border-top: 3.5px solid transparent; }
         .card-metric.metric-blue { border-top-color: var(--semeq-navy); }
         .card-metric.metric-green { border-top-color: #10b981; }
         .card-metric.metric-yellow { border-top-color: #f59e0b; }
         .card-metric.metric-red { border-top-color: #ef4444; }
+        .card-metric h6 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 0.4rem; }
+        .card-metric h2 { font-weight: 700; color: var(--semeq-navy); margin: 0; }
+        .icon-card { font-size: 2.5rem; opacity: 0.25; }
 
-        .card-metric h6 {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-muted);
-            font-weight: 600;
-            margin-bottom: 0.4rem;
-        }
+        /* BUTTONS */
+        .btn-semeq-primary { background-color: var(--semeq-navy); color: #ffffff; font-weight: 600; border: none; padding: 0.55rem 1.2rem; border-radius: 6px; transition: all 0.2s ease; }
+        .btn-semeq-primary:hover { background-color: var(--semeq-navy-hover); color: #ffffff; box-shadow: 0 4px 12px rgba(10, 16, 51, 0.15); }
+        .btn-semeq-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-primary); font-weight: 500; padding: 0.55rem 1.2rem; border-radius: 6px; transition: all 0.2s ease; }
+        .btn-semeq-outline:hover { background-color: #f1f5f9; color: var(--semeq-navy); }
+        .btn-semeq-secondary { background-color: #e2e8f0; color: var(--text-primary); font-weight: 500; padding: 0.6rem 1.2rem; border-radius: 6px; border: none; margin-right: 8px; transition: all 0.2s ease; }
+        .btn-semeq-secondary:hover { background-color: #cbd5e1; color: var(--text-primary); }
+        .btn-semeq-cancel { background-color: transparent; color: var(--semeq-blue-accent); font-weight: 600; padding: 0.6rem 1.2rem; border-radius: 6px; border: 1px solid var(--semeq-blue-accent); margin-right: 8px; transition: all 0.2s ease; }
+        .btn-semeq-cancel:hover { background-color: var(--semeq-blue-accent); color: #ffffff; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2); }
 
-        .card-metric h2 {
-            font-weight: 700;
-            color: var(--semeq-navy);
-            margin: 0;
-        }
+        /* TABLES */
+        .table thead th { background-color: #f8fafc; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; border-bottom: 1px solid var(--border-color); padding: 0.8rem 1rem; }
+        .table tbody td { padding: 0.9rem 1rem; vertical-align: middle; font-size: 0.875rem; border-bottom: 1px solid var(--border-color); }
+        .badge-subtle-success { background-color: #d1fae5; color: #065f46; font-weight: 600; }
+        .badge-subtle-warning { background-color: #fef3c7; color: #92400e; font-weight: 600; }
+        .badge-subtle-primary { background-color: #dbeafe; color: #1e40af; font-weight: 600; }
 
-        .icon-card {
-            font-size: 2.5rem;
-            opacity: 0.25;
-        }
+        /* FORMS */
+        .card { border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 4px 20px rgba(10, 16, 51, 0.06); overflow: hidden; background: var(--card-bg); }
+        .card-header { background-color: var(--semeq-navy); color: #ffffff; padding: 1.25rem 1.5rem; font-weight: 600; font-size: 1.1rem; border-bottom: none; display: flex; align-items: center; justify-content: space-between; }
+        .header-brand { display: flex; align-items: center; gap: 12px; }
+        .header-brand i { font-size: 1.3rem; color: #ffffff; }
+        .section-title { color: var(--semeq-navy); font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; border-left: 4px solid var(--semeq-navy); padding-left: 10px; }
+        .form-label, label { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 0.35rem; }
+        .form-control, .form-select { border: 2px solid var(--border-color); border-radius: 6px; padding: 0.6rem 0.85rem; font-size: 0.95rem; color: var(--text-primary); background-color: #ffffff; transition: all 0.2s ease-in-out; }
+        .table-filter-row .form-select { background-image: none !important; padding-right: 0.85rem !important; }
+        .form-control:focus, .form-select:focus { border-color: var(--semeq-navy); box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15); background-color: #ffffff; }
+        .form-control[readonly] { background-color: #f1f5f9; font-weight: 600; color: var(--semeq-navy); }
+        .form-check-input:checked { background-color: var(--semeq-navy); border-color: var(--semeq-navy); }
 
-        /* BOTÕES */
-        .btn-semeq-primary {
-            background-color: var(--semeq-navy);
-            color: #ffffff;
-            font-weight: 600;
-            border: none;
-            padding: 0.55rem 1.2rem;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-        }
+        .password-input-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
+        .password-input-wrapper input[type="password"], .password-input-wrapper input[type="text"] { flex: 1 1 auto; width: 100%; min-width: 0; padding-right: 45px !important; box-sizing: border-box; }
+        .password-input-wrapper .password-toggle-btn { position: absolute !important; right: 10px !important; top: 50% !important; transform: translateY(-50%) !important; margin-left: 0 !important; height: auto !important; z-index: 2; background: transparent !important; border: none !important; padding: 0 !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 44px !important; min-height: 44px !important; color: var(--text-muted, #64748b) !important; transition: color 0.15s ease !important; }
+        .password-input-wrapper .password-toggle-btn:hover { color: var(--semeq-navy, #0a1033) !important; }
+        .password-input-wrapper .password-toggle-btn:focus, .password-input-wrapper .password-toggle-btn:active { outline: none !important; box-shadow: none !important; color: var(--text-muted, #64748b) !important; }
+        .password-input-wrapper:focus-within input { border-color: var(--semeq-navy); box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15); }
+        .password-input-wrapper .password-toggle-btn i { font-size: 1.1rem; line-height: 1; }
 
-        .btn-semeq-primary:hover {
-            background-color: var(--semeq-navy-hover);
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(10, 16, 51, 0.15);
-        }
+        hr { border-color: var(--border-color); opacity: 0.7; margin: 1.75rem 0; }
 
-        .btn-semeq-outline {
-            background-color: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            font-weight: 500;
-            padding: 0.55rem 1.2rem;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-        }
+        .btn-semeq-secondary { background-color: #e2e8f0; color: var(--text-primary); font-weight: 500; padding: 0.6rem 1.2rem; border-radius: 6px; border: none; margin-right: 8px; transition: all 0.2s ease; }
+        .btn-semeq-secondary:hover { background-color: #cbd5e1; color: var(--text-primary); }
+        .btn-semeq-cancel { background-color: transparent; color: var(--semeq-blue-accent); font-weight: 600; padding: 0.6rem 1.2rem; border-radius: 6px; border: 1px solid var(--semeq-blue-accent); margin-right: 8px; transition: all 0.2s ease; }
+        .btn-semeq-cancel:hover { background-color: var(--semeq-blue-accent); color: #ffffff; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2); }
 
-        .btn-semeq-outline:hover {
-            background-color: #f1f5f9;
-            color: var(--semeq-navy);
-        }
-
-        /* TABELA */
-        .table thead th {
-            background-color: #f8fafc;
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 600;
-            border-bottom: 1px solid var(--border-color);
-            padding: 0.8rem 1rem;
-        }
-
-        .table tbody td {
-            padding: 0.9rem 1rem;
-            vertical-align: middle;
-            font-size: 0.875rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .badge-subtle-success {
-            background-color: #d1fae5;
-            color: #065f46;
-            font-weight: 600;
-        }
-
-        .badge-subtle-warning {
-            background-color: #fef3c7;
-            color: #92400e;
-            font-weight: 600;
-        }
-
-        .badge-subtle-primary {
-            background-color: #dbeafe;
-            color: #1e40af;
-            font-weight: 600;
-        }
-
-        /* FORMULÁRIOS (apontamento) */
-        .card {
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(10, 16, 51, 0.06);
-            overflow: hidden;
-            background: var(--card-bg);
-        }
-
-        .card-header {
-            background-color: var(--semeq-navy);
-            color: #ffffff;
-            padding: 1.25rem 1.5rem;
-            font-weight: 600;
-            font-size: 1.1rem;
-            border-bottom: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-brand i {
-            font-size: 1.3rem;
-            color: #ffffff;
-        }
-
-        .section-title {
-            color: var(--semeq-navy);
-            font-weight: 700;
-            font-size: 0.95rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-left: 4px solid var(--semeq-navy);
-            padding-left: 10px;
-        }
-
-        .form-label, label {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin-bottom: 0.35rem;
-        }
-
-        .form-control, .form-select {
-            border: 2px solid var(--border-color);
-            border-radius: 6px;
-            padding: 0.6rem 0.85rem;
-            font-size: 0.95rem;
-            color: var(--text-primary);
-            background-color: #ffffff;
-            transition: all 0.2s ease-in-out;
-        }
-
-        /* Remove seta do dropdown em filtros de tabela */
-        .table-filter-row .form-select {
-            background-image: none !important;
-            padding-right: 0.85rem !important;
-        }
-
-        .form-control:focus, .form-select:focus {
-            border-color: var(--semeq-navy);
-            box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15);
-            background-color: #ffffff;
-        }
-
-        .form-control[readonly] {
-            background-color: #f1f5f9;
-            font-weight: 600;
-            color: var(--semeq-navy);
-        }
-
-        .form-check-input:checked {
-            background-color: var(--semeq-navy);
-            border-color: var(--semeq-navy);
-        }
-
-        /* ============================================================
-           PASSWORD INPUT WRAPPER - Ícone interno mobile-first
-           ============================================================ */
-        /* Torna a div pai a referência de posicionamento */
-        .password-input-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-          width: 100%;
-        }
-
-        /* Garante que o input ocupe toda a largura e não sobreponha o texto ao ícone */
-        .password-input-wrapper input[type="password"],
-        .password-input-wrapper input[type="text"] {
-          flex: 1 1 auto;
-          width: 100%;
-          min-width: 0;
-          padding-right: 45px !important; /* Espaço interno para o texto não ficar embaixo do botão */
-          box-sizing: border-box;
-        }
-
-        /* Posiciona o botão absolutamente dentro da div pai */
-        .password-input-wrapper .password-toggle-btn {
-          position: absolute !important;
-          right: 10px !important;       /* Distância da borda direita */
-          top: 50% !important;          /* Centraliza verticalmente */
-          transform: translateY(-50%) !important; /* Ajuste fino de centralização */
-          margin-left: 0 !important;   /* Remove o margin-left de 5% que estava empurrando o botão */
-          height: auto !important;
-          z-index: 2;                  /* Garante que o botão fique acima do input para receber o clique */
-          
-          /* Estilo do botão */
-          background: transparent !important;
-          border: none !important;
-          padding: 0 !important;
-          cursor: pointer !important;
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          min-width: 44px !important;
-          min-height: 44px !important;
-          color: var(--text-muted, #64748b) !important;
-          transition: color 0.15s ease !important;
-        }
-
-        /* Hover */
-        .password-input-wrapper .password-toggle-btn:hover {
-          color: var(--semeq-navy, #0a1033) !important;
-        }
-
-        /* Remove outline/focus do botão - não quer que fique "marcado" ao clicar */
-        .password-input-wrapper .password-toggle-btn:focus,
-        .password-input-wrapper .password-toggle-btn:active {
-          outline: none !important;
-          box-shadow: none !important;
-          color: var(--text-muted, #64748b) !important;
-        }
-
-        /* Focus-visible no wrapper (acessibilidade) - só no input */
-        .password-input-wrapper:focus-within input {
-          border-color: var(--semeq-navy);
-          box-shadow: 0 0 0 0.3rem rgba(10, 16, 51, 0.15);
-        }
-
-        /* Ícone tamanho consistente */
-        .password-input-wrapper .password-toggle-btn i {
-          font-size: 1.1rem;
-          line-height: 1;
-        }
-
-        /* Dark mode: variáveis CSS já resolvem automaticamente */
-
-        hr {
-            border-color: var(--border-color);
-            opacity: 0.7;
-            margin: 1.75rem 0;
-        }
-
-        .btn-semeq-secondary {
-            background-color: #e2e8f0;
-            color: var(--text-primary);
-            font-weight: 500;
-            padding: 0.6rem 1.2rem;
-            border-radius: 6px;
-            border: none;
-            margin-right: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-semeq-secondary:hover {
-            background-color: #cbd5e1;
-            color: var(--text-primary);
-        }
-
-        /* Botão Cancelar: fundo transparente + texto azul escuro (cor da página) */
-        .btn-semeq-cancel {
-            background-color: transparent;
-            color: var(--semeq-blue-accent);
-            font-weight: 600;
-            padding: 0.6rem 1.2rem;
-            border-radius: 6px;
-            border: 1px solid var(--semeq-blue-accent);
-            margin-right: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-semeq-cancel:hover {
-            background-color: var(--semeq-blue-accent);
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2);
-        }
-
-        /* LOGIN PAGE */
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: var(--bg-body);
-        }
-
-        .login-card {
-            width: 100%;
-            max-width: 420px;
-            padding: 2.5rem;
-        }
-
-        .login-brand {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .login-brand i {
-            font-size: 3rem;
-            color: var(--semeq-navy);
-            margin-bottom: 0.75rem;
-        }
-
-        .login-brand h4 {
-            color: var(--semeq-navy);
-            font-weight: 700;
-            font-size: 1.25rem;
-            letter-spacing: 1px;
-            margin: 0;
-        }
-
-        .login-brand small {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
+        /* LOGIN */
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: var(--bg-body); }
+        .login-card { width: 100%; max-width: 420px; padding: 2.5rem; }
+        .login-brand { text-align: center; margin-bottom: 2rem; }
+        .login-brand i { font-size: 3rem; color: var(--semeq-navy); margin-bottom: 0.75rem; }
+        .login-brand h4 { color: var(--semeq-navy); font-weight: 700; font-size: 1.25rem; letter-spacing: 1px; margin: 0; }
+        .login-brand small { color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.5px; text-transform: uppercase; }
 
         /* RESPONSIVE */
         @media (max-width: 991.98px) {
-            .sidebar {
-                position: fixed;
-                top: 0;
-                left: -100%;
-                z-index: 1050;
-                width: 260px;
-                transition: left 0.3s ease;
-            }
-            .sidebar.show {
-                left: 0;
-            }
-            .sidebar-overlay {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.5);
-                z-index: 1040;
-            }
-            .sidebar-overlay.show {
-                display: block;
-            }
+            .sidebar { position: fixed; top: 0; left: -100%; z-index: 1050; width: 260px; transition: left 0.3s ease; }
+            .sidebar.show { left: 0; }
+            .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1040; }
+            .sidebar-overlay.show { display: block; }
         }
     </style>
 
@@ -827,88 +316,72 @@
     <!-- Sidebar Overlay for Mobile -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <div class="container-fluid p-0">
-        <div class="row g-0">
-            <!-- MENU LATERAL (SIDEBAR) -->
-            <div class="col-md-2 sidebar p-0" id="sidebar">
-                <div class="sidebar-brand">
-                    <h4>
-                        <i class="bi bi-shield-check me-1"></i>
-                        SEMEQ
-                    </h4>
-                    <span class="text-white-50 small" style="font-size: 0.72rem; letter-spacing: 0.5px;">SUPPORT PORTAL</span>
-                </div>
-
-                <div class="sidebar-nav">
-                    <a href="{% url 'semeq:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                        <i class="bi bi-speedometer2"></i> Dashboard
-                    </a>
-                    <a href="{% url 'semeq:apontamento_lista' %}" class="{% if request.resolver_match.url_name == 'apontamento_lista' %}active{% endif %}">
-                        <i class="bi bi-journal-text"></i> Apontamentos
-                    </a>
-                    {% if request.user.is_superuser or request.user.perfil.is_gestor_or_above %}
-                    <a href="{% url 'semeq:cadastros_unificada' %}" class="{% if request.resolver_match.url_name == 'cadastros_unificada' %}active{% endif %}">
-                        <i class="bi bi-grid-3x3-gap"></i> Cadastros
-                    </a>
-                    {% endif %}
-                    <a href="{% url 'semeq:configuracoes' %}" class="{% if request.resolver_match.url_name == 'configuracoes' %}active{% endif %}">
-                        <i class="bi bi-gear"></i> Configurações
-                    </a>
-                    <a href="{% url 'semeq:logout' %}" class="{% if request.resolver_match.url_name == 'logout' %}active{% endif %}">
-                        <i class="bi bi-box-arrow-right"></i> Sair
-                    </a>
-                </div>
-
-                <!-- botao tema escuro -->
-               <!-- <div class="p-3 mt-auto" style="border-top: 1px solid rgba(255,255,255,0.08);">
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" id="sidebarTemaToggle" {% if request.user.perfil.tema_preferido == 'dark' %}checked{% endif %}>
-                        <label class="form-check-label text-white small" for="sidebarTemaToggle">
-                            <i class="bi bi-moon-stars me-2"></i> Tema Escuro
-                        </label>
-                    </div>
-                </div>-->
+    <div class="wrapper">
+        <!-- SIDEBAR -->
+        <aside class="sidebar p-0 collapsed" id="sidebar">
+            <div class="sidebar-brand d-flex align-items-center justify-content-center py-3">
+                <i class="bi bi-shield-check fs-2 text-white logo-icon"></i>
+                <span class="logo-text fw-bold fs-4 ms-2 text-white">SEMEQ</span>
             </div>
+            <span class="text-white-50 small logo-subtitle" style="font-size: 0.72rem; letter-spacing: 0.5px; display: block; text-align: center; padding: 0 1rem;">SUPPORT PORTAL</span>
 
-            <!-- CONTEÚDO PRINCIPAL -->
-            <div class="col-md-10">
-                <!-- NAVBAR SUPERIOR -->
-                <nav class="navbar navbar-expand-lg navbar-custom">
-                    <div class="container-fluid p-0">
-                        <button class="btn btn-link text-dark p-0 me-3 d-md-none" type="button" id="sidebarToggle">
-                            <i class="bi bi-list fs-4"></i>
-                        </button>
-                        <span class="navbar-brand-text">
-                            <i class="bi bi-headset me-2 text-secondary"></i>
-                            Sistema de Gestão de Suporte - SEMEQ
-                        </span>
-
-                        <div class="d-flex align-items-center gap-2 ms-auto">
-                            <i class="bi bi-person-circle fs-5 text-secondary"></i>
-                            <span class="fw-semibold text-dark small">{{ request.user.get_full_name|default:request.user.username }}</span>
-                            {% if request.user.is_superuser %}
-                            <span class="badge bg-danger text-white small ms-1">Admin</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </nav>
-
-                <!-- CONTEÚDO DINÂMICO -->
-                <main class="p-4">
-                    {% if messages %}
-                    <div class="mb-4">
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% block content %}
-                    {% endblock %}
-                </main>
+            <div class="sidebar-nav">
+                <a href="{% url 'semeq:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <i class="bi bi-speedometer2"></i> <span class="sidebar-text">Dashboard</span>
+                </a>
+                <a href="{% url 'semeq:apontamento_lista' %}" class="{% if request.resolver_match.url_name == 'apontamento_lista' %}active{% endif %}">
+                    <i class="bi bi-journal-text"></i> <span class="sidebar-text">Apontamentos</span>
+                </a>
+                {% if request.user.is_superuser or request.user.perfil and request.user.perfil.is_gestor %}
+                <a href="{% url 'semeq:cadastros_unificada' %}" class="{% if request.resolver_match.url_name == 'cadastros_unificada' %}active{% endif %}">
+                    <i class="bi bi-grid-3x3-gap"></i> <span class="sidebar-text">Cadastros</span>
+                </a>
+                {% endif %}
+                <a href="{% url 'semeq:configuracoes' %}" class="{% if request.resolver_match.url_name == 'configuracoes' %}active{% endif %}">
+                    <i class="bi bi-gear"></i> <span class="sidebar-text">Configurações</span>
+                </a>
+                <a href="{% url 'semeq:logout' %}" class="{% if request.resolver_match.url_name == 'logout' %}active{% endif %}">
+                    <i class="bi bi-box-arrow-right"></i> <span class="sidebar-text">Sair</span>
+                </a>
             </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- TOP NAVBAR -->
+            <nav class="navbar navbar-expand-lg navbar-custom">
+                <div class="container-fluid p-0">
+                    <button class="btn btn-link text-dark p-0 me-3" type="button" id="sidebarToggle" title="Alternar menu lateral">
+                        <i class="bi bi-list fs-4"></i>
+                    </button>
+                    <span class="navbar-brand-text">
+                        <i class="bi bi-headset me-2 text-secondary"></i>
+                        Sistema de Gestão de Suporte - SEMEQ
+                    </span>
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <i class="bi bi-person-circle fs-5 text-secondary"></i>
+                        <span class="fw-semibold text-dark small">{{ request.user.get_full_name|default:request.user.username }}</span>
+                        {% if request.user.is_superuser %}
+                        <span class="badge bg-danger text-white small ms-1">Admin</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </nav>
+
+            <!-- PAGE CONTENT -->
+            <main class="p-4">
+                {% if messages %}
+                <div class="mb-4">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% block content %}{% endblock %}
+            </main>
         </div>
     </div>
 
@@ -920,28 +393,17 @@
             constructor(selectElement) {
                 this.select = selectElement;
                 this.options = Array.from(selectElement.options).map(opt => ({
-                    value: opt.value,
-                    text: opt.text,
-                    selected: opt.selected,
-                    disabled: opt.disabled
+                    value: opt.value, text: opt.text, selected: opt.selected, disabled: opt.disabled
                 }));
                 this.filteredOptions = [...this.options];
-                this.isOpen = false;
-                this.highlightedIndex = -1;
-                
+                this.isOpen = false; this.highlightedIndex = -1;
                 this.init();
             }
-            
             init() {
-                // Hide original select
                 this.select.style.display = 'none';
-                
-                // Create wrapper
                 this.wrapper = document.createElement('div');
                 this.wrapper.className = 'searchable-select-wrapper';
                 this.select.parentNode.insertBefore(this.wrapper, this.select.nextSibling);
-                
-                // Create input
                 this.input = document.createElement('input');
                 this.input.type = 'text';
                 this.input.className = 'form-control searchable-select-input';
@@ -949,261 +411,88 @@
                 this.input.setAttribute('autocomplete', 'off');
                 this.input.tabIndex = this.select.tabIndex || 0;
                 this.wrapper.appendChild(this.input);
-                
-                // Create dropdown
                 this.dropdown = document.createElement('div');
                 this.dropdown.className = 'searchable-select-dropdown';
                 this.wrapper.appendChild(this.dropdown);
-                
-                // Set selected value display
                 this.updateInputDisplay();
-                
-                // Events
                 this.input.addEventListener('focus', () => this.open());
                 this.input.addEventListener('blur', () => setTimeout(() => this.close(), 150));
                 this.input.addEventListener('input', (e) => this.filter(e.target.value));
                 this.input.addEventListener('keydown', (e) => this.handleKeydown(e));
-                
-                // Click outside to close
-                document.addEventListener('click', (e) => {
-                    if (!this.wrapper.contains(e.target)) {
-                        this.close();
-                    }
-                });
-                
-                // Sync original select changes
+                document.addEventListener('click', (e) => { if (!this.wrapper.contains(e.target)) this.close(); });
                 this.select.addEventListener('change', () => this.syncFromSelect());
             }
-            
-            updateInputDisplay() {
-                const selected = this.options.find(o => o.value === this.select.value);
-                this.input.value = selected ? selected.text : '';
-            }
-            
-            syncFromSelect() {
-                this.options = Array.from(this.select.options).map(opt => ({
-                    value: opt.value,
-                    text: opt.text,
-                    selected: opt.selected,
-                    disabled: opt.disabled
-                }));
-                this.filteredOptions = [...this.options];
-                this.updateInputDisplay();
-                this.renderDropdown();
-            }
-            
-            open() {
-                if (this.isOpen) return;
-                this.isOpen = true;
-                this.highlightedIndex = -1;
-                this.dropdown.classList.add('show');
-                this.input.setAttribute('aria-expanded', 'true');
-                this.filter(this.input.value);
-            }
-            
-            close() {
-                if (!this.isOpen) return;
-                this.isOpen = false;
-                this.dropdown.classList.remove('show');
-                this.input.setAttribute('aria-expanded', 'false');
-                this.highlightedIndex = -1;
-            }
-            
-            filter(query) {
-                const q = query.toLowerCase().trim();
-                if (!q) {
-                    this.filteredOptions = this.options.filter(o => !o.disabled);
-                } else {
-                    this.filteredOptions = this.options.filter(o => 
-                        !o.disabled && o.text.toLowerCase().includes(q)
-                    );
-                }
-                this.highlightedIndex = -1;
-                this.renderDropdown();
-            }
-            
-            renderDropdown() {
-                this.dropdown.innerHTML = '';
-                
-                if (this.filteredOptions.length === 0) {
-                    const empty = document.createElement('div');
-                    empty.className = 'searchable-select-empty';
-                    empty.textContent = 'Nenhuma opção encontrada';
-                    this.dropdown.appendChild(empty);
-                    return;
-                }
-                
-                this.filteredOptions.forEach((opt, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'searchable-select-item';
-                    item.textContent = opt.text;
-                    item.dataset.value = opt.value;
-                    if (opt.selected) item.classList.add('selected');
-                    if (index === this.highlightedIndex) item.classList.add('highlighted');
-                    
-                    item.addEventListener('mousedown', (e) => {
-                        e.preventDefault();
-                        this.selectOption(opt.value);
-                    });
-                    
-                    this.dropdown.appendChild(item);
-                });
-            }
-            
-            handleKeydown(e) {
-                if (!this.isOpen && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) {
-                    e.preventDefault();
-                    this.open();
-                    return;
-                }
-                
-                switch (e.key) {
-                    case 'ArrowDown':
-                        e.preventDefault();
-                        this.highlightNext();
-                        break;
-                    case 'ArrowUp':
-                        e.preventDefault();
-                        this.highlightPrev();
-                        break;
-                    case 'Enter':
-                        e.preventDefault();
-                        if (this.highlightedIndex >= 0) {
-                            this.selectOption(this.filteredOptions[this.highlightedIndex].value);
-                        }
-                        break;
-                    case 'Escape':
-                        this.close();
-                        break;
-                }
-            }
-            
-            highlightNext() {
-                if (this.highlightedIndex < this.filteredOptions.length - 1) {
-                    this.highlightedIndex++;
-                    this.renderDropdown();
-                    this.scrollHighlighted();
-                }
-            }
-            
-            highlightPrev() {
-                if (this.highlightedIndex > 0) {
-                    this.highlightedIndex--;
-                    this.renderDropdown();
-                    this.scrollHighlighted();
-                }
-            }
-            
-            scrollHighlighted() {
-                const item = this.dropdown.querySelector('.searchable-select-item.highlighted');
-                if (item) {
-                    item.scrollIntoView({ block: 'nearest' });
-                }
-            }
-            
-            selectOption(value) {
-                this.select.value = value;
-                this.select.dispatchEvent(new Event('change', { bubbles: true }));
-                this.updateInputDisplay();
-                this.close();
-                this.input.focus();
-            }
+            updateInputDisplay() { const selected = this.options.find(o => o.value === this.select.value); this.input.value = selected ? selected.text : ''; }
+            syncFromSelect() { this.options = Array.from(this.select.options).map(opt => ({ value: opt.value, text: opt.text, selected: opt.selected, disabled: opt.disabled })); this.filteredOptions = [...this.options]; this.updateInputDisplay(); this.renderDropdown(); }
+            open() { if (this.isOpen) return; this.isOpen = true; this.highlightedIndex = -1; this.dropdown.classList.add('show'); this.input.setAttribute('aria-expanded', 'true'); this.filter(this.input.value); }
+            close() { if (!this.isOpen) return; this.isOpen = false; this.dropdown.classList.remove('show'); this.input.setAttribute('aria-expanded', 'false'); this.highlightedIndex = -1; }
+            filter(query) { const q = query.toLowerCase().trim(); if (!q) { this.filteredOptions = this.options.filter(o => !o.disabled); } else { this.filteredOptions = this.options.filter(o => !o.disabled && o.text.toLowerCase().includes(q)); } this.highlightedIndex = -1; this.renderDropdown(); }
+            renderDropdown() { this.dropdown.innerHTML = ''; if (this.filteredOptions.length === 0) { const empty = document.createElement('div'); empty.className = 'searchable-select-empty'; empty.textContent = 'Nenhuma opção encontrada'; this.dropdown.appendChild(empty); return; } this.filteredOptions.forEach((opt, index) => { const item = document.createElement('div'); item.className = 'searchable-select-item'; item.textContent = opt.text; item.dataset.value = opt.value; if (opt.selected) item.classList.add('selected'); if (index === this.highlightedIndex) item.classList.add('highlighted'); item.addEventListener('mousedown', (e) => { e.preventDefault(); this.selectOption(opt.value); }); this.dropdown.appendChild(item); }); }
+            handleKeydown(e) { if (!this.isOpen && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); this.open(); return; } switch (e.key) { case 'ArrowDown': e.preventDefault(); this.highlightNext(); break; case 'ArrowUp': e.preventDefault(); this.highlightPrev(); break; case 'Enter': e.preventDefault(); if (this.highlightedIndex >= 0) this.selectOption(this.filteredOptions[this.highlightedIndex].value); break; case 'Escape': this.close(); break; } }
+            highlightNext() { if (this.highlightedIndex < this.filteredOptions.length - 1) { this.highlightedIndex++; this.renderDropdown(); this.scrollHighlighted(); } }
+            highlightPrev() { if (this.highlightedIndex > 0) { this.highlightedIndex--; this.renderDropdown(); this.scrollHighlighted(); } }
+            scrollHighlighted() { const item = this.dropdown.querySelector('.searchable-select-item.highlighted'); if (item) item.scrollIntoView({ block: 'nearest' }); }
+            selectOption(value) { this.select.value = value; this.select.dispatchEvent(new Event('change', { bubbles: true })); this.updateInputDisplay(); this.close(); this.input.focus(); }
         }
-        
-        // Auto-initialize all selects with data-searchable="true"
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('select[data-searchable="true"]').forEach(select => {
-                new SearchableSelect(select);
-            });
-        });
+        document.addEventListener('DOMContentLoaded', function() { document.querySelectorAll('select[data-searchable="true"]').forEach(select => { new SearchableSelect(select); }); });
 
         // ==================== PERMISSÃO NEGADA MODAL ====================
-        window.showPermissaoNegada = function(message) {
-            const modalEl = document.getElementById('modalPermissaoNegada');
-            if (modalEl) {
-                const msgEl = document.getElementById('modalPermissaoNegadaMsg');
-                if (msgEl) msgEl.textContent = message || 'Você não tem permissão para realizar esta ação.';
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-            }
-        };
-
-        // Handle 403 responses from AJAX
+        window.showPermissaoNegada = function(message) { const modalEl = document.getElementById('modalPermissaoNegada'); if (modalEl) { const msgEl = document.getElementById('modalPermissaoNegadaMsg'); if (msgEl) msgEl.textContent = message || 'Você não tem permissão para realizar esta ação.'; const modal = bootstrap.Modal.getOrCreateInstance(modalEl); modal.show(); } };
         document.addEventListener('DOMContentLoaded', function() {
-            // Intercept fetch/XHR for 403
             const originalFetch = window.fetch;
-            window.fetch = function(...args) {
-                return originalFetch.apply(this, args).then(response => {
-                    if (response.status === 403) {
-                        response.clone().json().then(data => {
-                            if (data.message) {
-                                window.showPermissaoNegada(data.message);
-                            } else {
-                                window.showPermissaoNegada('Ação não permitida. Você só pode alterar os seus próprios apontamentos.');
-                            }
-                        }).catch(() => {
-                            window.showPermissaoNegada('Ação não permitida. Você só pode alterar os seus próprios apontamentos.');
-                        });
-                    }
-                    return response;
-                });
-            };
+            window.fetch = function(...args) { return originalFetch.apply(this, args).then(response => { if (response.status === 403) { response.clone().json().then(data => { if (data.message) window.showPermissaoNegada(data.message); else window.showPermissaoNegada('Ação não permitida. Você só pode alterar os seus próprios apontamentos.'); }).catch(() => window.showPermissaoNegada('Ação não permitida. Você só pode alterar os seus próprios apontamentos.')); } return response; }); };
         });
 
         // ==================== SIDEBAR TOGGLE ====================
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
-
+        const SIDEBAR_COLLAPSED_KEY = 'sidebar_collapsed';
+        const isMobile = () => window.innerWidth < 992;
+        if (!isMobile()) { const collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY); if (collapsed === null ? true : collapsed === 'true') sidebar.classList.add('collapsed'); else sidebar.classList.remove('collapsed'); }
         if (sidebarToggle && sidebar && overlay) {
             sidebarToggle.addEventListener('click', () => {
-                sidebar.classList.toggle('show');
-                overlay.classList.toggle('show');
+                if (isMobile()) { sidebar.classList.toggle('show'); overlay.classList.toggle('show'); }
+                else { const isCollapsed = sidebar.classList.toggle('collapsed'); localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed); }
             });
-
-            overlay.addEventListener('click', () => {
-                sidebar.classList.remove('show');
-                overlay.classList.remove('show');
-            });
+            overlay.addEventListener('click', () => { sidebar.classList.remove('show'); overlay.classList.remove('show'); });
         }
-
-        // Auto-hide sidebar on link click (mobile)
-        document.querySelectorAll('.sidebar a').forEach(link => {
-            link.addEventListener('click', () => {
-                if (window.innerWidth < 992) {
-                    sidebar.classList.remove('show');
-                    overlay.classList.remove('show');
-                }
-            });
-        });
+        let resizeTimer;
+        window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (isMobile()) sidebar.classList.remove('collapsed'); }, 100); });
+        document.querySelectorAll('.sidebar a').forEach(link => { link.addEventListener('click', () => { if (isMobile()) { sidebar.classList.remove('show'); overlay.classList.remove('show'); } }); });
 
         // ==================== TEMA CLARO/ESCURO ====================
         (function () {
-            function getCsrfToken() {
-                const meta = document.querySelector('meta[name="csrf-token"]');
-                if (meta) return meta.getAttribute('content');
-                const match = document.cookie.match(/(^|;)\s*csrftoken\s*=\s*([^;]+)/);
-                return match ? match.pop() : '';
-            }
-            function aplicarTema(tema) {
-                document.documentElement.setAttribute('data-theme', tema);
-            }
+            function getCsrfToken() { const meta = document.querySelector('meta[name="csrf-token"]'); if (meta) return meta.getAttribute('content'); const match = document.cookie.match(/(^|;)\s*csrftoken\s*=\s*([^;]+)/); return match ? match.pop() : ''; }
+            function aplicarTema(tema) { document.documentElement.setAttribute('data-theme', tema); }
             const temaToggle = document.getElementById('sidebarTemaToggle');
-            if (temaToggle) {
-                temaToggle.addEventListener('change', function () {
-                    const tema = this.checked ? 'dark' : 'light';
-                    aplicarTema(tema);
-                    fetch('/configuracoes/tema/', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCsrfToken(),
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ tema: tema })
-                    }).catch(function () { aplicarTema(tema === 'dark' ? 'light' : 'dark'); });
-                });
-            }
+            if (temaToggle) { temaToggle.addEventListener('change', function () { const tema = this.checked ? 'dark' : 'light'; aplicarTema(tema); fetch('/configuracoes/tema/', { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken(), 'Content-Type': 'application/json' }, body: JSON.stringify({ tema: tema }) }).catch(function () { aplicarTema(tema === 'dark' ? 'light' : 'dark'); }); }); }
         })();
+    </script>
+
+    <!-- IMMEDIATE DEBUG SCRIPT -->
+    <script>
+    console.log('=== BASE.HTML LOADED ===');
+    console.log('Current URL:', window.location.href);
+    console.log('Document readyState:', document.readyState);
+    
+    // Check for any global error handlers
+    window.addEventListener('error', function(e) {
+        console.error('GLOBAL JS ERROR:', e.message, e.filename, e.lineno, e.colno, e.error);
+    });
+    
+    window.addEventListener('unhandledrejection', function(e) {
+        console.error('UNHANDLED REJECTION:', e.reason);
+    });
+    
+    // Check forms on the page
+    document.addEventListener('DOMContentLoaded', function() {
+        var forms = document.querySelectorAll('form');
+        console.log('Forms on page:', forms.length);
+        forms.forEach(function(f, i) {
+            console.log('Form ' + i + ':', f.id, f.action, f.method);
+        });
+    });
     </script>
 
     <!-- Modal Permissão Negada -->
@@ -1211,22 +500,14 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="modalPermissaoNegadaLabel">
-                        <i class="bi bi-shield-exclamation me-2"></i> Ação Não Permitida
-                    </h5>
+                    <h5 class="modal-title" id="modalPermissaoNegadaLabel"><i class="bi bi-shield-exclamation me-2"></i> Ação Não Permitida</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body text-center p-4">
-                    <div class="mb-3">
-                        <i class="bi bi-x-circle-fill text-danger" style="font-size: 4rem;"></i>
-                    </div>
+                    <div class="mb-3"><i class="bi bi-x-circle-fill text-danger" style="font-size: 4rem;"></i></div>
                     <h6 class="fw-bold mb-2">Acesso Restrito</h6>
-                    <p class="text-muted mb-4" id="modalPermissaoNegadaMsg">
-                        Você não tem permissão para realizar esta ação.
-                    </p>
-                    <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal">
-                        <i class="bi bi-check-lg me-1"></i> Entendi
-                    </button>
+                    <p class="text-muted mb-4" id="modalPermissaoNegadaMsg">Você não tem permissão para realizar esta ação.</p>
+                    <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal"><i class="bi bi-check-lg me-1"></i> Entendi</button>
                 </div>
             </div>
         </div>

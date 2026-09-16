@@ -51,6 +51,13 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
                         <label class="form-label">{{ form.equipe.label }} <span class="text-danger">*</span></label>
+                        {% if request.user.perfil.equipe %}
+                            <input type="text" class="form-control bg-light" value="{{ request.user.perfil.equipe.nome }}" readonly>
+                            <input type="hidden" name="equipe" value="{{ request.user.perfil.equipe.id }}">
+                        {% else %}
+                            <input type="text" class="form-control bg-light" value="Sem Equipe Definida" readonly>
+                            <input type="hidden" name="equipe" value="">
+                        {% endif %}
                         {{ form.equipe }}
                         {% if form.equipe.errors %}<div class="text-danger small mt-1">{{ form.equipe.errors }}</div>{% endif %}
                     </div>

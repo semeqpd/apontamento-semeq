@@ -121,10 +121,14 @@ def calculate_kpis(qs: QuerySet) -> dict[str, Any]:
     total_minutos = ap_qs.aggregate(total=Sum('tempo_investido_minutos'))['total'] or 0
     horas_str = f"{total_minutos // 60}h {total_minutos % 60}m"
 
-    em_aberto = qs.filter(apontamento__status__status='aberto').count()
+    em_aberto = qs.filter(apontamento__status__status__iexact='aberto').count()
 
-    concluidos = qs.filter(apontamento__status__status='concluido').count()
-    total_status = qs.exclude(apontamento__status__status='cancelado').count()
+    # Case-insensitive match for CONCLUIDO/CONCLUÍDO variations
+    concluidos = qs.filter(
+        Q(apontamento__status__status__iexact='concluido') | 
+        Q(apontamento__status__status__iexact='concluído')
+    ).count()
+    total_status = qs.exclude(apontamento__status__status__iexact='cancelado').count()
     sla_pct = round((concluidos / total_status * 100), 1) if total_status > 0 else 0
 
     return {
@@ -147,7 +151,7 @@ def get_daily_compliance(qs: QuerySet) -> list[dict]:
     from django.db.models import Count
     daily = month_qs.values('data').annotate(
         total=Count('id'),
-        concluidos=Count('id', filter=Q(apontamento__status__status='concluido'))
+        concluidos=Count('id', filter=Q(apontamento__status__status__iexact='concluido') | Q(apontamento__status__status__iexact='concluído'))
     ).order_by('data')
     
     result = []

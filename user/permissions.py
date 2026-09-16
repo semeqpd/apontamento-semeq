@@ -254,9 +254,34 @@ def can_delete_user(user, target_user) -> bool:
     """
     Check if user can delete another user.
     
-    Same rules as can_edit_user.
+    - Admin: can delete anyone (except self)
+    - Gestor: can delete anyone (except self)
+    - Líder: can delete users in same equipe
+    - Colaborador: cannot delete anyone
     """
-    return can_edit_user(user, target_user)
+    if not user.is_authenticated:
+        return False
+    
+    if user == target_user:
+        return False  # Users cannot delete themselves
+    
+    perfil = get_user_perfil(user)
+    if not perfil or not perfil.ativo:
+        return False
+    
+    if is_admin(user):
+        return True
+    
+    if is_gestor(user):
+        # Gestor can delete anyone except self
+        return True
+    
+    if is_lider(user):
+        target_perfil = get_user_perfil(target_user)
+        if target_perfil and target_perfil.equipe_id == perfil.equipe_id:
+            return True
+    
+    return False
 
 
 def can_promote_to_role(user, target_role: str) -> bool:

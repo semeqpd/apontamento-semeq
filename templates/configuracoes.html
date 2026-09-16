@@ -31,7 +31,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label text-muted small">Time/Equipe</label>
-                        <input class="form-control" value="{% if request.user.perfil and request.user.perfil.time %}{{ request.user.perfil.time.nome }}{% else %}—{% endif %}" readonly>
+                        <input class="form-control" value="{% if request.user.perfil and request.user.perfil.equipe %}{{ request.user.perfil.equipe.nome }}{% else %}—{% endif %}" readonly>
                     </div>
                 </div>
 

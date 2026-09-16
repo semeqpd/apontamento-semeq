@@ -73,20 +73,60 @@ def HomeView(request):
 class DashboardView(LoginRequiredMixin, View):
     def get(self, request):
         perfil = getattr(request.user, 'perfil', None)
+        user = request.user
+
+        # Check if user can filter (Admin, Gestor, Lider)
+        pode_filtrar = user.is_superuser or (perfil and perfil.role in ['admin', 'gestor', 'lider'])
+
+        # Get base queryset
         qs = get_dashboard_queryset(request, perfil)
+
+        # Apply filters if user has permission
+        if pode_filtrar:
+            equipe_id = request.GET.get('equipe')
+            colaborador_id = request.GET.get('colaborador')
+
+            if equipe_id:
+                qs = qs.filter(apontamento__equipe_id=equipe_id)
+
+            if colaborador_id:
+                qs = qs.filter(responsavel_id=colaborador_id)
+
+        # Calculate KPIs on filtered queryset
         kpis = calculate_kpis(qs)
         daily_compliance = get_daily_compliance(qs)
-        
+
         # FORCE ordering at the very end of pipeline (most recent first)
         qs = qs.order_by('-data', '-hora_inicial')
-        
+
         # Group by day for ALL appointments in current month
         agrupados, totais = agrupar_por_data(qs)
+
+        # Get filter options
+        from .models import Equipe
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        equipes = Equipe.objects.filter(ativo=True).order_by('ordem', 'nome') if pode_filtrar else []
         
+        # Cascading filter: if equipe is selected, filter colaboradores by that equipe
+        equipe_id = request.GET.get('equipe') if pode_filtrar else None
+        if equipe_id:
+            colaboradores = User.objects.filter(
+                perfil__ativo=True, 
+                is_active=True, 
+                perfil__equipe_id=equipe_id
+            ).select_related('perfil').order_by('first_name', 'last_name')
+        else:
+            colaboradores = User.objects.filter(
+                perfil__ativo=True, 
+                is_active=True
+            ).select_related('perfil').order_by('first_name', 'last_name') if pode_filtrar else []
+
         # Status choices for dropdown
         status_choices = [(s.pk, s.status) for s in Status.objects.filter(ativo=True).order_by('ordem', 'status')]
         lista_status = list(Status.objects.filter(ativo=True).order_by('ordem', 'status'))
-        
+
         context = {
             'perfil': perfil,
             'total_hoje': kpis['total_hoje'],
@@ -100,6 +140,10 @@ class DashboardView(LoginRequiredMixin, View):
             # Status choices for dropdown
             'status_choices': status_choices,
             'lista_status': lista_status,
+            # Filter options
+            'pode_filtrar': pode_filtrar,
+            'equipes': equipes,
+            'colaboradores': colaboradores,
             # Botão Voltar - Dashboard não tem botão voltar
             'hide_back_button': True,
         }
@@ -189,11 +233,13 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         obj = self.get_object()
-        if not pode_editar(obj):
-            messages.error(request, 'Não é possível editar um apontamento com status "Concluído".')
-            return redirect('semeq:apontamento_lista')
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f'[ApontamentoUpdateView] Dispatch - User: {request.user} (ID: {request.user.id}), Apontamento: {obj.pk}, Responsavel: {obj.responsavel_id}, Status: {obj.status}')
+        
         # Use permission function (admin/gestor can edit any, others only own)
         if not can_edit_apontamento(request.user, obj):
+            logger.warning(f'[ApontamentoUpdateView] Blocked by can_edit_apontamento - User: {request.user.id}, Apontamento Responsavel: {obj.responsavel_id}')
             messages.error(request, 'Ação não permitida. Você só pode editar os seus próprios apontamentos.')
             return redirect('semeq:apontamento_lista')
         return super().dispatch(request, *args, **kwargs)
@@ -201,7 +247,12 @@ class ApontamentoUpdateView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         # REGRA ESTRITA: responsavel SEMPRE é o usuário logado
         form.instance.responsavel = self.request.user
-        atualizar_apontamento(self.object, **form.cleaned_data)
+        
+        # Filter out form-only fields that don't exist on the model
+        cleaned_data = {k: v for k, v in form.cleaned_data.items() 
+                       if k not in ('outro_equipamento_descricao', 'outro_atividade', 'outro_tipo_problema')}
+        
+        atualizar_apontamento(self.object, **cleaned_data)
         messages.success(self.request, 'Apontamento atualizado com sucesso!')
         return redirect(self.get_success_url())
 
@@ -486,7 +537,7 @@ class ApontamentoCreateView(LoginRequiredMixin, CreateView):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['cliente_queryset'] = Cliente.objects.all().order_by('corporation', 'plant')
@@ -509,12 +560,20 @@ class ApontamentoCreateView(LoginRequiredMixin, CreateView):
         
         form.instance.criado_por = self.request.user
         
-        # Ensure responsavel is set (for non-gestor users, it's hidden and defaults to current user)
+        # Ensure responsavel is set
         if not form.instance.responsavel_id:
             form.instance.responsavel = self.request.user
             logger.info(f'[ApontamentoCreateView] Responsavel não definido, usando usuário atual: {self.request.user}')
         else:
             logger.info(f'[ApontamentoCreateView] Responsavel já definido: {form.instance.responsavel}')
+        
+        # SEMPRE atribui a equipe do usuário logado (não permite escolha)
+        user_perfil = getattr(self.request.user, 'perfil', None)
+        if user_perfil and user_perfil.equipe:
+            form.instance.equipe = user_perfil.equipe
+            logger.info(f'[ApontamentoCreateView] Equipe FORÇADA para: {user_perfil.equipe}')
+        else:
+            logger.warning(f'[ApontamentoCreateView] Usuário sem equipe definida!')
         
         with transaction.atomic():
             # Save the Apontamento first
@@ -559,23 +618,6 @@ class ApontamentoCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class ApontamentoUpdateView(ApontamentoPermissionMixin, UpdateView):
-    model = Apontamento
-    form_class = ApontamentoForm
-    template_name = 'apontamentos/form.html'
-    success_url = reverse_lazy('semeq:apontamento_lista')
-    context_object_name = 'object'
-    
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['user'] = self.request.user
-        return kwargs
-    
-    def form_valid(self, form):
-        messages.success(self.request, 'Apontamento atualizado com sucesso!')
-        return super().form_valid(form)
-
-
 class ApontamentoDetailViewAdmin(ApontamentoPermissionMixin, DetailView):
     model = Apontamento
     template_name = 'apontamentos/detail.html'
@@ -606,7 +648,7 @@ class ApontamentoTempoCreateView(LoginRequiredMixin, CreateView):
         kwargs['apontamento'] = self.apontamento
         kwargs['user'] = self.request.user
         return kwargs
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamento'] = self.apontamento
@@ -641,7 +683,7 @@ class ApontamentoTempoUpdateView(LoginRequiredMixin, UpdateView):
         kwargs['apontamento'] = self.object.apontamento
         kwargs['user'] = self.request.user
         return kwargs
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamento'] = self.object.apontamento
@@ -666,7 +708,7 @@ class ApontamentoTempoDeleteView(LoginRequiredMixin, DeleteView):
             messages.error(request, 'Ação não permitida. Você só pode excluir os seus próprios apontamentos.')
             return redirect('semeq:apontamento_detalhe', pk=obj.apontamento.pk)
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamento'] = self.object.apontamento
@@ -736,7 +778,7 @@ class ClienteListView(LoginRequiredMixin, ListView):
             qs = qs.filter(zone__icontains=zone)
         
         return qs.order_by('-criado_em')
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
@@ -801,7 +843,7 @@ class ClienteDeleteView(ClientePermissionMixin, DeleteView):
         # Check for related apontamentos
         self.apontamentos_count = self.object.apontamentos.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -1278,7 +1320,7 @@ class UsuarioListView(UsuarioPermissionMixin, ListView):
             qs = qs.filter(perfil__equipe_id=equipe_id)
         
         return qs.order_by('-perfil__criado_em')
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['roles'] = PerfilUsuario.ROLE_CHOICES
@@ -1308,6 +1350,7 @@ class UsuarioCreateView(UsuarioPermissionMixin, CreateView):
         with transaction.atomic():
             # Let the form handle user creation with password and PerfilUsuario
             user = form.save()
+            self.object = user  # Set self.object for get_success_url
             
             logger.info(f'[UsuarioCreateView] Usuário criado: {user.username} (ID: {user.pk}), Email: {user.email}, Perfil: {user.perfil.role}, Ativo: {user.is_active}, PerfilAtivo: {user.perfil.ativo}')
             
@@ -1315,11 +1358,19 @@ class UsuarioCreateView(UsuarioPermissionMixin, CreateView):
         return redirect(self.get_success_url())
 
 
-class UsuarioUpdateView(UsuarioPermissionMixin, UpdateView):
+class UsuarioUpdateView(LoginRequiredMixin, UpdateView):
     model = User
     form_class = UsuarioUpdateForm
     template_name = 'cadastros/usuario_form.html'
     success_url = reverse_lazy('semeq:cadastro_usuarios')
+    
+    def dispatch(self, request, *args, **kwargs):
+        perfil = getattr(request.user, 'perfil', None)
+        # Admin/Gestor can edit anyone, users can only edit themselves
+        if not (request.user.is_superuser or (perfil and perfil.is_gestor_or_above()) or request.user.pk == int(kwargs.get('pk', 0))):
+            messages.error(request, 'Acesso negado. Você só pode editar seu próprio usuário.')
+            return redirect('semeq:dashboard')
+        return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
         perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
@@ -1334,6 +1385,7 @@ class UsuarioUpdateView(UsuarioPermissionMixin, UpdateView):
             # Líder can only edit active users in their team
             qs = qs.filter(perfil__ativo=True, perfil__equipe=perfil.equipe)
         else:
+            # Regular user can only edit themselves
             qs = qs.filter(id=self.request.user.id)
         
         return qs
@@ -1386,52 +1438,48 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
             messages.error(self.request, 'Você não pode excluir seu próprio usuário.')
             raise PermissionDenied
         return obj
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Count related apontamentos
         from user.models import Apontamento
         user = self.object
         context['apontamentos_count'] = Apontamento.objects.filter(responsavel=user).count()
-        # Check if current user is admin
+        # Check if current user is admin or gestor
         perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
         context['is_admin'] = self.request.user.is_superuser or (perfil and perfil.is_admin())
-        context['show_delete_apontamentos_checkbox'] = context['is_admin'] and context['apontamentos_count'] > 0
-        return context
-        context = super().get_context_data(**kwargs)
-        # Count related apontamentos
-        from user.models import Apontamento
-        user = self.object
-        context['apontamentos_count'] = Apontamento.objects.filter(responsavel=user).count()
-        # Check if current user is admin
-        perfil = self.request.user.perfil if hasattr(self.request.user, 'perfil') else None
-        context['is_admin'] = self.request.user.is_superuser or (perfil and perfil.is_admin())
-        context['show_delete_apontamentos_checkbox'] = context['is_admin'] and context['apontamentos_count'] > 0
+        context['is_admin_or_gestor'] = self.request.user.is_superuser or (perfil and perfil.is_gestor_or_above())
+        context['show_delete_apontamentos_checkbox'] = context['is_admin_or_gestor'] and context['apontamentos_count'] > 0
         return context
     
     def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
+        import logging
+        logger = logging.getLogger('user')
+        logger.info(f'[UsuarioDeleteView] POST method called')
+        logger.info(f'[UsuarioDeleteView] Request method: {request.method}')
+        logger.info(f'[UsuarioDeleteView] POST data keys: {list(request.POST.keys())}')
         
-        # Check if target is admin/superuser
-        if self.object.is_superuser or (hasattr(self.object, 'perfil') and self.object.perfil.role == 'admin'):
-            messages.error(request, 'Não é possível excluir usuários administradores.')
-            return redirect('semeq:cadastro_usuarios')
+        self.object = self.get_object()
+        logger.info(f'[UsuarioDeleteView] Got object: {self.object.pk} ({self.object.username})')
         
         delete_apontamentos = request.POST.get('delete_apontamentos') == 'on'
+        logger.info(f'[UsuarioDeleteView] delete_apontamentos: {delete_apontamentos}')
         
         # Count apontamentos
         from user.models import Apontamento
         apontamentos_count = Apontamento.objects.filter(responsavel=self.object).count()
+        logger.info(f'[UsuarioDeleteView] apontamentos_count: {apontamentos_count}')
         
         if apontamentos_count > 0:
-            # Check if admin
+            # Check if admin or gestor
             perfil = request.user.perfil if hasattr(request.user, 'perfil') else None
-            is_admin = request.user.is_superuser or (perfil and perfil.is_admin())
+            is_admin_or_gestor = request.user.is_superuser or (perfil and perfil.is_gestor_or_above())
+            logger.info(f'[UsuarioDeleteView] is_admin_or_gestor: {is_admin_or_gestor}')
             
-            if not is_admin:
+            if not is_admin_or_gestor:
                 messages.error(request,
                     f'Este usuário possui {apontamentos_count} apontamento(s) associado(s). '
-                    'Apenas administradores podem excluir usuários com apontamentos.'
+                    'Apenas administradores e gestores podem excluir usuários com apontamentos.'
                 )
                 return redirect('semeq:cadastro_usuarios')
             
@@ -1442,13 +1490,14 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
                 )
                 return self.get(request)
             
-            # Admin confirmed - delete apontamentos first
+            # Admin/Gestor confirmed - delete apontamentos first
             Apontamento.objects.filter(responsavel=self.object).delete()
         
         # Delete PerfilUsuario if exists, then delete User
         if hasattr(self.object, 'perfil'):
             self.object.perfil.delete()
         self.object.delete()
+        logger.info(f'[UsuarioDeleteView] User deleted successfully: {self.object.username}')
         messages.success(request, 'Usuário excluído com sucesso!')
         return redirect(self.get_success_url())
     
@@ -1539,7 +1588,7 @@ class PublicRegistrationView(CreateView):
         if request.user.is_authenticated:
             return redirect('semeq:dashboard')
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         from django.conf import settings
@@ -1745,7 +1794,7 @@ class StatusDeleteView(PermissionMixin, DeleteView):
             return redirect('semeq:cadastro_status')
         
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -1846,7 +1895,7 @@ class AtividadeDeleteView(PermissionMixin, DeleteView):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -1911,7 +1960,7 @@ class PrioridadeDeleteView(PermissionMixin, DeleteView):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -1966,6 +2015,22 @@ class EquipeUpdateView(PermissionMixin, BaseCRUDUpdateView):
     template_name = 'cadastros/equipe_form.html'
     success_url = reverse_lazy('semeq:cadastro_equipes')
 
+    def dispatch(self, request, *args, **kwargs):
+        # Check basic permission first
+        response = super().dispatch(request, *args, **kwargs)
+        if response.status_code == 302:  # Redirected due to permission
+            return response
+        
+        # If gestor (not admin), only allow editing their own team
+        perfil = getattr(request.user, 'perfil', None)
+        if perfil and perfil.is_gestor_or_above() and not request.user.is_superuser:
+            equipe = self.get_object()
+            if equipe.pk != perfil.equipe_id:
+                messages.error(request, 'Ação não permitida. Você só pode editar a sua própria equipe.')
+                return redirect('semeq:cadastro_equipes')
+        
+        return super().dispatch(request, *args, **kwargs)
+
 
 class EquipeDeleteView(PermissionMixin, DeleteView):
     model = Equipe
@@ -1976,7 +2041,7 @@ class EquipeDeleteView(PermissionMixin, DeleteView):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -2110,7 +2175,7 @@ class CadastroBaseView(LoginRequiredMixin, View):
             qs = qs.order_by(*ordering)
         
         return qs
-    
+  
     def get_context_data(self, **kwargs):
         q = self.request.GET.get('q', '').strip()
         page = self.request.GET.get('page', 1)
@@ -2362,7 +2427,7 @@ class TipoProblemaDeleteView(PermissionMixin, DeleteView):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -2427,7 +2492,7 @@ class ProjetoDeleteView(PermissionMixin, DeleteView):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -2458,7 +2523,7 @@ class ProjetoDeleteView(PermissionMixin, DeleteView):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count
@@ -2523,7 +2588,7 @@ class SolicitanteDeleteView(PermissionMixin, DeleteView):
         self.object = self.get_object()
         self.apontamentos_count = self.object.apontamento_set.count()
         return super().dispatch(request, *args, **kwargs)
-    
+  
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['apontamentos_count'] = self.apontamentos_count

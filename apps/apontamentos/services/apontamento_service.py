@@ -151,7 +151,8 @@ def atualizar_apontamento_tempo(apontamento: ApontamentoTempo, **dados) -> Apont
 
 
 def pode_editar(apontamento: Apontamento) -> bool:
-    return not (apontamento.status and apontamento.status.status == 'concluido')
+    # Allow editing regardless of status
+    return True
 
 
 def get_status_concluido() -> Status | None:

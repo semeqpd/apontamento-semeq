@@ -13,6 +13,50 @@
         </a>
     </div>
 
+    {% if pode_filtrar %}
+    <!-- Painel de Filtros do Dashboard -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-3">
+            <form method="GET" action="{% url 'semeq:dashboard' %}" class="row g-3 align-items-center" id="dashboardFilters">
+                
+                <!-- Filtro por Equipe/Time -->
+                <div class="col-md-4">
+                    <label for="equipe" class="form-label mb-1 fw-semibold text-muted fs-7">Equipe / Time</label>
+                    <select name="equipe" id="equipe" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas as Equipes</option>
+                        {% for eq in equipes %}
+                            <option value="{{ eq.id }}" {% if request.GET.equipe == eq.id|stringformat:"s" %}selected{% endif %}>
+                                {{ eq.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtro por Colaborador -->
+                <div class="col-md-4">
+                    <label for="colaborador" class="form-label mb-1 fw-semibold text-muted fs-7">Colaborador</label>
+                    <select name="colaborador" id="colaborador" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos os Colaboradores</option>
+                        {% for colab in colaboradores %}
+                            <option value="{{ colab.id }}" {% if request.GET.colaborador == colab.id|stringformat:"s" %}selected{% endif %} data-equipe-id="{{ colab.perfil.equipe_id|default:'' }}">
+                                {{ colab.get_full_name|default:colab.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Botão de Limpar Filtros -->
+                <div class="col-md-4 d-flex align-items-end">
+                    {% if request.GET.equipe or request.GET.colaborador %}
+                        <a href="{% url 'semeq:dashboard' %}" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="bi bi-x-circle me-1"></i>Limpar Filtros
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- MÉTRICAS / KPIS -->
     <div class="row g-3 mb-4">
         <div class="col-lg-3 col-sm-6">
@@ -166,5 +210,65 @@ document.querySelectorAll('#dashboardFilters select, #dashboardFilters input[typ
         }, 300);
     });
 });
+
+// ===== CASCATA EQUIPE -> COLABORADOR (Dashboard) =====
+const dashboardEquipeSelect = document.querySelector('#dashboardFilters select[name="equipe"]');
+const dashboardColaboradorSelect = document.querySelector('#dashboardFilters select[name="colaborador"]');
+
+if (dashboardEquipeSelect && dashboardColaboradorSelect) {
+    // Store original all options on first load
+    if (!window.dashboardAllColaboradoresOptions) {
+        window.dashboardAllColaboradoresOptions = Array.from(dashboardColaboradorSelect.options).slice(1).map(opt => ({
+            value: opt.value,
+            text: opt.text,
+            equipeId: opt.dataset.equipeId || '',
+            selected: opt.selected
+        }));
+    }
+    
+    function filtrarColaboradoresDashboard(equipeId) {
+        const currentValue = dashboardColaboradorSelect.value;
+        dashboardColaboradorSelect.innerHTML = '<option value="">Todos os Colaboradores</option>';
+        
+        if (equipeId && window.dashboardAllColaboradoresOptions) {
+            // Filter by equipe
+            window.dashboardAllColaboradoresOptions
+                .filter(u => u.equipeId === equipeId)
+                .forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.value;
+                    opt.textContent = u.text;
+                    opt.dataset.equipeId = u.equipeId;
+                    if (u.value === currentValue) opt.selected = true;
+                    dashboardColaboradorSelect.appendChild(opt);
+                });
+        } else if (!equipeId && window.dashboardAllColaboradoresOptions) {
+            // Show all users when no team selected
+            window.dashboardAllColaboradoresOptions.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.value;
+                opt.textContent = u.text;
+                opt.dataset.equipeId = u.equipeId;
+                if (u.value === currentValue) opt.selected = true;
+                dashboardColaboradorSelect.appendChild(opt);
+            });
+        }
+    }
+    
+    dashboardEquipeSelect.addEventListener('change', function() {
+        const equipeId = this.value;
+        filtrarColaboradoresDashboard(equipeId);
+        // Auto-submit after a short delay to allow UI update
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            document.getElementById('dashboardFilters').submit();
+        }, 350);
+    });
+    
+    // Initialize on load if equipe is pre-selected
+    if (dashboardEquipeSelect.value) {
+        filtrarColaboradoresDashboard(dashboardEquipeSelect.value);
+    }
+}
 </script>
 {% endblock %}

@@ -43,7 +43,7 @@ class ClienteForm(forms.ModelForm):
         cleaned_data = super().clean()
         corp =  cleaned_data.get('corporation')
         plant = cleaned_data.get('plant')
-        
+    
         if corp and plant:
             qs = Cliente.objects.filter(corporation=corp, plant=plant)
             if self.instance.pk:
@@ -139,7 +139,7 @@ class UsuarioForm(forms.ModelForm):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
         password_confirm = cleaned_data.get('password_confirm')
-        
+    
         if password and password_confirm:
             if password != password_confirm:
                 raise ValidationError({'password_confirm': 'As senhas não coincidem.'})
@@ -153,13 +153,13 @@ class UsuarioForm(forms.ModelForm):
         email = self.cleaned_data['email'].strip().lower()
         base_username = email.split('@')[0].lower()
         base_username = ''.join(c for c in base_username if c.isalnum() or c in '._-')
-        
+    
         username = base_username
         counter = 1
         while User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
             username = f"{base_username}{counter}"
             counter += 1
-        
+    
         user.username = username
         user.email = email  # Save normalized email
         user.is_active = self.cleaned_data.get('ativo', True)
@@ -224,50 +224,50 @@ class UsuarioUpdateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.request_user = kwargs.pop('request_user', None)
         super().__init__(*args, **kwargs)
-        
+    
         # Get or create perfil
         perfil, _ = PerfilUsuario.objects.get_or_create(user=self.instance)
-        
+    
         # Set initial values from perfil
         self.fields['role'].initial = perfil.role
         self.fields['telefone'].initial = perfil.telefone
         self.fields['equipe'].initial = perfil.equipe
         self.fields['ativo'].initial = perfil.ativo
-        
-        # Non-superusers cannot edit admin users or promote to admin
+    
+        # Non-superusers cannot edit admin users' role/active status, but CAN change their team
         if self.request_user and not self.request_user.is_superuser:
             target_perfil = getattr(self.instance, 'perfil', None)
             if target_perfil and target_perfil.is_admin():
-                # Disable all fields for admin users
-                for field in self.fields.values():
-                    field.disabled = True
+                # Disable role and active fields for admin users, but allow equipe change
+                self.fields['role'].disabled = True
+                self.fields['ativo'].disabled = True
             else:
                 # Cannot promote to admin
                 self.fields['role'].choices = [c for c in PerfilUsuario.ROLE_CHOICES if c[0] != 'admin']
-        
-# Users cannot edit themselves (prevent privilege escalation)
+    
+        # Users cannot edit themselves (prevent privilege escalation)
         if self.request_user and self.request_user == self.instance:
             self.fields['role'].disabled = True
             self.fields['ativo'].disabled = True
-    
+
     def clean_email(self):
         from user.backends import normalize_email
         email = normalize_email(self.cleaned_data['email'])
-        
+    
         # Only check for duplicates if email is actually being changed
         current_email = self.instance.email
         if current_email and normalize_email(current_email) == email:
             return email.lower()
-        
+    
         if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
             raise ValidationError('Este e-mail já está cadastrado.')
         return email.lower()
-    
+
     def clean(self):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
         password_confirm = cleaned_data.get('password_confirm')
-        
+    
         if password or password_confirm:
             if password != password_confirm:
                 raise ValidationError({'password_confirm': 'As senhas não coincidem.'})
@@ -342,38 +342,38 @@ class ApontamentoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        
+    
         # Add max_value validator to tempo_investido_minutos (PostgreSQL integer max = 2147483647)
         from django.core.validators import MaxValueValidator
         self.fields['tempo_investido_minutos'].validators.append(
             MaxValueValidator(2147483647, 'O tempo investido não pode exceder 2.147.483.647 minutos.')
         )
-        
+    
         # Set default values for NEW apontamentos only
         from datetime import date
         today = date.today()
         if not (self.instance and self.instance.pk):
             self.fields['data_inicial'].initial = today
-        
+    
         if self.instance and self.instance.pk:
             self.original_cliente = self.instance.cliente
             # Allow editing cliente directly - no disabled state
             self.fields['cliente'].disabled = False
         else:
             self.original_cliente = None
-        
+    
         # Cliente queryset
         self.fields['cliente'].queryset = Cliente.objects.all().order_by('corporation', 'plant')
         self.fields['cliente'].required = False
-        
+    
         # Projeto queryset
         self.fields['projeto'].queryset = Projeto.objects.filter(ativo=True).order_by('nome')
         self.fields['projeto'].required = False
-        
+    
         # Solicitante queryset
         self.fields['solicitante'].queryset = Solicitante.objects.filter(ativo=True).order_by('nome')
         self.fields['solicitante'].required = False
-        
+    
         # Equipamento queryset (filtered by cliente via JS)
         self.fields['equipamento'].queryset = Equipamento.objects.all().order_by('nome')
 
@@ -382,28 +382,35 @@ class ApontamentoForm(forms.ModelForm):
             if field_name in self.fields and hasattr(self.fields[field_name], 'empty_label'):
                 self.fields[field_name].empty_label = None
 
-        # ============================================================
+        # Make equipe required for all users
+        self.fields['equipe'].required = True
+    
+# ============================================================
         # CONTROLE DE ACESSO POR PERFIL (Equipe & Responsável)
         # ============================================================
         if self.user:
             perfil = getattr(self.user, 'perfil', None)
-            
+        
             if perfil:
                 is_admin_or_gestor = perfil.is_gestor_or_above()
                 is_lider = perfil.is_lider_or_above() and not perfil.is_gestor_or_above()
                 is_colaborador = perfil.is_colaborador()
                 user_equipe = perfil.equipe
-                
+            
                 # --- CAMPO EQUIPE ---
-                if not is_admin_or_gestor:
-                    # Colaborador e Líder: equipe travada na sua equipe
-                    if user_equipe:
-                        self.fields['equipe'].initial = user_equipe
-                        self.fields['equipe'].queryset = Equipe.objects.filter(pk=user_equipe.pk)
-                        # Use readonly instead of disabled so value is submitted in POST
-                        self.fields['equipe'].widget.attrs['readonly'] = True
-                        self.fields['equipe'].widget.attrs['disabled'] = False
-                
+                # SEMPRE define a equipe inicial como a do usuário logado
+                # OCULTA o campo para todos os usuários (cada usuário só aponta para sua equipe)
+                if user_equipe:
+                    self.fields['equipe'].initial = user_equipe
+            
+                # Para todos os usuários: equipe oculta/fixa na sua equipe
+                if user_equipe:
+                    self.fields['equipe'].queryset = Equipe.objects.filter(pk=user_equipe.pk)
+                    # Use HiddenInput so value is submitted but not visible
+                    self.fields['equipe'].widget = forms.HiddenInput()
+                    self.fields['equipe'].required = True
+                    self.fields['equipe'].disabled = False
+            
                 # --- CAMPO RESPONSÁVEL ---
                 # REGRA ESTRITA: cada usuário só cria/aponta para si mesmo
                 self.fields['responsavel'].queryset = User.objects.filter(id=self.user.id)
@@ -430,12 +437,12 @@ class ApontamentoForm(forms.ModelForm):
         data_final = cleaned_data.get('data_final')
         tempo_investido_minutos = cleaned_data.get('tempo_investido_minutos')
         responsavel = cleaned_data.get('responsavel')
-        
+    
         # Ensure tempo_investido_minutos has a default value (0) to avoid NOT NULL constraint issues
         if tempo_investido_minutos is None:
             cleaned_data['tempo_investido_minutos'] = 0
             tempo_investido_minutos = 0
-        
+    
         # Handle cliente field logic - allow editing directly
         if self.instance.pk:
             novo_cliente = cleaned_data.get('cliente')
@@ -458,24 +465,24 @@ class ApontamentoForm(forms.ModelForm):
                     cleaned_data['cliente'] = cliente
                 except (Cliente.DoesNotExist, ValueError):
                     self.add_error('cliente', 'Planta selecionada inválida.')
-        
+    
         # Validate date fields
         from datetime import date
         today = date.today()
-        
+    
         if not data_inicial:
             raise ValidationError({'data_inicial': 'Data é obrigatória.'})
-        
+    
 # Block future dates
         if data_inicial > today:
             raise ValidationError({'data_inicial': 'Não é possível criar apontamentos em datas futuras.'})
-        
+    
         if data_final:
             if data_final > today:
                 raise ValidationError({'data_final': 'Não é possível criar apontamentos em datas futuras.'})
             if data_final < data_inicial:
                 raise ValidationError({'data_final': 'Data final não pode ser anterior à data inicial.'})
-        
+    
         # Validate Concluído status requires tempo_investido_minutos > 0
         status = cleaned_data.get('status')
         if status and status.is_concluido_fixo:
@@ -483,6 +490,12 @@ class ApontamentoForm(forms.ModelForm):
                 raise ValidationError({
                     'tempo_investido_minutos': 'Para concluir o apontamento, o Tempo Investido deve ser maior que 0 minutos.'
                 })
+
+        # Ensure equipe is always set (fallback to user's profile equipe)
+        if not cleaned_data.get('equipe') and self.user:
+            perfil = getattr(self.user, 'perfil', None)
+            if perfil and perfil.equipe:
+                cleaned_data['equipe'] = perfil.equipe
 
         return cleaned_data
 
@@ -508,7 +521,7 @@ class EmailLoginForm(AuthenticationForm):
             'autocomplete': 'current-password'
         })
     )
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Remove o help_text padrão do Django
@@ -551,7 +564,7 @@ class PublicRegistrationForm(UserCreationForm):
         email = normalize_email(self.cleaned_data['email'])
         if User.objects.filter(email__iexact=email).exists():
             raise ValidationError('Este e-mail já está cadastrado.')
-        
+    
         # Validar domínio permitido
         domain = email.split('@')[-1].lower()
         allowed_domains = getattr(settings, 'ALLOWED_EMAIL_DOMAINS', ['semeq.com'])
@@ -566,20 +579,20 @@ class PublicRegistrationForm(UserCreationForm):
         email = self.cleaned_data['email'].strip().lower()
         base_username = email.split('@')[0].lower()
         base_username = ''.join(c for c in base_username if c.isalnum() or c in '._-')
-        
+    
         username = base_username
         counter = 1
         while User.objects.filter(username__iexact=username).exists():
             username = f"{base_username}{counter}"
             counter += 1
-        
+    
         user = super().save(commit=False)
         user.username = username
         user.email = email  # Save normalized email
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
         user.is_active = True  # Ativo por padrão, sem verificação de email
-        
+    
         if commit:
             user.save()
             PerfilUsuario.objects.create(
@@ -604,7 +617,7 @@ class SemeqPasswordResetForm(PasswordResetForm):
     def clean_email(self):
         from user.backends import normalize_email
         email = normalize_email(self.cleaned_data['email'])
-        
+    
         # Validar domínio permitido
         domain = email.split('@')[-1].lower()
         allowed_domains = getattr(settings, 'ALLOWED_EMAIL_DOMAINS', ['semeq.com'])
@@ -627,7 +640,7 @@ class SemeqPasswordResetForm(PasswordResetForm):
 
 class SemeqPasswordChangeForm(PasswordChangeForm):
     """Form para mudança de senha (usa senha atual + nova senha)"""
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Aplicar classes Bootstrap
@@ -670,10 +683,10 @@ class StatusForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         status = cleaned_data.get('status')
-        
+    
         if status:
             qs = Status.objects.filter(status=status)
-            
+        
             if self.instance.pk:
                 # Verifica se já existe (exceto o próprio)
                 if qs.exclude(pk=self.instance.pk).exists():
@@ -681,7 +694,7 @@ class StatusForm(forms.ModelForm):
             else:
                 if qs.exists():
                     raise forms.ValidationError({'status': 'Já existe um status com este nome.'})
-        
+    
         # Se for status fixo, garantir que campos protegidos não foram alterados
         if self.instance and self.instance.pk and self.instance.is_fixo:
             if 'status' in self.changed_data:
