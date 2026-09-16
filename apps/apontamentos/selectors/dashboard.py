@@ -168,15 +168,17 @@ def get_daily_compliance(qs: QuerySet) -> list[dict]:
     return result
 
 
-def agrupar_por_data(qs: QuerySet) -> tuple[OrderedDict, dict]:
+def agrupar_por_data(qs: QuerySet, current_user=None) -> tuple[OrderedDict, dict]:
     """
     Group ApontamentoTempo entries by date, but sum using Apontamento.tempo_investido_minutos
     for consistency with edit form.
     """
     from user.models import Apontamento
     
+    apontamentos_tempo = list(qs)
+
     # Get unique apontamento IDs from this queryset
-    apontamento_ids = list(qs.values_list('apontamento_id', flat=True).distinct())
+    apontamento_ids = {ap_tempo.apontamento_id for ap_tempo in apontamentos_tempo}
     
     # Fetch Apontamento objects with tempo_investido_minutos
     ap_qs = Apontamento.objects.filter(id__in=apontamento_ids).select_related('status', 'prioridade')
@@ -187,7 +189,7 @@ def agrupar_por_data(qs: QuerySet) -> tuple[OrderedDict, dict]:
     agrupados = OrderedDict()
     totais = {}
 
-    for ap_tempo in qs:
+    for ap_tempo in apontamentos_tempo:
         ap = ap_map.get(ap_tempo.apontamento_id)
         if not ap:
             continue

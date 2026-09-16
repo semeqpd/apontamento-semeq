@@ -39,7 +39,7 @@ import openpyxl
 from io import BytesIO
 from apps.apontamentos.selectors.dashboard import (
     get_dashboard_queryset, calculate_kpis, get_daily_compliance, get_filter_options,
-    agrupar_por_data
+    agrupar_por_data as agrupar_dashboard_por_data
 )
 from apps.apontamentos.selectors.apontamentos import (
     get_apontamentos_list_qs, get_list_context_data, get_export_queryset,
@@ -99,8 +99,8 @@ class DashboardView(LoginRequiredMixin, View):
         # FORCE ordering at the very end of pipeline (most recent first)
         qs = qs.order_by('-data', '-hora_inicial')
 
-        # Group by day for ALL appointments in current month
-        agrupados, totais = agrupar_por_data(qs, current_user=self.request.user)
+        # Group only the 10 most recent appointments for the dashboard
+        agrupados, totais = agrupar_dashboard_por_data(list(qs[:10]), current_user=self.request.user)
 
         # Get filter options
         from .models import Equipe
