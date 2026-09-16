@@ -26,19 +26,30 @@
 
                 <div class="section-title">Identificação</div>
                 <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        {{ form.nome.label_tag }}
-                        {{ form.nome }}
-                        {% for error in form.nome.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    <div class="col-md-4">
+                        {{ form.tipo.label_tag }}
+                        {{ form.tipo }}
+                        {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.device.label_tag }}
+                        {{ form.device }}
+                        {% for error in form.device.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.modelo.label_tag }}
+                        {{ form.modelo }}
+                        {% for error in form.modelo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
                 </div>
 
-                <div class="section-title">Detalhes</div>
+                <div class="section-title">Status</div>
                 <div class="row g-3 mb-4">
                     <div class="col-12">
-                        {{ form.descricao.label_tag }}
-                        {{ form.descricao }}
-                        {% for error in form.descricao.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        <div class="form-check form-switch">
+                            {{ form.ativo }}
+                            {{ form.ativo.label_tag }}
+                        </div>
                     </div>
                 </div>
 

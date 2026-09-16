@@ -138,9 +138,7 @@
                           <th>RESPONSÁVEL</th>
                           <th>PROJETO</th>
                           <th>SOLICITANTE</th>
-                          {% if perfil.role == 'admin' or perfil.role == 'gestor'%}
                           <th>PRIORIDADE</th>
-                          {% endif %}
                           <th>STATUS</th>
                           <th>DURAÇÃO</th>
                         </tr>
@@ -153,7 +151,6 @@
                         <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
                         <td>{{ a.apontamento.projeto|truncatechars:30|default:"—" }}</td>
                         <td>{{ a.apontamento.solicitante|default:"—" }}</td>
-                        {% if perfil.role == 'admin' or perfil.role == 'gestor'%}
                         <td>
                             {% if a.apontamento.prioridade %}
                             <span class="badge" style="background-color: {{ a.apontamento.prioridade.cor }}; color: {{ a.apontamento.prioridade.cor|contrast_color }};">
@@ -163,7 +160,6 @@
                             <span class="badge bg-secondary">—</span>
                             {% endif %}
                         </td>
-                        {% endif %}
                         <td>
                             {% if a.apontamento.status %}
                             <span class="badge" style="background-color: {{ a.apontamento.status.cor }}; color: {{ a.apontamento.status.cor|contrast_color }};">{{ a.apontamento.status.status }}</span>

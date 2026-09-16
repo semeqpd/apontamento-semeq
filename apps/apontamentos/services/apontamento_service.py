@@ -156,7 +156,12 @@ def pode_editar(apontamento: Apontamento) -> bool:
 
 
 def get_status_concluido() -> Status | None:
-    return Status.objects.filter(status='concluido', ativo=True).first()
+    from django.db.models import Q
+    # Case-insensitive + aceita com/sem acento; bate no canonico 'Concluído'
+    return Status.objects.filter(
+        Q(status__iexact='concluído') | Q(status__iexact='concluido'),
+        ativo=True,
+    ).first()
 
 
 # =====================================================================

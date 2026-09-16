@@ -2,16 +2,16 @@
 
 {% block delete_info %}
 <div class="col-12 col-md-6">
-    <strong>Nome:</strong> {{ object.nome }}
+    <strong>Tipo:</strong> {{ object.get_tipo_display }}
 </div>
 <div class="col-12 col-md-6">
-    <strong>Descrição:</strong> {{ object.descricao|default:"—"|truncatewords:10 }}
+    <strong>Device:</strong> {{ object.device|default:"—" }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Modelo:</strong> {{ object.modelo|default:"—" }}
 </div>
 <div class="col-12 col-md-6">
     <strong>Status:</strong> {% if object.ativo %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}
-</div>
-<div class="col-12 col-md-6">
-    <strong>Ordem:</strong> {{ object.ordem }}
 </div>
 <div class="col-12 col-md-6">
     <strong>Equipamentos:</strong> {{ equipamentos_count|default:0 }}

@@ -1,16 +1,16 @@
 {% extends 'cadastros/base_lista.html' %}
 
 {% block table_headers %}
-<th>Nome</th>
-<th>Descrição</th>
-<th>Ordem</th>
+<th>Tipo</th>
+<th>Device</th>
+<th>Modelo</th>
 <th>Status</th>
 {% endblock %}
 
 {% block table_row %}
-<td>{{ obj.nome }}</td>
-<td>{{ obj.descricao|default:"—"|truncatechars:50 }}</td>
-<td class="text-center">{{ obj.ordem }}</td>
+<td>{{ obj.get_tipo_display }}</td>
+<td class="text-truncate" style="max-width: 180px;" title="{{ obj.device }}">{{ obj.device|default:"—" }}</td>
+<td>{{ obj.modelo|default:"—" }}</td>
 <td>
     {% if obj.ativo %}
     <span class="badge bg-success">Ativo</span>

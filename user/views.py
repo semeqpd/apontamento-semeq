@@ -9,7 +9,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.db.models import Q, Count, Sum, Avg, F, ExpressionWrapper, DurationField
-from django.db import transaction
+from django.db import transaction, OperationalError
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -1027,42 +1027,58 @@ class ClienteImportView(ClientePermissionMixin, View):
             atualizados = 0
             erros = []
 
-            for i, row_data in enumerate(rows, start=2):
+            # SQLite trava com "database is locked" sob concorrencia
+            # (runserver multithread / sync de arquivos). Transacao unica
+            # + retry com backoff resolve locks transitorios.
+            import time as _time
+            for tentativa in range(1, 4):
+                criados, atualizados, erros = 0, 0, []
                 try:
-                    corp = fix_encoding(row_data.get('corporation', ''))
-                    plant = fix_encoding(row_data.get('plant', ''))
-                    zone = fix_encoding(row_data.get('zone', ''))
-                    plant_id = fix_encoding(row_data.get('plant_id', ''))
+                    with transaction.atomic():
+                        for i, row_data in enumerate(rows, start=2):
+                            try:
+                                corp = fix_encoding(row_data.get('corporation', ''))
+                                plant = fix_encoding(row_data.get('plant', ''))
+                                zone = fix_encoding(row_data.get('zone', ''))
+                                plant_id = fix_encoding(row_data.get('plant_id', ''))
 
-                    if not corp or not plant:
-                        erros.append(f'Linha {i}: Corporação e Planta são obrigatórios')
+                                if not corp or not plant:
+                                    erros.append(f'Linha {i}: Corporação e Planta são obrigatórios')
+                                    continue
+
+                                # Try to find existing client by plant_id first (for unification)
+                                if plant_id:
+                                    existing = Cliente.objects.filter(plant_id=plant_id).first()
+                                    if existing:
+                                        # Update existing client
+                                        existing.corporation = corp
+                                        existing.plant = plant
+                                        if zone:
+                                            existing.zone = zone
+                                        existing.save()
+                                        atualizados += 1
+                                        continue
+
+                                # Standard logic: unique by corporation + plant + zone
+                                obj, created = Cliente.objects.update_or_create(
+                                    corporation=corp,
+                                    plant=plant,
+                                    defaults={'zone': zone}
+                                )
+                                if created:
+                                    criados += 1
+                                else:
+                                    atualizados += 1
+                            except Exception as e:
+                                erros.append(f'Linha {i}: {str(e)}')
+                    # Saiu do atomic sem OperationalError: importa OK
+                    break
+                except OperationalError as e:
+                    if 'locked' in str(e).lower() and tentativa < 3:
+                        _time.sleep(tentativa * 1.5)
                         continue
-
-                    # Try to find existing client by plant_id first (for unification)
-                    if plant_id:
-                        existing = Cliente.objects.filter(plant_id=plant_id).first()
-                        if existing:
-                            # Update existing client
-                            existing.corporation = corp
-                            existing.plant = plant
-                            if zone:
-                                existing.zone = zone
-                            existing.save()
-                            atualizados += 1
-                            continue
-
-                    # Standard logic: unique by corporation + plant + zone
-                    obj, created = Cliente.objects.update_or_create(
-                        corporation=corp,
-                        plant=plant,
-                        defaults={'zone': zone}
-                    )
-                    if created:
-                        criados += 1
-                    else:
-                        atualizados += 1
-                except Exception as e:
-                    erros.append(f'Linha {i}: {str(e)}')
+                    erros.append(f'Falha geral na importação (tentativa {tentativa}): {e}')
+                    break
 
             messages.success(request, f'Importação concluída: {criados} criados, {atualizados} atualizados.')
             if erros:
@@ -1315,20 +1331,21 @@ class EquipamentoAutocompleteView(LoginRequiredMixin, View):
         
         if q:
             qs = qs.filter(
-                Q(id__icontains=q) |
-                Q(nome__icontains=q) |
-                Q(descricao__icontains=q)
+                Q(device__icontains=q) |
+                Q(modelo__icontains=q) |
+                Q(tipo__icontains=q)
             )
         
-        data = list(qs.values('pk', 'nome', 'descricao')[:50])
+        data = list(qs.values('pk', 'tipo', 'device', 'modelo')[:50])
         # Formato para TomSelect
         results = [
             {
                 'value': item['pk'],
-                'text': item['nome'] or str(item['pk']),
+                'text': f"{dict(Equipamento.TIPO_CHOICES).get(item['tipo'], item['tipo'])} - {item['device']} {item['modelo']}".strip() or str(item['pk']),
                 'equipamento_id': str(item['pk']),
-                'nome': item['nome'] or '',
-                'descricao': item['descricao'] or '',
+                'tipo': item['tipo'] or '',
+                'device': item['device'] or '',
+                'modelo': item['modelo'] or '',
             }
             for item in data
         ]
@@ -1491,9 +1508,9 @@ class UsuarioDeleteView(UsuarioPermissionMixin, DeleteView):
         
         qs = User.objects.select_related('perfil', 'perfil__equipe')
         
-        # Admin/Gestor: veem todos os usuários EXCETO eles mesmos
+        # Admin/Gestor: veem todos (inclui o proprio; auto-exclusao barrada no get_object)
         if perfil and perfil.is_gestor_or_above():
-            return qs.exclude(pk=self.request.user.pk).order_by('first_name', 'last_name', 'username')
+            return qs.order_by('first_name', 'last_name', 'username')
         
         # Líder/Colaborador: veem apenas seu próprio registro
         return qs.filter(pk=self.request.user.pk)
@@ -1577,8 +1594,10 @@ class ConfiguracoesView(LoginRequiredMixin, View):
     """Tela única de configurações (gerais + perfil)."""
 
     def get(self, request):
+        from .models import Equipe
         return render(request, 'configuracoes.html', {
             'perfil': getattr(request.user, 'perfil', None),
+            'equipes': Equipe.objects.filter(ativo=True).order_by('ordem', 'nome'),
         })
 
     def post(self, request):
@@ -1586,6 +1605,7 @@ class ConfiguracoesView(LoginRequiredMixin, View):
         first_name = request.POST.get('first_name', '').strip()
         email = request.POST.get('email', '').strip()
         telefone = request.POST.get('telefone', '').strip()
+        equipe_id = request.POST.get('equipe', '').strip()
 
         if username:
             username = username.lower()
@@ -1606,8 +1626,20 @@ class ConfiguracoesView(LoginRequiredMixin, View):
         request.user.save()
 
         perfil = getattr(request.user, 'perfil', None)
-        if perfil and telefone is not None:
-            perfil.telefone = telefone
+        if perfil:
+            if telefone is not None:
+                perfil.telefone = telefone
+            # Qualquer usuario pode alterar a propria equipe
+            if equipe_id:
+                from .models import Equipe
+                equipe = Equipe.objects.filter(pk=equipe_id, ativo=True).first()
+                if equipe:
+                    perfil.equipe = equipe
+                else:
+                    messages.error(request, 'Equipe selecionada inválida.')
+                    return redirect('semeq:configuracoes')
+            else:
+                perfil.equipe = None
             perfil.save()
 
         messages.success(request, 'Perfil atualizado com sucesso!')
@@ -1764,21 +1796,32 @@ class EquipamentoListView(EquipamentoPermissionMixin, ListView):
     def get_queryset(self):
         qs = Equipamento.objects.all()
         filters = {
-            'nome': self.request.GET.get('nome', '').strip(),
-            'descricao': self.request.GET.get('descricao', '').strip(),
+            'tipo': self.request.GET.get('tipo', '').strip(),
+            'device': self.request.GET.get('device', '').strip(),
+            'modelo': self.request.GET.get('modelo', '').strip(),
+            'ativo': self.request.GET.get('ativo', '').strip(),
         }
-        if filters['nome']:
-            qs = qs.filter(nome__icontains=filters['nome'])
-        if filters['descricao']:
-            qs = qs.filter(descricao__icontains=filters['descricao'])
-        return qs.order_by('-criado_em')
+        if filters['tipo']:
+            qs = qs.filter(tipo=filters['tipo'])
+        if filters['device']:
+            qs = qs.filter(device__icontains=filters['device'])
+        if filters['modelo']:
+            qs = qs.filter(modelo__icontains=filters['modelo'])
+        if filters['ativo'] == 'true':
+            qs = qs.filter(ativo=True)
+        elif filters['ativo'] == 'false':
+            qs = qs.filter(ativo=False)
+        return qs.order_by('tipo', 'device', 'modelo')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['filters'] = {
-            'nome': self.request.GET.get('nome', ''),
-            'descricao': self.request.GET.get('descricao', ''),
+            'tipo': self.request.GET.get('tipo', ''),
+            'device': self.request.GET.get('device', ''),
+            'modelo': self.request.GET.get('modelo', ''),
+            'ativo': self.request.GET.get('ativo', ''),
         }
+        context['tipo_choices'] = Equipamento.TIPO_CHOICES
         params = self.request.GET.copy()
         params.pop('page', None)
         context['filter_params'] = params.urlencode()
@@ -2334,11 +2377,10 @@ class CadastroUsuarioView(CadastroBaseView):
     
     def get_queryset(self):
         qs = super().get_queryset()
-        # Show ALL users (including inativos, sem perfil) for gestor/admin
-        # EXCEPT the currently logged-in user (they edit themselves in Configurações)
+        # Mostra TODOS os usuarios (inclui o logado) para gestor/admin
         return qs.select_related(
             'perfil', 'perfil__equipe'
-        ).exclude(pk=self.request.user.pk).order_by('first_name', 'last_name', 'username')
+        ).order_by('first_name', 'last_name', 'username')
 
 
 class CadastroEquipeView(CadastroBaseView):
@@ -2358,7 +2400,7 @@ class CadastroEquipeView(CadastroBaseView):
 class CadastroEquipamentoView(CadastroBaseView):
     model = Equipamento
     template_name = 'cadastros/equipamento_lista.html'
-    search_fields = ['nome', 'descricao']
+    search_fields = ['tipo', 'device', 'modelo']
     title = 'Equipamentos'
     icon = 'bi-cpu'
     create_url_name = 'semeq:equipamento_novo'
@@ -2712,15 +2754,32 @@ def api_plantas_por_corporacao_zona(request):
     """API endpoint para buscar plantas por corporação e zona."""
     corporacao_id = request.GET.get('corporation_id')
     zona = request.GET.get('zona')
-    
+
     if not corporacao_id or not zona:
         return JsonResponse({'plantas': []})
-    
+
     plantas = list(Cliente.objects.filter(
         corporation=corporacao_id, zone=zona, ativo=True
     ).values('pk', 'plant').order_by('plant'))
-    
+
     return JsonResponse({'plantas': plantas})
+
+
+class ClienteListaJsonView(LoginRequiredMixin, View):
+    """JSON com todos os clientes ativos para a cascata do apontamento.
+
+    Retorna [{id, corporacao, zona, planta}]. Qualquer usuário logado pode
+    usar (o HTML de /cadastros/clientes/ é só p/ gestor e não serve p/ fetch).
+    """
+
+    def get(self, request):
+        data = [
+            {'id': c.pk, 'corporacao': c.corporation,
+             'zona': c.zone or '', 'planta': c.plant}
+            for c in Cliente.objects.filter(ativo=True).order_by(
+                'corporation', 'zone', 'plant')
+        ]
+        return JsonResponse(data, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
 def carregar_responsaveis(request):
@@ -2768,14 +2827,14 @@ def api_plantas_por_corporacao_zona(request):
     """API endpoint para buscar plantas por corporação e zona."""
     corporacao_id = request.GET.get('corporation_id')
     zona = request.GET.get('zona')
-    
+
     if not corporacao_id or not zona:
         return JsonResponse({'plantas': []})
-    
+
     plantas = list(Cliente.objects.filter(
         corporation=corporacao_id, zone=zona, ativo=True
     ).values('pk', 'plant').order_by('plant'))
-    
+
     return JsonResponse({'plantas': plantas})
 
 

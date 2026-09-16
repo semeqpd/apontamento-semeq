@@ -15,13 +15,13 @@ class EquipamentoForm(forms.ModelForm):
     class Meta:
         model = Equipamento
         fields = [
-            'nome', 'descricao', 'ativo', 'ordem',
+            'tipo', 'device', 'modelo', 'ativo',
         ]
         widgets = {
-            'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Notebook Dell Latitude'}),
-            'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descrição opcional...'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'device': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Serial Number ou Tag'}),
+            'modelo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Model X1'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),
-            'ordem': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
 
@@ -342,7 +342,19 @@ class ApontamentoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-    
+
+        # Equipamento "Outro": o select envia '__outro__' + descrição livre.
+        # Troca pelo vazio antes da validação do ModelChoiceField e guarda a
+        # descrição para criar o Equipamento(tipo='outro') no clean().
+        self._equipamento_outro = False
+        self._outro_equip_desc = ''
+        if self.data and self.data.get('equipamento') == '__outro__':
+            self._equipamento_outro = True
+            self._outro_equip_desc = (self.data.get('outro_equipamento_descricao') or '').strip()
+            data = self.data.copy()
+            data['equipamento'] = ''
+            self.data = data
+        
         # Add max_value validator to tempo_investido_minutos (PostgreSQL integer max = 2147483647)
         from django.core.validators import MaxValueValidator
         self.fields['tempo_investido_minutos'].validators.append(
@@ -375,7 +387,7 @@ class ApontamentoForm(forms.ModelForm):
         self.fields['solicitante'].required = False
     
         # Equipamento queryset (filtered by cliente via JS)
-        self.fields['equipamento'].queryset = Equipamento.objects.all().order_by('nome')
+        self.fields['equipamento'].queryset = Equipamento.objects.all().order_by('tipo', 'device', 'modelo')
 
         # Remove empty_label from ModelChoiceFields so first option is selected by default
         for field_name in ['cliente', 'projeto', 'solicitante', 'responsavel', 'equipamento', 'equipe', 'atividade', 'tipo_problema', 'status', 'prioridade']:
@@ -433,6 +445,21 @@ class ApontamentoForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Equipamento "Outro": cria (ou reutiliza) Equipamento tipo=outro
+        # com a descrição digitada, em vez de falhar na validação do select.
+        if getattr(self, '_equipamento_outro', False):
+            if not self._outro_equip_desc:
+                self.add_error(
+                    'outro_equipamento_descricao',
+                    'Descreva o equipamento ao selecionar "Outro".'
+                )
+            else:
+                equipamento, _ = Equipamento.objects.get_or_create(
+                    tipo='outro',
+                    device=self._outro_equip_desc[:100],
+                    defaults={'modelo': ''},
+                )
+                cleaned_data['equipamento'] = equipamento
         data_inicial = cleaned_data.get('data_inicial')
         data_final = cleaned_data.get('data_final')
         tempo_investido_minutos = cleaned_data.get('tempo_investido_minutos')
@@ -685,7 +712,8 @@ class StatusForm(forms.ModelForm):
         status = cleaned_data.get('status')
     
         if status:
-            qs = Status.objects.filter(status=status)
+            # Comparacao case-insensitive: 'aberto' e 'Aberto' sao o mesmo status
+            qs = Status.objects.filter(status__iexact=status.strip())
         
             if self.instance.pk:
                 # Verifica se já existe (exceto o próprio)

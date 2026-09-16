@@ -26,16 +26,16 @@ class ClienteAdmin(ImportExportModelAdmin):
 class EquipamentoInline(admin.TabularInline):
     model = Equipamento
     extra = 1
-    fields = ('nome',)
+    fields = ('tipo', 'device', 'modelo',)
     readonly_fields = ('criado_em',)
 
 
 @admin.register(Equipamento)
 class EquipamentoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'criado_em',)
-    list_filter = ()
-    search_fields = ('nome', 'descricao',)
-    ordering = ('nome',)
+    list_display = ('tipo', 'device', 'modelo', 'ativo', 'criado_em',)
+    list_filter = ('tipo', 'ativo',)
+    search_fields = ('device', 'modelo',)
+    ordering = ('tipo', 'device', 'modelo',)
     list_per_page = 25
 
 

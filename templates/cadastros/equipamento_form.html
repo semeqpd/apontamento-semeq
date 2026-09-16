@@ -26,15 +26,28 @@
 
                 <div class="section-title">Equipamento</div>
                 <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.nome.label }} <span class="text-danger">*</span></label>
-                        {{ form.nome }}
-                        {% for error in form.nome.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.tipo.label }} <span class="text-danger">*</span></label>
+                        {{ form.tipo }}
+                        {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.descricao.label }}</label>
-                        {{ form.descricao }}
-                        {% for error in form.descricao.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.device.label }}</label>
+                        {{ form.device }}
+                        {% for error in form.device.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.modelo.label }}</label>
+                        {{ form.modelo }}
+                        {% for error in form.modelo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            {{ form.ativo }}
+                            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
+                        </div>
                     </div>
                 </div>
                 <div class="d-flex justify-content-end gap-2 border-top pt-4">

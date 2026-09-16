@@ -32,7 +32,6 @@
                         {% endfor %}
                     </select>
                 </div>
-                {% if is_admin_ou_gestor %}
                 <div class="col-md-2">
                     <label class="form-label">Prioridade</label>
                     <select name="prioridade" class="form-select">
@@ -42,7 +41,6 @@
                         {% endfor %}
                     </select>
                 </div>
-                {% endif %}
                 <div class="col-md-2">
                     <label class="form-label">Data Início</label>
                     <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">

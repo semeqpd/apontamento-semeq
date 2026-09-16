@@ -17,13 +17,30 @@
             <table class="table table-hover align-middle mb-0" id="equipamentosTable">
                 <thead class="table-light">
                     <tr>
-                        <th>Nome</th>
-                        <th>Descrição</th>
+                        <th>Tipo</th>
+                        <th>Device</th>
+                        <th>Modelo</th>
+                        <th>Status</th>
                         <th class="text-end">Ações</th>
                     </tr>
                     <tr class="table-filter-row">
-                        <th><input type="text" class="form-control form-control-sm" name="nome" value="{{ filters.nome }}" placeholder="Filtrar nome..."></th>
-                        <th><input type="text" class="form-control form-control-sm" name="descricao" value="{{ filters.descricao }}" placeholder="Filtrar..."></th>
+                        <th>
+                            <select class="form-select form-select-sm" name="tipo">
+                                <option value="">Todos</option>
+                                {% for value, label in tipo_choices %}
+                                <option value="{{ value }}" {% if filters.tipo == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </th>
+                        <th><input type="text" class="form-control form-control-sm" name="device" value="{{ filters.device }}" placeholder="Filtrar..."></th>
+                        <th><input type="text" class="form-control form-control-sm" name="modelo" value="{{ filters.modelo }}" placeholder="Filtrar..."></th>
+                        <th>
+                            <select class="form-select form-select-sm" name="ativo">
+                                <option value="">Todos</option>
+                                <option value="true" {% if filters.ativo == 'true' %}selected{% endif %}>Ativos</option>
+                                <option value="false" {% if filters.ativo == 'false' %}selected{% endif %}>Inativos</option>
+                            </select>
+                        </th>
                         <th class="text-end">
                             <button type="button" class="btn btn-semeq-outline btn-sm" id="btnLimpar" title="Limpar filtros">
                                 <i class="bi bi-x-lg"></i>
@@ -34,8 +51,16 @@
                 <tbody>
                     {% for equipamento in equipamentos %}
                     <tr>
-                        <td class="fw-bold">{{ equipamento.nome }}</td>
-                        <td>{{ equipamento.descricao|default:"-" }}</td>
+                        <td>{{ equipamento.get_tipo_display }}</td>
+                        <td class="text-truncate" style="max-width: 180px;" title="{{ equipamento.device }}">{{ equipamento.device|default:"—" }}</td>
+                        <td>{{ equipamento.modelo|default:"—" }}</td>
+                        <td>
+                            {% if equipamento.ativo %}
+                            <span class="badge badge-subtle-success px-2 py-1">Ativo</span>
+                            {% else %}
+                            <span class="badge bg-secondary px-2 py-1">Inativo</span>
+                            {% endif %}
+                        </td>
                         <td class="text-end">
                             <div class="btn-group btn-group-sm">
                                 <a href="{% url 'semeq:equipamento_editar' equipamento.pk %}" class="btn btn-outline-primary" title="Editar">

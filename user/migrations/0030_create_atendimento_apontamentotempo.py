@@ -211,125 +211,16 @@ class Migration(migrations.Migration):
                 verbose_name="Responsável",
             ),
         ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="atividade",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="user.atividade",
-                verbose_name="Atividade",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="cliente",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.PROTECT,
-                related_name="atendimentos",
-                to="user.cliente",
-                verbose_name="Cliente",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="criado_por",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.PROTECT,
-                related_name="atendimentos_criados",
-                to=settings.AUTH_USER_MODEL,
-                verbose_name="Criado por",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="equipamento",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
-                related_name="atendimentos",
-                to="user.equipamento",
-                verbose_name="Equipamento",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="equipe",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="user.equipe",
-                verbose_name="Equipe",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="prioridade",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="user.prioridade",
-                verbose_name="Prioridade",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="projeto",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="user.projeto",
-                verbose_name="Projeto",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="responsavel",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.PROTECT,
-                related_name="atendimentos_responsavel",
-                to=settings.AUTH_USER_MODEL,
-                verbose_name="Responsável",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="solicitante",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="user.solicitante",
-                verbose_name="Solicitante",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="status",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="user.status",
-                verbose_name="Status",
-            ),
-        ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="tipo_problema",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="user.tipoproblema",
-                verbose_name="Tipo do Problema",
-            ),
-        ),
+        # REMOVIDO (first-run fix): apontamento.atividade ja existe desde 0024
+        # (AlterField em 0024). Manter o AddField quebrava migrate do zero
+        # com "duplicate column name: atividade_id". DBs ja migrados nao sao
+        # afetados (0030 ja consta como aplicada).
+        # REMOVIDO (first-run fix): os 10 AddField abaixo em "apontamento"
+        # (cliente, criado_por, equipamento, equipe, prioridade, projeto,
+        # responsavel, solicitante, status, tipo_problema) sao redundantes:
+        # todos ja existem no estado em 0029. Mantidos, quebravam migrate
+        # do zero com "duplicate column name". DBs ja migrados nao sao
+        # afetados (0030 ja consta como aplicada).
         migrations.AddField(
             model_name="apontamentotempo",
             name="apontamento",

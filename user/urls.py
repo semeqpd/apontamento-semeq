@@ -126,6 +126,7 @@ urlpatterns = [
     path('cadastros/clientes/api/plantas/', views.api_plantas_por_corporacao_zona, name='cliente_api_plantas'),
     path('cadastros/clientes/api/zonas/', views.api_zonas_por_corporacao, name='cliente_api_zonas'),
     path('cadastros/clientes/api/plantas/', views.api_plantas_por_corporacao_zona, name='cliente_api_plantas'),
+    path('cadastros/clientes/api/lista/', views.ClienteListaJsonView.as_view(), name='cliente_api_lista'),
 
     # Health Check
     path('health/', views.HealthCheckView.as_view(), name='health_check'),

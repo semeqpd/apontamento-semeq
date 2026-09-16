@@ -30,8 +30,13 @@
                         <input class="form-control" value="{% if request.user.perfil %}{{ request.user.perfil.get_role_display }}{% else %}—{% endif %}" readonly>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label text-muted small">Time/Equipe</label>
-                        <input class="form-control" value="{% if request.user.perfil and request.user.perfil.equipe %}{{ request.user.perfil.equipe.nome }}{% else %}—{% endif %}" readonly>
+                        <label class="form-label">Time/Equipe</label>
+                        <select name="equipe" class="form-select">
+                            <option value="">— Sem equipe —</option>
+                            {% for equipe in equipes %}
+                            <option value="{{ equipe.pk }}" {% if request.user.perfil and request.user.perfil.equipe_id == equipe.pk %}selected{% endif %}>{{ equipe.nome }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
 

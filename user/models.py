@@ -127,25 +127,33 @@ class Cliente(models.Model):
 
 
 class Equipamento(models.Model):
-    """Modelo para gerenciar Equipamentos."""
+    """Modelo para gerenciar Equipamentos com tipo, device e modelo."""
+    TIPO_CHOICES = [
+        ('gateway', 'Gateway'),
+        ('bomba', 'Bomba'),
+        ('sensor', 'Sensor'),
+        ('controlador', 'Controlador'),
+        ('outro', 'Outro'),
+    ]
 
-    nome = models.CharField(max_length=100, verbose_name="Nome", default="Equipamento")
-    descricao = models.TextField(blank=True, verbose_name="Descrição")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='outro', verbose_name="Tipo")
+    device = models.CharField(max_length=100, verbose_name="Device", blank=True, default='')
+    modelo = models.CharField(max_length=100, verbose_name="Modelo", blank=True, default='')
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
-    ordem = models.PositiveIntegerField(default=0, verbose_name="Ordem de Exibição")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Equipamento"
         verbose_name_plural = "Equipamentos"
-        ordering = ['ordem', 'nome']
+        ordering = ['tipo', 'device', 'modelo']
         indexes = [
-            models.Index(fields=['ativo', 'ordem'], name='equipamento_ativo_ordem_idx'),
+            models.Index(fields=['tipo', 'device'], name='equipamento_tipo_device_idx'),
         ]
 
     def __str__(self):
-        return self.nome
+        base = f"{self.get_tipo_display()} - {self.device}" if self.device else f"{self.get_tipo_display()}"
+        return f"{base} {self.modelo}".strip() if self.modelo else base
 
 
 class Status(models.Model):

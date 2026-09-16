@@ -88,10 +88,12 @@ def get_dashboard_queryset(request, perfil: PerfilUsuario | None) -> QuerySet:
     month_count = month_qs.count()
 
     # If current month has less than 10, fill with most recent from previous months up to 10 total
+    # NOTE: sem slice aqui — o slice final acontece na view (list(qs[:10))).
+    # Fazer order_by/annotate/filter depois de fatiar quebra com
+    # "Cannot reorder a query once a slice has been taken".
     if month_count < 10:
-        needed = 10 - month_count
-        # Union current month with older data, then order and limit
-        qs = (month_qs | qs.filter(data__lt=data_inicio)).order_by('-data', '-hora_inicial')[:10]
+        # Union current month with older data, then order (sem limitar)
+        qs = (month_qs | qs.filter(data__lt=data_inicio)).order_by('-data', '-hora_inicial')
     else:
         qs = month_qs
 

@@ -161,16 +161,21 @@ class Command(BaseCommand):
             self.stdout.write(f'  Cliente já existe: {cliente}')
 
         # Equipamentos
-        equipamentos = ['Outro', 'Nenhum']
-        for eq_nome in equipamentos:
+        equipamentos = [
+            {'tipo': 'outro', 'device': 'Nenhum', 'modelo': ''},
+            {'tipo': 'outro', 'device': 'Outro', 'modelo': ''},
+        ]
+        for eq_data in equipamentos:
             equipamento, created = Equipamento.objects.get_or_create(
-                nome=eq_nome,
-                defaults={'descricao': ''}
+                tipo=eq_data['tipo'],
+                device=eq_data['device'],
+                modelo=eq_data['modelo'],
+                defaults={'ativo': True}
             )
             if created:
-                self.stdout.write(self.style.SUCCESS(f'  Equipamento criado: {equipamento.nome}'))
+                self.stdout.write(self.style.SUCCESS(f'  Equipamento criado: {equipamento}'))
             else:
-                self.stdout.write(f'  Equipamento já existe: {equipamento.nome}')
+                self.stdout.write(f'  Equipamento já existe: {equipamento}')
 
     def create_cadastros_auxiliares(self):
         """Cria cadastros auxiliares padrão."""
@@ -232,34 +237,32 @@ class Command(BaseCommand):
             {'status': 'Concluído', 'ordem': 3, 'cor': '#198754', 'is_concluido': True},
         ]
         for st_data in status_padrao:
-            status, created = Status.objects.get_or_create(
-                status=st_data['status'],
-                defaults={
-                    'ordem': st_data['ordem'],
-                    'cor': st_data['cor'],
-                    'is_concluido': st_data['is_concluido'],
-                    'ativo': True
-                }
-            )
-            if created:
+            # Busca case-insensitive para nao duplicar ('aberto' vs 'Aberto')
+            status = Status.objects.filter(status__iexact=st_data['status']).first()
+            if status is None:
+                status = Status.objects.create(
+                    status=st_data['status'],
+                    ordem=st_data['ordem'],
+                    cor=st_data['cor'],
+                    is_concluido=st_data['is_concluido'],
+                    ativo=True,
+                )
                 self.stdout.write(self.style.SUCCESS(f'  Status criado: {status.status}'))
+                continue
+            # Normaliza existente para o canonico (nome, cor, ordem, is_concluido, ativo)
+            changed = False
+            for field in ('status', 'cor', 'ordem', 'is_concluido'):
+                if getattr(status, field) != st_data[field]:
+                    setattr(status, field, st_data[field])
+                    changed = True
+            if not status.ativo:
+                status.ativo = True
+                changed = True
+            if changed:
+                status.save()
+                self.stdout.write(self.style.WARNING(f'  Status atualizado: {status.status}'))
             else:
-                # Atualiza cor e ordem se necessário
-                changed = False
-                if status.cor != st_data['cor']:
-                    status.cor = st_data['cor']
-                    changed = True
-                if status.ordem != st_data['ordem']:
-                    status.ordem = st_data['ordem']
-                    changed = True
-                if status.is_concluido != st_data['is_concluido']:
-                    status.is_concluido = st_data['is_concluido']
-                    changed = True
-                if changed:
-                    status.save()
-                    self.stdout.write(self.style.WARNING(f'  Status atualizado: {status.status}'))
-                else:
-                    self.stdout.write(f'  Status já existe: {status.status}')
+                self.stdout.write(f'  Status já existe: {status.status}')
 
     def validate_data(self):
         """Valida se todos os dados obrigatórios existem."""
@@ -279,9 +282,9 @@ class Command(BaseCommand):
             errors.append('Cliente SEMEQ LIMEIRA não encontrado')
 
         # Verifica equipamentos
-        for eq_nome in ['Outro', 'Nenhum']:
-            if not Equipamento.objects.filter(nome=eq_nome).exists():
-                errors.append(f'Equipamento "{eq_nome}" não encontrado')
+        for eq_device in ['Outro', 'Nenhum']:
+            if not Equipamento.objects.filter(device=eq_device).exists():
+                errors.append(f'Equipamento "{eq_device}" não encontrado')
 
         # Verifica status
         for nome in ['Aberto', 'Executando', 'Concluído']:

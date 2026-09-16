@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block table_row %}
-<td>{{ obj.get_full_name|default:obj.username }}</td>
+<td>{{ obj.get_full_name|default:obj.username }}{% if obj.pk == request.user.pk %} <span class="badge bg-info ms-1">Você</span>{% endif %}</td>
 <td>{{ obj.username }}</td>
 <td>{{ obj.email|default:"—" }}</td>
 <td>{{ obj.perfil.get_role_display|default:"—" }}</td>

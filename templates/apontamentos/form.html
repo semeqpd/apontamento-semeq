@@ -27,18 +27,58 @@
 
                 <div class="section-title">Dados do Apontamento</div>
 
+<style>
+.combo { position: relative; }
+.combo-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 1050;
+    max-height: 240px; overflow-y: auto;
+    background: #fff; border: 1px solid #ced4da; border-top: none;
+    border-radius: 0 0 .375rem .375rem;
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+}
+.combo-item { padding: .375rem .75rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combo-item:hover, .combo-item.active { background: #0d6efd; color: #fff; }
+.combo-empty { padding: .375rem .75rem; color: #6c757d; }
+</style>
+<div class="row g-3">
+    <!-- Corporação -->
+    <div class="col-md-4">
+        <label for="select-corporacao" class="form-label fw-semibold">Corporação <span class="text-danger">*</span></label>
+        <div class="combo">
+            <input id="select-corporacao" class="form-control" placeholder="Clique ou digite para buscar..." autocomplete="off">
+            <div class="combo-list" id="list-corporacao" hidden></div>
+        </div>
+    </div>
+
+    <!-- Zona (Opcional) -->
+    <div class="col-md-4">
+        <label for="select-zona" class="form-label fw-semibold">Zona</label>
+        <div class="combo">
+            <input id="select-zona" class="form-control" placeholder="Todas as zonas" autocomplete="off">
+            <div class="combo-list" id="list-zona" hidden></div>
+        </div>
+    </div>
+
+    <!-- Planta / Cliente -->
+    <div class="col-md-4">
+        <label for="select-planta" class="form-label fw-semibold">Cliente (Planta) <span class="text-danger">*</span></label>
+        <div class="combo">
+            <input id="select-planta" class="form-control" placeholder="Clique ou digite para buscar..." autocomplete="off">
+            <div class="combo-list" id="list-planta" hidden></div>
+        </div>
+        <input type="hidden" name="cliente" id="id_cliente_hidden" data-selected="{{ form.cliente.value|default:'' }}">
+        <div id="clienteCascadeError" class="text-danger small mt-1" style="display:none;">Selecione uma planta válida da lista.</div>
+        {% if form.cliente.errors %}<div class="text-danger small mt-1">{{ form.cliente.errors }}</div>{% endif %}
+    </div>
+</div>
+
                 <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">{{ form.cliente.label }} <span class="text-danger">*</span></label>
-                        {{ form.cliente }}
-                        {% if form.cliente.errors %}<div class="text-danger small mt-1">{{ form.cliente.errors }}</div>{% endif %}
-                    </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">{{ form.projeto.label }}</label>
                         {{ form.projeto }}
                         {% if form.projeto.errors %}<div class="text-danger small mt-1">{{ form.projeto.errors }}</div>{% endif %}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">{{ form.solicitante.label }}</label>
                         {{ form.solicitante }}
                         {% if form.solicitante.errors %}<div class="text-danger small mt-1">{{ form.solicitante.errors }}</div>{% endif %}
@@ -356,6 +396,259 @@ if (!dataInicialInput.value) dataInicialInput.value = today;
         }
     }
 
+    // ===== CASCATA CLIENTE: combobox pesquisável (clique abre, digitar filtra) =====
+    // Fonte única: /cadastros/clientes/api/lista/ -> [{id, corporacao, zona, planta}].
+    // Zona é opcional: planta filtra por corporação e/ou zona. Planta lista tudo por padrão.
+    function normTxt(s) {
+        return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
+
+    function makeCombo(inputId, listId, onPick) {
+        const input = document.getElementById(inputId);
+        const list = document.getElementById(listId);
+        let items = []; // [{value, label}]
+        let activeIdx = -1;
+        if (!input || !list) return null;
+
+        function render(filterText) {
+            const f = normTxt(filterText);
+            const shown = items.filter(it => !f || normTxt(it.label).includes(f));
+            list.innerHTML = '';
+            activeIdx = -1;
+            if (!shown.length) {
+                const d = document.createElement('div');
+                d.className = 'combo-empty';
+                d.textContent = 'Nenhum resultado';
+                list.appendChild(d);
+                return;
+            }
+            shown.forEach(function(it) {
+                const d = document.createElement('div');
+                d.className = 'combo-item';
+                d.textContent = it.label;
+                d.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    pick(it);
+                });
+                list.appendChild(d);
+            });
+        }
+
+        function open() { list.hidden = false; render(input.value); }
+        function close() { list.hidden = true; }
+        function pick(it) {
+            input.value = it.label;
+            input.classList.remove('is-invalid');
+            close();
+            if (onPick) onPick(it);
+        }
+
+        input.addEventListener('focus', open);
+        input.addEventListener('click', open);
+        input.addEventListener('input', open);
+        input.addEventListener('keydown', function(e) {
+            const opts = Array.from(list.querySelectorAll('.combo-item'));
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (list.hidden) { open(); return; }
+                if (!opts.length) return;
+                activeIdx = e.key === 'ArrowDown'
+                    ? Math.min(activeIdx + 1, opts.length - 1)
+                    : Math.max(activeIdx - 1, 0);
+                opts.forEach((o, i) => o.classList.toggle('active', i === activeIdx));
+                opts[activeIdx].scrollIntoView({block: 'nearest'});
+            } else if (e.key === 'Enter') {
+                if (!list.hidden && activeIdx >= 0 && opts[activeIdx]) {
+                    e.preventDefault();
+                    pick({value: null, label: opts[activeIdx].textContent});
+                }
+            } else if (e.key === 'Escape') {
+                close();
+            }
+        });
+        input.addEventListener('blur', function() { setTimeout(close, 200); });
+        document.addEventListener('click', function(e) {
+            if (e.target !== input && !list.contains(e.target)) close();
+        });
+
+        return {
+            setItems: function(newItems, keepText) {
+                items = newItems || [];
+                if (!keepText) input.value = '';
+                render(input.value);
+            },
+            setByValue: function(value) {
+                const it = items.find(i => String(i.value) === String(value));
+                if (it) {
+                    input.value = it.label;
+                    input.classList.remove('is-invalid');
+                    return it;
+                }
+                return null;
+            },
+            setText: function(t) { input.value = t || ''; },
+            getText: function() { return input.value.trim(); },
+            clear: function() { input.value = ''; input.classList.remove('is-invalid'); render(''); },
+            findByLabel: function(label) {
+                return items.find(i => i.label === label) || null;
+            }
+        };
+    }
+
+    let todosClientes = [];
+    const hiddenCliente = document.getElementById('id_cliente_hidden');
+    const cascadeError = document.getElementById('clienteCascadeError');
+
+    function hideCascadeError() {
+        if (cascadeError) cascadeError.style.display = 'none';
+        const pi = document.getElementById('select-planta');
+        if (pi) pi.classList.remove('is-invalid');
+    }
+
+    function corpsList() {
+        return [...new Set(todosClientes.map(c => c.corporacao).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    }
+
+    function comboCorp() { return window._comboCorp; }
+    function comboZona() { return window._comboZona; }
+    function comboPlanta() { return window._comboPlanta; }
+
+    function atualizarZonas() {
+        const corp = document.getElementById('select-corporacao').value.trim();
+        let filtrados = todosClientes;
+        if (corp) filtrados = filtrados.filter(c => c.corporacao === corp);
+        const zonas = [...new Set(filtrados.map(c => c.zona).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        comboZona().setItems(zonas.map(z => ({value: z, label: z})), true);
+        const cur = document.getElementById('select-zona').value.trim();
+        if (cur && !zonas.includes(cur)) comboZona().clear();
+    }
+
+    function atualizarPlantas() {
+        const corp = document.getElementById('select-corporacao').value.trim();
+        const zona = document.getElementById('select-zona').value.trim();
+        let filtradas = todosClientes;
+        if (corp) filtradas = filtradas.filter(c => c.corporacao === corp);
+        if (zona) filtradas = filtradas.filter(c => c.zona === zona);
+        const curPk = hiddenCliente.value;
+        comboPlanta().setItems(
+            filtradas.map(c => ({value: String(c.id), label: c.planta || c.corporacao})), true);
+        // Mantém a planta se ainda válida no filtro
+        if (curPk && filtradas.some(c => String(c.id) === String(curPk))) {
+            const it = filtradas.find(c => String(c.id) === String(curPk));
+            document.getElementById('select-planta').value = it.planta || it.corporacao;
+        } else {
+            hiddenCliente.value = '';
+            document.getElementById('select-planta').value = '';
+        }
+    }
+
+    function resetDownstream() {
+        comboZona().clear();
+        comboPlanta().clear();
+        hiddenCliente.value = '';
+        hideCascadeError();
+        atualizarZonas();
+        atualizarPlantas();
+    }
+
+    if (document.getElementById('select-corporacao') && hiddenCliente) {
+        window._comboCorp = makeCombo('select-corporacao', 'list-corporacao', function() {
+            resetDownstream();
+        });
+        window._comboZona = makeCombo('select-zona', 'list-zona', function() {
+            comboPlanta().clear();
+            hiddenCliente.value = '';
+            hideCascadeError();
+            atualizarPlantas();
+        });
+        window._comboPlanta = makeCombo('select-planta', 'list-planta', function(it) {
+            // it.value é null quando escolhido via teclado (Enter); resolve pelo label
+            if (it.value === null || it.value === undefined) {
+                const found = comboPlanta().findByLabel(it.label);
+                hiddenCliente.value = found ? found.value : '';
+            } else {
+                hiddenCliente.value = it.value;
+            }
+            hideCascadeError();
+        });
+
+        // Texto livre inválido na corporação → limpa tudo
+        document.getElementById('select-corporacao').addEventListener('change', function() {
+            const v = this.value.trim();
+            if (v && !corpsList().includes(v)) {
+                this.value = '';
+                resetDownstream();
+            } else if (!v) {
+                resetDownstream();
+            }
+        });
+        // Zona limpa manualmente → planta volta a filtrar só por corporação
+        document.getElementById('select-zona').addEventListener('change', function() {
+            const v = this.value.trim();
+            if (!v) {
+                comboPlanta().clear();
+                hiddenCliente.value = '';
+                hideCascadeError();
+                atualizarPlantas();
+            }
+        });
+        // Planta digitada precisa casar com um item da lista
+        document.getElementById('select-planta').addEventListener('change', function() {
+            const v = this.value.trim();
+            if (!v) { hiddenCliente.value = ''; hideCascadeError(); return; }
+            const found = comboPlanta().findByLabel(v);
+            if (found) {
+                hiddenCliente.value = found.value;
+                hideCascadeError();
+            } else {
+                this.value = '';
+                hiddenCliente.value = '';
+            }
+        });
+
+        // Validação no submit: planta precisa ser um item válido
+        const apontForm = document.getElementById('apontamentoForm');
+        if (apontForm) apontForm.addEventListener('submit', function(e) {
+            if (!hiddenCliente.value) {
+                e.preventDefault();
+                if (cascadeError) cascadeError.style.display = 'block';
+                document.getElementById('select-planta').classList.add('is-invalid');
+                document.getElementById('select-planta').focus();
+            }
+        });
+
+        // Fetch inicial + pré-seleção (edição ou retorno com erro de validação)
+        fetch("{% url 'semeq:cliente_api_lista' %}")
+            .then(res => res.json())
+            .then(data => {
+                todosClientes = Array.isArray(data) ? data : (data.results || []);
+                comboCorp().setItems(corpsList().map(c => ({value: c, label: c})), true);
+                const sel = hiddenCliente.dataset.selected || '';
+                if (sel) {
+                    const item = todosClientes.find(c => String(c.id) === String(sel));
+                    if (item) {
+                        document.getElementById('select-corporacao').value = item.corporacao || '';
+                        atualizarZonas();
+                        if (item.zona) {
+                            document.getElementById('select-zona').value = item.zona;
+                        }
+                        atualizarPlantas();
+                        document.getElementById('select-planta').value = item.planta || item.corporacao;
+                        hiddenCliente.value = String(item.id);
+                    } else {
+                        atualizarZonas();
+                        atualizarPlantas();
+                    }
+                } else {
+                    atualizarZonas();
+                    atualizarPlantas();
+                }
+            })
+            .catch(err => console.error('Erro ao carregar clientes:', err));
+    }
+
     // Load Tom Select JS and initialize equipamento
     if (!window.TomSelect) {
         const js = document.createElement('script');
@@ -373,11 +666,9 @@ if (!dataInicialInput.value) dataInicialInput.value = today;
     initTipoProblemaSelect();
 
     // Dynamic date validation: Data Final min/max based on Data Inicial
+    // (dataInicialInput/dataFinalInput/today já declarados acima — não redeclarar)
     const form = document.getElementById('apontamentoForm');
-    const dataInicialInput = document.querySelector('[name="data_inicial"]');
-    const dataFinalInput = document.querySelector('[name="data_final"]');
     const dataFinalAlert = document.getElementById('dataFinalAlert');
-    const today = new Date().toISOString().split('T')[0];
 
     // Initialize: set max to today for both fields
     if (dataInicialInput) dataInicialInput.max = today;
@@ -538,6 +829,9 @@ if (!dataInicialInput.value) dataInicialInput.value = today;
                 filterResponsaveis(this.value);
             });
         }
-        
-        initResponsavelFilter();
+    }
+
+    initResponsavelFilter();
+});
+</script>
 {% endblock %}
