@@ -292,9 +292,10 @@ def agrupar_por_dia_equipe_usuario(qs: QuerySet, current_user=None) -> list:
         }
         
         for equipe_id, equipe_data in equipes_sorted:
+            # Sort users: current user first, then alphabetical by name
             usuarios_sorted = sorted(
                 equipe_data['usuarios'].items(), 
-                key=lambda x: x[1]['usuario_nome']
+                key=lambda x: (0 if x[0] == current_user.id else 1, x[1]['usuario_nome'])
             )
             
             equipe = {

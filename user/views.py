@@ -181,12 +181,12 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
         
         if is_admin_ou_gestor:
             # Admin/Gestor: Hierarchical grouping Data -> Equipe -> Usuario -> Apontamentos
-            agrupamento_admin = agrupar_por_dia_equipe_usuario(qs)
+            agrupamento_admin = agrupar_por_dia_equipe_usuario(qs, current_user=self.request.user)
             selector_context['agrupamento_admin'] = agrupamento_admin
             selector_context['is_admin_ou_gestor'] = True
         else:
             # Lider/Colaborador: Simple daily grouping with totals
-            agrupados, totais = agrupar_por_data(qs)
+            agrupados, totais = agrupar_por_data(qs, current_user=self.request.user)
             selector_context['apontamentos_por_data'] = agrupados
             selector_context['totais_por_data'] = totais
             selector_context['is_admin_ou_gestor'] = False
