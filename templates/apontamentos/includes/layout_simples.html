@@ -72,6 +72,7 @@
                         <option value="{{ status_obj.id }}" 
                                 data-cor="{{ status_obj.cor }}" 
                                 data-is-concluido="{{ status_obj.is_concluido_fixo|yesno:'true,false' }}"
+                                {% if st.is_concluido_fixo and not status_obj.is_concluido_fixo %}disabled{% endif %}
                                 {% if st.id == status_obj.id %}selected{% endif %} 
                                 style="background-color: #fff; color: #333;">
                             {{ status_obj.status }}
@@ -93,9 +94,11 @@
             <td class="text-center align-middle text-nowrap" style="padding: 6px 10px;">
                 {% if a.responsavel_id == request.user.id or a.apontamento.responsavel == request.user %}
                 <div class="d-flex justify-content-center gap-1">
+                  {% if a.apontamento.status.status != 'Concluído' %}
                     <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-sm btn-outline-primary p-0 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;" title="Editar" onclick="event.stopPropagation();">
                         <i class="bi bi-pencil" style="font-size: 0.75rem;"></i>
                     </a>
+                  {% endif %}
                     <button type="button" class="btn btn-sm btn-outline-danger p-0 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;" data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento" data-id="{{ a.apontamento.pk }}" title="Excluir" onclick="event.stopPropagation();">
                         <i class="bi bi-trash" style="font-size: 0.75rem;"></i>
                     </button>

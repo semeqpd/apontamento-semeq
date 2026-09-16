@@ -19,10 +19,12 @@
         </div>
         <div class="d-flex gap-2 flex-wrap flex-md-nowrap">
             {% can_edit_apontamento_tag request.user apontamento as can_edit %}
+            {% if apontamento.status.status != 'Concluído' %}
             {% if can_edit %}
             <a href="{% url 'semeq:apontamento_editar' apontamento.pk %}" class="btn btn-semeq-outline">
                 <i class="bi bi-pencil me-1"></i> Editar
             </a>
+            {% endif %}
             {% endif %}
             {% can_delete_apontamento_tag request.user apontamento as can_delete %}
             {% if can_delete %}
