@@ -150,10 +150,11 @@ def get_list_context_data(request, perfil: PerfilUsuario | None, qs: QuerySet) -
     return context
 
 
-def agrupar_por_data(qs: QuerySet) -> tuple[OrderedDict, dict]:
+def agrupar_por_data(qs: QuerySet, current_user=None) -> tuple[OrderedDict, dict]:
     """
     Group ApontamentoTempo entries by date, but sum using Apontamento.tempo_investido_minutos
     for consistency with edit form.
+    If current_user is provided, their apontamentos appear first within each day.
     """
     from user.models import Apontamento
     
@@ -177,6 +178,10 @@ def agrupar_por_data(qs: QuerySet) -> tuple[OrderedDict, dict]:
         agrupados.setdefault(data, []).append(ap_tempo)
 
     for data, lista in agrupados.items():
+        # Sort: current user's apontamentos first
+        if current_user:
+            lista.sort(key=lambda at: 0 if at.responsavel_id == current_user.id else 1)
+        
         total = 0
         for ap_tempo in lista:
             ap = ap_map.get(ap_tempo.apontamento_id)
@@ -193,7 +198,7 @@ def agrupar_por_data(qs: QuerySet) -> tuple[OrderedDict, dict]:
     return agrupados, totais
 
 
-def agrupar_por_dia_equipe_usuario(qs: QuerySet) -> list:
+def agrupar_por_dia_equipe_usuario(qs: QuerySet, current_user=None) -> list:
     """
     Group ApontamentoTempo entries hierarchically: Data -> Equipe -> Usuario -> Apontamentos
     Returns a list of daily groups, each containing equipe groups, each containing usuario groups.

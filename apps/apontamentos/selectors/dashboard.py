@@ -76,6 +76,7 @@ def get_dashboard_queryset(request, perfil: PerfilUsuario | None) -> QuerySet:
     """
     Returns queryset for dashboard - shows current month by default, 
     most recent first (-data, -hora_inicial).
+    If current month has less than 10, fill with most recent from previous months up to 10 total.
     For admin/gestor: show their own first, then others.
     """
     qs = get_apontamentos_base_qs()
@@ -84,10 +85,13 @@ def get_dashboard_queryset(request, perfil: PerfilUsuario | None) -> QuerySet:
     # Default: show current month
     data_inicio, data_fim = get_default_date_range()
     month_qs = qs.filter(data__gte=data_inicio, data__lte=data_fim)
-    
-    # If month is sparse but we have historical data, show latest 10 globally
-    if month_qs.count() < 10 and qs.count() >= 10:
-        qs = month_qs | qs.filter(data__lt=data_inicio)  # union with older data
+    month_count = month_qs.count()
+
+    # If current month has less than 10, fill with most recent from previous months up to 10 total
+    if month_count < 10:
+        needed = 10 - month_count
+        # Union current month with older data, then order and limit
+        qs = (month_qs | qs.filter(data__lt=data_inicio)).order_by('-data', '-hora_inicial')[:10]
     else:
         qs = month_qs
 
@@ -97,7 +101,7 @@ def get_dashboard_queryset(request, perfil: PerfilUsuario | None) -> QuerySet:
         from django.db.models import Case, When, Value, BooleanField
         qs = qs.annotate(
             is_own=Case(
-                When(responsavel=user, then=Value(True)),
+                When(responsavel=perfil.user, then=Value(True)),
                 default=Value(False),
                 output_field=BooleanField()
             )
@@ -105,7 +109,7 @@ def get_dashboard_queryset(request, perfil: PerfilUsuario | None) -> QuerySet:
     else:
         # Always order by most recent first
         qs = qs.order_by('-data', '-hora_inicial')
-    
+
     return qs
 
 

@@ -100,7 +100,7 @@ class DashboardView(LoginRequiredMixin, View):
         qs = qs.order_by('-data', '-hora_inicial')
 
         # Group by day for ALL appointments in current month
-        agrupados, totais = agrupar_por_data(qs)
+        agrupados, totais = agrupar_por_data(qs, current_user=self.request.user)
 
         # Get filter options
         from .models import Equipe
