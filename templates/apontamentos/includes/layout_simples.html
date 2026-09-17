@@ -21,7 +21,9 @@
             <th class="text-nowrap" style="padding: 6px 10px;">RESPONSÁVEL</th>
             <th class="text-nowrap" style="padding: 6px 10px;">PROJETO</th>
             <th class="text-nowrap" style="padding: 6px 10px;">SOLICITANTE</th>
+            {% if is_admin_ou_gestor %}
             <th class="text-center text-nowrap" style="padding: 6px 10px; width: 110px;">PRIORIDADE</th>
+            {% endif %}
             <th class="text-center text-nowrap" style="padding: 6px 10px; width: 80px;">DURAÇÃO</th>
             <th class="text-center text-nowrap" style="padding: 6px 10px; width: 110px;">STATUS</th>
             <!-- AÇÕES sempre visível no layout simples (usuário vê apenas seus próprios apontamentos) -->
@@ -39,6 +41,7 @@
             <td class="text-nowrap" style="padding: 6px 10px;">{{ a.apontamento.projeto|truncatechars:20|default:"—" }}</td>
             <td class="text-nowrap" style="padding: 6px 10px;">{{ a.apontamento.solicitante|default:"—" }}</td>
             
+            {% if is_admin_ou_gestor %}
             <!-- Prioridade -->
             <td class="text-center text-nowrap" style="padding: 6px 10px;">
                 {% if a.apontamento.prioridade %}
@@ -49,6 +52,7 @@
                 <span class="badge bg-secondary rounded-pill d-inline-block text-center" style="width: 95px; font-size: 0.65rem; padding: 4px 0;">—</span>
                 {% endif %}
             </td>
+            {% endif %}
             <!-- Duração -->
             <td class="fw-medium text-primary text-nowrap text-center" style="padding: 6px 10px; font-size: 0.72rem;">
                 {% if a.apontamento.tempo_investido_minutos is not None %}{{ a.apontamento.tempo_investido_minutos }}{% else %}{{ a.get_tempo_exibicao_minutos }}{% endif %} min
@@ -65,7 +69,8 @@
                         style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: 95px; min-width: 95px; padding-top: 2px; padding-bottom: 2px; border-radius: 4px; cursor: pointer; background-position: right 4px center; font-size: 0.65rem; height: 24px; margin: 0 auto;"
                         onclick="event.stopPropagation();">
                     {% for status_obj in lista_status %}
-                        <option value="{{ status_obj.id }}" 
+                        <option value="{{ status_obj.id }}"
+                                id="status" 
                                 data-cor="{{ status_obj.cor }}" 
                                 data-is-concluido="{{ status_obj.is_concluido_fixo|yesno:'true,false' }}"
                                 {% if st.is_concluido_fixo and not status_obj.is_concluido_fixo %}disabled{% endif %}
@@ -91,7 +96,9 @@
                 {% if a.responsavel_id == request.user.id or a.apontamento.responsavel == request.user %}
                 <div class="d-flex justify-content-center gap-1">
                   {% if a.apontamento.status.status != 'Concluído' %}
-                    <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-sm btn-outline-primary p-0 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;" title="Editar" onclick="event.stopPropagation();">
+                    <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" 
+                    class="btn btn-sm btn-outline-primary p-0 d-flex align-items-center justify-content-center" 
+                    style="width: 26px; height: 26px;" title="Editar" onclick="event.stopPropagation();">
                         <i class="bi bi-pencil" style="font-size: 0.75rem;"></i>
                     </a>
                   {% endif %}

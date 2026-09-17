@@ -48,8 +48,7 @@ def get_apontamentos_list_qs(request, perfil: PerfilUsuario | None) -> QuerySet:
     status = request.GET.get('status', '').strip()
     if status:
         qs = qs.filter(apontamento__status_id=status)
-    else:
-        # Concluídos ocultos por padrão: só aparecem com filtro explícito
+    elif not perfil or perfil.role != 'colaborador':
         qs = qs.exclude(
             Q(apontamento__status__is_concluido=True) |
             Q(apontamento__status__status__iexact='concluido') |
