@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Excluir {{ title|default:"Registro" }} - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 600px;">
+    <div class="card border-danger shadow-sm">
+        <div class="card-header bg-danger text-white">
+            <h4 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Exclusão</h4>
+        </div>
+        <div class="card-body p-4">
+            <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                <div>
+                    <strong>Esta ação não pode ser desfeita!</strong>
+                    <div class="small mt-1">O registro será removido permanentemente do sistema.</div>
+                </div>
+            </div>
+            
+            <div class="card bg-warning bg-opacity-10 border-warning mb-4">
+                <div class="card-body">
+                    <h6 class="card-title mb-2"><i class="bi bi-info-circle me-1"></i>Registro a ser excluído:</h6>
+                    <div class="row g-2 small">
+                        {% block delete_info %}
+                        <div class="col-12">
+                            <strong>{{ object|capfirst }}:</strong> {{ object }}
+                        </div>
+                        {% endblock %}
+                    </div>
+                </div>
+            </div>
+
+            {% block delete_warning %}{% endblock %}
+            
+            <form method="post" action="" novalidate id="confirmDeleteForm">
+                {% csrf_token %}
+                {% if show_delete_apontamentos_checkbox %}
+                <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" name="delete_apontamentos" id="id_delete_apontamentos">
+                    <label class="form-check-label text-danger fw-semibold" for="id_delete_apontamentos">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Excluir também os {{ apontamentos_count|default:0 }} apontamento(s) associado(s)
+                    </label>
+                    <div class="form-text text-danger small">Obrigatório para usuários com apontamentos associados</div>
+                </div>
+                {% endif %}
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="{{ request.path }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-danger" id="deleteConfirmBtn" onclick="alert('BOTÃO CLICADO - Verifique o console!');">
+                        <i class="bi bi-trash me-1"></i> Sim, Excluir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Delete form debug - IMMEDIATE EXECUTION
+console.log('=== DELETE FORM DEBUG LOADED ===');
+
+(function() {
+    console.log('=== DELETE FORM DEBUG START ===');
+    
+    // Check form immediately
+    var form = document.getElementById('confirmDeleteForm');
+    console.log('Form found at load:', !!form);
+    
+    if (form) {
+        console.log('Form action:', form.action);
+        console.log('Form method:', form.method);
+        
+        form.addEventListener('submit', function(e) {
+            console.log('=== FORM SUBMIT EVENT ===');
+            console.log('Form data:', new FormData(this));
+            console.log('Target:', e.target);
+            console.log('Current URL:', window.location.href);
+        }, true); // use capture phase
+        
+        // Check all buttons
+        var buttons = form.querySelectorAll('button, input[type="submit"]');
+        console.log('Buttons found:', buttons.length);
+        buttons.forEach(function(btn, i) {
+            console.log('Button ' + i + ':', btn.outerHTML);
+            btn.addEventListener('click', function(e) {
+                console.log('Button ' + i + ' CLICKED', e);
+            }, true);
+        });
+        
+        // Check checkbox
+        var checkbox = document.getElementById('id_delete_apontamentos');
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                console.log('Checkbox changed:', this.checked);
+            }, true);
+        }
+    } else {
+        console.error('FORM NOT FOUND at DOMContentLoaded!');
+    }
+    
+    // Check for modals
+    var modals = document.querySelectorAll('.modal');
+    console.log('Modals on page:', modals.length);
+    modals.forEach(function(m) { console.log('Modal:', m.id); });
+    
+    console.log('=== DELETE FORM DEBUG END ===');
+})();
+
+// Also check on window load
+window.addEventListener('load', function() {
+    console.log('=== WINDOW LOAD - Final check ===');
+    var form = document.getElementById('confirmDeleteForm');
+    console.log('Form at window load:', !!form);
+    if (form) {
+        console.log('Form action at load:', form.action);
+    }
+});
+
+// DIRECT BUTTON TEST - runs immediately
+console.log('=== IMMEDIATE CHECK ===');
+var btn = document.getElementById('deleteConfirmBtn');
+if (btn) {
+    console.log('Delete button found immediately:', btn);
+    btn.addEventListener('click', function(e) {
+        console.log('=== DIRECT BUTTON CLICK ===');
+        console.log('Button:', e.target);
+    });
+} else {
+    console.log('Delete button NOT found immediately');
+}
+
+// MANUAL SUBMIT TEST - run in console to test
+window.testDeleteSubmit = function() {
+    console.log('=== MANUAL SUBMIT TEST ===');
+    var form = document.getElementById('confirmDeleteForm');
+    if (!form) {
+        console.error('Form not found!');
+        return;
+    }
+    var checkbox = document.getElementById('id_delete_apontamentos');
+    if (checkbox) {
+        checkbox.checked = true;
+        console.log('Checkbox checked:', checkbox.checked);
+    }
+    var formData = new FormData(form);
+    console.log('FormData entries:');
+    for (var pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+    }
+    console.log('Submitting form...');
+    form.submit();
+};
+console.log('Run testDeleteSubmit() in console to test form submission manually');
+
+// AUTO-CHECK CHECKBOX ON PAGE LOAD
+window.addEventListener('DOMContentLoaded', function() {
+    var checkbox = document.getElementById('id_delete_apontamentos');
+    if (checkbox && !checkbox.checked) {
+        console.log('Auto-checking delete_apontamentos checkbox');
+        checkbox.checked = true;
+    }
+});
+
+// ALERT ON CLICK - FORCE ALERT TO SEE IF CLICK WORKS
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'deleteConfirmBtn' || e.target.closest('#deleteConfirmBtn')) {
+        alert('DELETE BUTTON CLICKED! Check console for details.');
+        console.log('=== ALERT TRIGGERED - DELETE BUTTON CLICKED ===', e.target);
+    }
+}, true);
+
+</script>
+{% endblock %}

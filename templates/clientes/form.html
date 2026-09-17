@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar Cliente{% else %}Novo Cliente{% endif %} - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-brand">
+                <i class="bi bi-building"></i>
+                <span>{% if object %}Editar Cliente{% else %}Novo Cliente{% endif %}</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                <div class="section-title">Identificação</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.corporation.label }} <span class="text-danger">*</span></label>
+                        {{ form.corporation }}
+                        {% if form.corporation.errors %}
+                            <div class="text-danger small mt-1">{{ form.corporation.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-9">
+                        <label class="form-label">{{ form.plant.label }} <span class="text-danger">*</span></label>
+                        {{ form.plant }}
+                        {% if form.plant.errors %}
+                            <div class="text-danger small mt-1">{{ form.plant.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="section-title">Códigos SAP</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.zone.label }}</label>
+                        {{ form.zone }}
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="text-end">
+                    <a href="{{ next_url|default:'/cadastros/#clientes' }}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-check-lg me-1"></i> {% if object %}Atualizar{% else %}Salvar{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurações - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 900px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-brand">
+                <i class="bi bi-gear"></i>
+                <span>Configurações</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+
+            <form method="post" id="formConfiguracoes">
+                {% csrf_token %}
+
+                <!-- SEÇÃO: CONFIGURAÇÕES GERAIS -->
+                <div class="section-title mb-3">
+                    Configurações Gerais
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Usuário</label>
+                        <input type="text" name="username" class="form-control" value="{{ request.user.username }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Função</label>
+                        <input class="form-control" value="{% if request.user.perfil %}{{ request.user.perfil.get_role_display }}{% else %}—{% endif %}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Time/Equipe</label>
+                        <select name="equipe" class="form-select">
+                            <option value="">— Sem equipe —</option>
+                            {% for equipe in equipes %}
+                            <option value="{{ equipe.pk }}" {% if request.user.perfil and request.user.perfil.equipe_id == equipe.pk %}selected{% endif %}>{{ equipe.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- SEÇÃO: MEU PERFIL -->
+                <div class="section-title mb-3">
+                    Meu Perfil
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Nome Completo</label>
+                        <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">E-mail</label>
+                        <input type="email" name="email" class="form-control" value="{{ request.user.email }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Telefone</label>
+                        <input type="text" name="telefone" class="form-control"
+                               value="{% if request.user.perfil %}{{ request.user.perfil.telefone }}{% endif %}">
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-save me-1"></i> Salvar Alterações
+                    </button>
+                    <a href="{% url 'semeq:password_change' %}" class="btn btn-semeq-outline">
+                        <i class="bi bi-key me-1"></i> Alterar Senha
+                    </a>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

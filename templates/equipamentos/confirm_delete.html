@@ -1,0 +1,26 @@
+{% extends 'cadastros/confirm_delete_base.html' %}
+
+{% block delete_info %}
+<div class="col-12 col-md-6">
+    <strong>Tipo:</strong> {{ object.get_tipo_display }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Device:</strong> {{ object.device|default:"—" }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Modelo:</strong> {{ object.modelo|default:"—" }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Status:</strong> {% if object.ativo %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Equipamentos:</strong> {{ equipamentos_count|default:0 }}
+</div>
+{% endblock %}
+
+{% block delete_warning %}
+<p class="text-danger small">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>Esta ação não pode ser desfeita.</strong>
+</p>
+{% endblock %}

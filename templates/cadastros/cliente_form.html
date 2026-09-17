@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar{% else %}Novo{% endif %} Cliente - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <a href="{% url 'semeq:cadastro_clientes' %}" class="btn btn-semeq-outline" title="Voltar">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h4 class="mb-0"><i class="bi bi-building me-2"></i> {% if object %}Editar{% else %}Novo{% endif %} Cliente</h4>
+    </div>
+    <div class="card">
+        <div class="card-body p-4">
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+                {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" novalidate id="clienteForm">
+                {% csrf_token %}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                <div class="section-title">Dados do Cliente</div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.corporation.label }} <span class="text-danger">*</span></label>
+                        {{ form.corporation }}
+                        {% if form.corporation.errors %}<div class="text-danger small mt-1">{{ form.corporation.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.zone.label }} <span class="text-danger">*</span></label>
+                        {{ form.zone }}
+                        {% if form.zone.errors %}<div class="text-danger small mt-1">{{ form.zone.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.plant.label }} <span class="text-danger">*</span></label>
+                        {{ form.plant }}
+                        {% if form.plant.errors %}<div class="text-danger small mt-1">{{ form.plant.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mt-4">
+                            {{ form.ativo }}
+                            <label class="form-check-label fw-semibold" for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
+                            {% if form.ativo.errors %}<div class="text-danger small mt-1">{{ form.ativo.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 border-top pt-4">
+                    <a href="{{ next_url|default:'/cadastros/clientes/' }}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-check-lg me-1"></i> Salvar cliente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const corpSelect = document.getElementById('id_corporation');
+    const zoneSelect = document.getElementById('id_zone');
+    const plantSelect = document.getElementById('id_plant');
+
+    // Build map of corporations -> zones -> plants from existing data
+    // We'll load this dynamically via AJAX
+    
+    function loadZones(corporationId) {
+        if (!corporationId) {
+            zoneSelect.innerHTML = '<option value="">Selecione primeiro a Corporação</option>';
+            zoneSelect.disabled = true;
+            plantSelect.innerHTML = '<option value="">Selecione a Zona</option>';
+            plantSelect.disabled = true;
+            return;
+        }
+        
+        zoneSelect.innerHTML = '<option value="">Carregando...</option>';
+        zoneSelect.disabled = true;
+        
+        fetch(`/cadastros/clientes/api/zonas/?corporation_id=${corporationId}`)
+            .then(response => response.json())
+            .then(data => {
+                zoneSelect.innerHTML = '<option value="">Selecione a Zona</option>';
+                data.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone.zone;
+                    option.textContent = zone.zone;
+                    zoneSelect.appendChild(option);
+                });
+                zoneSelect.disabled = false;
+            })
+            .catch(() => {
+                zoneSelect.innerHTML = '<option value="">Erro ao carregar zonas</option>';
+                zoneSelect.disabled = true;
+            });
+        
+        // Reset plant select
+        plantSelect.innerHTML = '<option value="">Selecione a Zona</option>';
+        plantSelect.disabled = true;
+    }
+    
+    function loadPlants(corporationId, zone) {
+        if (!corporationId || !zone) {
+            plantSelect.innerHTML = '<option value="">Selecione a Zona</option>';
+            plantSelect.disabled = true;
+            return;
+        }
+        
+        plantSelect.innerHTML = '<option value="">Carregando...</option>';
+        plantSelect.disabled = true;
+        
+        fetch(`/cadastros/clientes/api/plantas/?corporation_id=${corporationId}&zone=${encodeURIComponent(zone)}`)
+            .then(response => response.json())
+            .then(data => {
+                plantSelect.innerHTML = '<option value="">Selecione a Planta</option>';
+                data.forEach(plant => {
+                    const option = document.createElement('option');
+                    option.value = plant.pk;
+                    option.textContent = plant.plant;
+                    if (plant.zone) option.dataset.zone = plant.zone;
+                    plantSelect.appendChild(option);
+                });
+                plantSelect.disabled = false;
+            })
+            .catch(() => {
+                plantSelect.innerHTML = '<option value="">Erro ao carregar plantas</option>';
+                plantSelect.disabled = true;
+            });
+    }
+    
+    // Initialize on page load
+    if (corpSelect && zoneSelect && plantSelect) {
+        // On edit mode, pre-load zones and plants
+        {% if object and object.corporation %}
+            loadZones('{{ object.corporation }}');
+            {% if object.zone %}
+                setTimeout(() => {
+                    loadPlants('{{ object.corporation }}', '{{ object.zone }}');
+                }, 300);
+            {% endif %}
+        {% endif %}
+        
+        corpSelect.addEventListener('change', function() {
+            loadZones(this.value);
+        });
+        
+        zoneSelect.addEventListener('change', function() {
+            const corpId = corpSelect.value;
+            if (corpId && this.value) {
+                loadPlants(corpId, this.value);
+            } else {
+                plantSelect.innerHTML = '<option value="">Selecione a Zona</option>';
+                plantSelect.disabled = true;
+            }
+        });
+    }
+    
+    // Toggle Switch para Ativo (se existir)
+    const ativoInput = document.getElementById('id_ativo');
+    if (ativoInput) {
+        ativoInput.classList.add('form-check-input', 'form-switch');
+    }
+});
+</script>
+{% endblock %}

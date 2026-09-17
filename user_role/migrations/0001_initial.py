@@ -2,6 +2,7 @@
 
 import django.db.models.deletion
 import uuid
+from django.conf import settings
 from django.db import migrations, models
 
 
@@ -11,7 +12,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('role', '0001_initial'),
-        ('user', '0001_initial'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
@@ -21,7 +22,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('created_at', models.DateField(verbose_name='Data criado')),
                 ('role_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='role', to='role.role', verbose_name='role_id')),
-                ('user_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='user', to='user.user', verbose_name='user_id')),
+                ('user_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='user', to=settings.AUTH_USER_MODEL, verbose_name='user_id')),
             ],
         ),
     ]

@@ -1,0 +1,134 @@
+{% load custom_filters %}
+{# Layout para Líder e Colaborador (Simples) #}
+{% if apontamentos_por_data %}
+{% for data, aps in apontamentos_por_data.items %}
+<div class="card card-dashboard mb-4 shadow-sm border border-secondary-subtle">
+  <!-- Cabeçalho do Dia -->
+  <div class="card-header bg-white fw-bold py-2 border-bottom border-secondary-subtle">
+    <h5 class="fw-bold text-dark m-0">
+        <i class="bi bi-calendar3 me-2 text-primary"></i> {{ data|date:"l, d/m/Y" }}
+    </h5>
+  </div>
+  
+  <!-- Tabela das Tarefas do Dia -->
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0" style="width: 100%; font-size: 0.75rem;">
+        <thead class="table-light">
+          <tr class="text-uppercase text-muted border-bottom" style="font-size: 0.65rem; letter-spacing: 0.5px; white-space: nowrap;">
+            <th class="text-nowrap" style="padding: 6px 10px;">ID</th>
+            <th class="text-nowrap" style="padding: 6px 10px; width: 35%;">CLIENTE</th>
+            <th class="text-nowrap" style="padding: 6px 10px;">RESPONSÁVEL</th>
+            <th class="text-nowrap" style="padding: 6px 10px;">PROJETO</th>
+            <th class="text-nowrap" style="padding: 6px 10px;">SOLICITANTE</th>
+            <th class="text-center text-nowrap" style="padding: 6px 10px; width: 110px;">PRIORIDADE</th>
+            <th class="text-center text-nowrap" style="padding: 6px 10px; width: 80px;">DURAÇÃO</th>
+            <th class="text-center text-nowrap" style="padding: 6px 10px; width: 110px;">STATUS</th>
+            <!-- AÇÕES sempre visível no layout simples (usuário vê apenas seus próprios apontamentos) -->
+            <th class="text-center text-nowrap" style="padding: 6px 10px; width: 80px;">AÇÕES</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in aps %}
+          <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.apontamento.pk %}'" style="cursor: pointer;">
+            <td class="fw-semibold text-dark text-nowrap" style="padding: 6px 10px;">{{ a.apontamento.ticket|default:"" }}</td>
+            <td class="text-truncate" style="max-width: 220px; padding: 6px 10px;" title="{{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}">
+                {{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}
+            </td>
+            <td class="text-nowrap" style="padding: 6px 10px;">{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
+            <td class="text-nowrap" style="padding: 6px 10px;">{{ a.apontamento.projeto|truncatechars:20|default:"—" }}</td>
+            <td class="text-nowrap" style="padding: 6px 10px;">{{ a.apontamento.solicitante|default:"—" }}</td>
+            
+            <!-- Prioridade -->
+            <td class="text-center text-nowrap" style="padding: 6px 10px;">
+                {% if a.apontamento.prioridade %}
+                <span class="badge rounded-pill d-inline-block text-center" style="width: 95px; background-color: {{ a.apontamento.prioridade.cor }}; color: {{ a.apontamento.prioridade.cor|contrast_color }}; font-size: 0.65rem; padding: 4px 0;">
+                    {{ a.apontamento.prioridade.nome }}
+                </span>
+                {% else %}
+                <span class="badge bg-secondary rounded-pill d-inline-block text-center" style="width: 95px; font-size: 0.65rem; padding: 4px 0;">—</span>
+                {% endif %}
+            </td>
+            <!-- Duração -->
+            <td class="fw-medium text-primary text-nowrap text-center" style="padding: 6px 10px; font-size: 0.72rem;">
+                {% if a.apontamento.tempo_investido_minutos is not None %}{{ a.apontamento.tempo_investido_minutos }}{% else %}{{ a.get_tempo_exibicao_minutos }}{% endif %} min
+            </td>
+            
+            <!-- Status -->
+            <td onclick="event.stopPropagation();" class="text-center text-nowrap" style="padding: 6px 10px;">
+                {% if a.apontamento.status %}
+                {% with st=a.apontamento.status id=a.apontamento.pk %}
+                {% if a.apontamento.responsavel == request.user %}
+                <select class="form-select form-select-sm select-status-rapido border-0 fw-semibold text-center ps-1 pe-3" 
+                        data-apontamento-id="{{ id }}" 
+                        data-tempo-investido="{{ a.apontamento.tempo_investido_minutos|default:0 }}"
+                        style="background-color: {{ st.cor|default:'#0d6efd' }}; color: #fff; width: 95px; min-width: 95px; padding-top: 2px; padding-bottom: 2px; border-radius: 4px; cursor: pointer; background-position: right 4px center; font-size: 0.65rem; height: 24px; margin: 0 auto;"
+                        onclick="event.stopPropagation();">
+                    {% for status_obj in lista_status %}
+                        <option value="{{ status_obj.id }}" 
+                                data-cor="{{ status_obj.cor }}" 
+                                data-is-concluido="{{ status_obj.is_concluido_fixo|yesno:'true,false' }}"
+                                {% if st.is_concluido_fixo and not status_obj.is_concluido_fixo %}disabled{% endif %}
+                                {% if st.id == status_obj.id %}selected{% endif %} 
+                                style="background-color: #fff; color: #333;">
+                            {{ status_obj.status }}
+                        </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <span class="badge d-inline-block text-center" style="width: 95px; height: 24px; line-height: 20px; background-color: {{ st.cor|default:'#0d6efd' }}; color: {{ st.cor|contrast_color|default:'#fff' }}; font-size: 0.65rem; padding: 0; margin: 0 auto;">
+                    {{ st.status }}
+                </span>
+                {% endif %}
+                {% endwith %}
+                {% else %}
+                <span class="badge d-inline-block text-center" style="width: 95px; height: 24px; line-height: 20px; background-color: #6c757d; color: #fff; font-size: 0.65rem; padding: 0; margin: 0 auto;">—</span>
+                {% endif %}
+            </td>
+            
+            <!-- Ações (Sempre visível no layout simples) -->
+            <td class="text-center align-middle text-nowrap" style="padding: 6px 10px;">
+                {% if a.responsavel_id == request.user.id or a.apontamento.responsavel == request.user %}
+                <div class="d-flex justify-content-center gap-1">
+                  {% if a.apontamento.status.status != 'Concluído' %}
+                    <a href="{% url 'semeq:apontamento_editar' a.apontamento.pk %}" class="btn btn-sm btn-outline-primary p-0 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;" title="Editar" onclick="event.stopPropagation();">
+                        <i class="bi bi-pencil" style="font-size: 0.75rem;"></i>
+                    </a>
+                  {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-danger p-0 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;" data-bs-toggle="modal" data-bs-target="#modalExcluirApontamento" data-id="{{ a.apontamento.pk }}" title="Excluir" onclick="event.stopPropagation();">
+                        <i class="bi bi-trash" style="font-size: 0.75rem;"></i>
+                    </button>
+                </div>
+                {% else %}
+                <span class="text-muted" style="font-size: 0.65rem;"></span>
+                {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Rodapé com Total do Dia -->
+  <div class="card-footer bg-light border-top-0 text-end py-2 border-top border-secondary-subtle">
+    <span class="text-muted me-2">Total do dia:</span>
+    <strong class="text-primary fs-6">{{ totais_por_data|get_item:data|default:0 }} min</strong>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card card-dashboard shadow-sm border border-secondary-subtle">
+  <div class="card-body p-0">
+    <div class="text-center py-5">
+      <i class="bi bi-journal-text fs-1 text-muted"></i>
+      <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
+      <p class="text-muted">Clique em "Novo Apontamento" para criar o primeiro.</p>
+      {% if pode_criar_apontamento %}
+      <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
+          <i class="bi bi-plus-lg me-1"></i> Criar Apontamento
+      </a>
+      {% endif %}
+    </div>
+  </div
+</div>
+{% endif %}

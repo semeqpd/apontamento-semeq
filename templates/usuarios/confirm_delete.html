@@ -1,0 +1,36 @@
+{% extends 'cadastros/confirm_delete_base.html' %}
+
+{% block delete_info %}
+<div class="col-12 col-md-6">
+    <strong>Nome:</strong> {{ object.get_full_name|default:object.username }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Username:</strong> {{ object.username }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Email:</strong> {{ object.email|default:"—" }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Função:</strong> {{ object.perfil.get_role_display|default:"—" }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Equipe:</strong> {{ object.perfil.equipe|default:"—" }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Status:</strong> {% if object.is_active %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Apontamentos:</strong> {{ apontamentos_count|default:0 }}
+</div>
+{% endblock %}
+
+{% block delete_warning %}
+<p class="text-danger small">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>Esta ação não pode ser desfeita.</strong>
+    {% if apontamentos_count > 0 %}
+    <br><i class="bi bi-exclamation-triangle me-1"></i>
+    Esta ação excluirá também todos os {{ apontamentos_count }} apontamento(s) associado(s).
+    {% endif %}
+</p>
+{% endblock %}

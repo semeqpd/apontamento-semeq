@@ -1,0 +1,29 @@
+{% extends 'cadastros/confirm_delete_base.html' %}
+
+{% block title %}Excluir Cliente - Portal SEMEQ{% endblock %}
+
+{% block delete_info %}
+<div class="col-12 col-md-6">
+    <strong>Corporação:</strong> {{ object.corporation }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Planta:</strong> {{ object.plant }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Zona:</strong> {{ object.zone|default:"—" }}
+</div>
+<div class="col-12 col-md-6">
+    <strong>Apontamentos:</strong> {{ apontamentos_count }}
+</div>
+{% endblock %}
+
+{% block delete_warning %}
+<p class="text-danger small">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>Esta ação não pode ser desfeita.</strong>
+    {% if apontamentos_count > 0 %}
+    <br><i class="bi bi-exclamation-triangle me-1"></i>
+    Esta ação excluirá também todos os {{ apontamentos_count }} apontamento(s) associado(s).
+    {% endif %}
+</p>
+{% endblock %}

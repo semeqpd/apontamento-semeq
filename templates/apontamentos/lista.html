@@ -1,0 +1,466 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Apontamentos - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i> Apontamentos</h4>
+        {% if not is_admin_ou_gestor and pode_criar_apontamento %}
+        <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
+            <i class="bi bi-plus-lg me-1"></i> Novo Apontamento
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Filtros -->
+    <div class="card card-dashboard mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3" id="apontamentoFilters">
+                <div class="col-md-3">
+                    <label class="form-label">ID</label>
+                    <input type="text" name="ticket" class="form-control" value="{{ ticket_filter }}" placeholder="ID">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">Todos</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Prioridade</label>
+                    <select name="prioridade" class="form-select">
+                        <option value="">Todas</option>
+                        {% for value, label in prioridade_choices %}
+                        <option value="{{ value }}" {% if prioridade_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Data Início</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Data Fim</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                </div>
+                {% if times %}
+                <div class="col-md-2">
+                    <label class="form-label">Equipe</label>
+                    <select name="time" class="form-select">
+                        <option value="">Todas</option>
+                        {% for time in times %}
+                        <option value="{{ time.id }}" {% if time_filter == time.id|stringformat:"s" %}selected{% endif %}>{{ time.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                {% if usuarios %}
+                <div class="col-md-2">
+                    <label class="form-label">Colaborador</label>
+                    <select name="usuario" class="form-select">
+                        <option value="">Todos</option>
+                        {% for user in usuarios %}
+                        <option value="{{ user.pk }}" {% if usuario_filter == user.pk|stringformat:"s" %}selected{% endif %} data-equipe-id="{{ user.perfil.equipe_id|default:'' }}">{{ user.get_full_name|default:user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-12 d-flex gap-2 flex-wrap">
+                    <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<!-- Lista de Apontamentos -->
+    <div class="row">
+        <div class="col-md-12">
+            {% if is_admin_ou_gestor %}
+                {% include 'apontamentos/includes/layout_admin.html' %}
+            {% else %}
+                {% include 'apontamentos/includes/layout_simples.html' %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Novo Apontamento -->
+<div class="modal fade" id="modalNovoApontamento" tabindex="-1" aria-labelledby="modalNovoApontamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalNovoApontamentoLabel"><i class="bi bi-plus-circle me-2"></i>Novo Apontamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalNovoApontamentoContent">
+                    <!-- Content loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Detalhes do Apontamento -->
+<div class="modal fade" id="modalDetalheApontamento" tabindex="-1" aria-labelledby="modalDetalheApontamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetalheApontamentoLabel"><i class="bi bi-eye me-2"></i>Detalhes do Apontamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalDetalheApontamentoContent">
+                    <!-- Content loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Editar Apontamento -->
+<div class="modal fade" id="modalEditarApontamento" tabindex="-1" aria-labelledby="modalEditarApontamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarApontamentoLabel"><i class="bi bi-pencil me-2"></i>Editar Apontamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalEditarApontamentoContent">
+                    <!-- Content loaded via AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Excluir Apontamento (Red Card Confirmation) -->
+{% include 'apontamentos/includes/modal_excluir.html' %}
+
+<!-- Modal Confirmação de Conclusão com Tempo Investido -->
+{% include 'apontamentos/includes/modal_tempo_conclusao.html' %}
+
+{% load static %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ===== AUTO-SUBMIT FILTROS (com debounce) =====
+    let filterTimeout;
+    document.querySelectorAll('#apontamentoFilters select, #apontamentoFilters input').forEach(el => {
+        const event = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(event, function() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                document.getElementById('apontamentoFilters').submit();
+            }, 350);
+        });
+    });
+
+    // ===== CASCATA EQUIPE -> COLABORADOR =====
+    const equipeSelect = document.querySelector('#apontamentoFilters select[name="time"]');
+    const colaboradorSelect = document.querySelector('#apontamentoFilters select[name="usuario"]');
+    
+    if (equipeSelect && colaboradorSelect) {
+        // Store original all options on first load (before any filtering)
+        // This is done once when page loads
+        if (!window.allUsuariosOptions) {
+            window.allUsuariosOptions = Array.from(colaboradorSelect.options).slice(1).map(opt => ({
+                value: opt.value,
+                text: opt.text,
+                equipeId: opt.dataset.equipeId || '',
+                selected: opt.selected
+            }));
+        }
+        
+        function filtrarColaboradores(equipeId) {
+            const currentValue = colaboradorSelect.value;
+            colaboradorSelect.innerHTML = '<option value="">Todos</option>';
+            
+            if (equipeId && equipeId !== 'sem_equipe' && window.allUsuariosOptions) {
+                // Filter by equipe
+                window.allUsuariosOptions
+                    .filter(u => u.equipeId === equipeId)
+                    .forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.value;
+                        opt.textContent = u.text;
+                        opt.dataset.equipeId = u.equipeId;
+                        if (u.value === currentValue) opt.selected = true;
+                        colaboradorSelect.appendChild(opt);
+                    });
+            } else if (!equipeId || equipeId === 'sem_equipe') {
+                // Show all users when no team selected or "Sem equipe"
+                if (window.allUsuariosOptions) {
+                    if (equipeId === 'sem_equipe') {
+                        window.allUsuariosOptions
+                            .filter(u => !u.equipeId || u.equipeId === '')
+                            .forEach(u => {
+                                const opt = document.createElement('option');
+                                opt.value = u.value;
+                                opt.textContent = u.text;
+                                opt.dataset.equipeId = u.equipeId;
+                                if (u.value === currentValue) opt.selected = true;
+                                colaboradorSelect.appendChild(opt);
+                            });
+                    } else {
+                        // Show all
+                        window.allUsuariosOptions.forEach(u => {
+                            const opt = document.createElement('option');
+                            opt.value = u.value;
+                            opt.textContent = u.text;
+                            opt.dataset.equipeId = u.equipeId;
+                            if (u.value === currentValue) opt.selected = true;
+                            colaboradorSelect.appendChild(opt);
+                        });
+                    }
+                }
+            }
+        }
+        
+        equipeSelect.addEventListener('change', function() {
+            const equipeId = this.value;
+            filtrarColaboradores(equipeId);
+            // Auto-submit after a short delay to allow UI update
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                document.getElementById('apontamentoFilters').submit();
+            }, 350);
+        });
+        
+        // Initialize on load if equipe is pre-selected
+        if (equipeSelect.value) {
+            filtrarColaboradores(equipeSelect.value);
+        }
+    }
+
+    // ===== STATUS QUICK-CHANGE DROPDOWN + MODAL CONFIRMAÇÃO CONCLUSÃO =====
+    let selectAtual = null;
+    let statusAnteriorValue = null;
+    let apontamentoIdAtual = null;
+    let aguardandoConfirmacao = false;
+
+    function getCsrfToken() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input) return input.value;
+        const cookie = document.cookie.split('; ').find(r => r.trim().startsWith('csrftoken='));
+        return cookie ? cookie.trim().split('=')[1] : '';
+    }
+
+    function reverterSelect() {
+        if (selectAtual && statusAnteriorValue) {
+            selectAtual.value = statusAnteriorValue;
+        }
+        selectAtual = null;
+        statusAnteriorValue = null;
+        apontamentoIdAtual = null;
+        aguardandoConfirmacao = false;
+    }
+
+    function mostrarModalConclusao(tempoAtual) {
+        const modalEl = document.getElementById('modalTempoConclusao');
+        const containerTempo = document.getElementById('containerTempoInvestido');
+        const inputTempo = document.getElementById('inputTempoMinutos');
+        
+        if (!modalEl) return;
+
+        // Se tempo atual for 0 ou nulo, exibe o container de input
+        if (!tempoAtual || parseInt(tempoAtual) === 0) {
+            containerTempo.classList.remove('d-none');
+            inputTempo.value = '';
+            inputTempo.required = true;
+        } else {
+            containerTempo.classList.add('d-none');
+            inputTempo.required = false;
+        }
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+
+    // Salva o valor inicial quando o usuário clica/foca no select
+    document.addEventListener('focusin', function(e) {
+        if (e.target && e.target.classList.contains('select-status-rapido')) {
+            selectAtual = e.target;
+            statusAnteriorValue = e.target.value;
+        }
+    });
+
+    // Trata a alteração do select
+    document.addEventListener('change', function(e) {
+        const select = e.target.closest('.select-status-rapido');
+        if (!select) return;
+
+        // Se já está aguardando confirmação de outro select, ignora
+        if (aguardandoConfirmacao && select !== selectAtual) {
+            select.value = select.value; // mantém valor atual
+            return;
+        }
+
+        const optionSelecionada = select.options[select.selectedIndex];
+        const isConcluido = optionSelecionada.dataset.isConcluido === 'true';
+        const tempoAtual = select.dataset.tempoInvestido;
+
+        selectAtual = select;
+        apontamentoIdAtual = select.dataset.apontamentoId;
+        const novoStatusId = select.value;
+        aguardandoConfirmacao = true;
+
+        // Se NÃO for status "Concluído", envia direto
+        if (!isConcluido) {
+            aguardandoConfirmacao = false;
+            enviarAlteracaoStatus(novoStatusId, null);
+            return;
+        }
+
+        // É "Concluído" - verifica tempo e abre modal de confirmação
+        mostrarModalConclusao(tempoAtual);
+    });
+
+    // Envia a alteração de status para o backend
+    function enviarAlteracaoStatus(statusId, tempoInvestido) {
+        const body = { status: statusId };
+        if (tempoInvestido !== null && tempoInvestido !== undefined && tempoInvestido !== '') {
+            body.tempo_investido_minutos = parseInt(tempoInvestido);
+        }
+
+        fetch(`/apontamentos/${apontamentoIdAtual}/alterar-status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(body)
+        })
+        .then(res => res.json())
+        .then(data => {
+            aguardandoConfirmacao = false;
+            if (data.success) {
+                location.reload();
+            } else if (data.requires_time) {
+                // Backend pediu tempo - abre modal com tempo atual
+                const inputTempo = document.getElementById('inputTempoMinutos');
+                if (inputTempo) inputTempo.value = data.tempo_atual || '';
+                mostrarModalConclusao(data.tempo_atual);
+            } else {
+                window.showPermissaoNegada(data.error || 'Erro ao alterar status');
+                reverterSelect();
+            }
+        })
+        .catch(err => {
+            aguardandoConfirmacao = false;
+            console.error('Erro:', err);
+            window.showPermissaoNegada('Erro de comunicação com o servidor.');
+            reverterSelect();
+        });
+    }
+
+    // Botão "Confirmar e Concluir" no modal
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'btnConfirmarConclusao') {
+            const inputTempo = document.getElementById('inputTempoMinutos');
+            const containerTempo = document.getElementById('containerTempoInvestido');
+            const tempoVisivel = !containerTempo.classList.contains('d-none');
+
+            let tempoParaEnviar = null;
+            if (tempoVisivel) {
+                const valor = inputTempo.value.trim();
+                if (!valor || isNaN(valor) || parseInt(valor) <= 0) {
+                    inputTempo.classList.add('is-invalid');
+                    inputTempo.focus();
+                    return;
+                }
+                tempoParaEnviar = parseInt(valor);
+                inputTempo.classList.remove('is-invalid');
+            }
+
+            const modalEl = document.getElementById('modalTempoConclusao');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+
+            enviarAlteracaoStatus(selectAtual.value, tempoParaEnviar);
+        }
+    });
+
+    // Cancelar/Fechar modal - reverte select
+    ['btnCancelarConclusao', 'btnFecharModalTempo'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.addEventListener('click', reverterSelect);
+        }
+    });
+
+    // Também reverte ao fechar modal por backdrop/ESC
+    const modalEl = document.getElementById('modalTempoConclusao');
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', function() {
+            if (aguardandoConfirmacao) {
+                reverterSelect();
+            }
+        });
+    }
+});
+</script>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-4" aria-label="Pagination">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if filter_params %}{{ filter_params }}&{% endif %}page=1" aria-label="First">
+                    <i class="bi bi-chevron-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?{% if filter_params %}{{ filter_params }}&{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-left"></i></span></li>
+            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+        {% endif %}
+
+        {% for num in paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if filter_params %}{{ filter_params }}&{% endif %}page={{ num }}">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if filter_params %}{{ filter_params }}&{% endif %}page={{ page_obj.next_page_number }}" aria-label="Next">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?{% if filter_params %}{{ filter_params }}&{% endif %}page={{ paginator.num_pages }}" aria-label="Last">
+                    <i class="bi bi-chevron-double-right"></i>
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-right"></i></span></li>
+        {% endif %}
+    </ul>
+</nav>
+
+<!-- Results info -->
+<div class="text-center text-muted small mt-3">
+    Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ paginator.count }} apontamentos
+</div>
+{% endif %}
+</div>
+{% endblock %}

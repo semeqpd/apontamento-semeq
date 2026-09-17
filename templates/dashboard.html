@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% load static %}
+
+{% block title %}Dashboard - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="mb-0"><i class="bi bi-speedometer2 me-2"></i> Dashboard</h4>
+        <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-outline btn-sm">
+            <i class="bi bi-list me-1"></i> Ver todos os apontamentos
+        </a>
+    </div>
+
+    {% if pode_filtrar %}
+    <!-- Painel de Filtros do Dashboard -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-3">
+            <form method="GET" action="{% url 'semeq:dashboard' %}" class="row g-3 align-items-center" id="dashboardFilters">
+                
+                <!-- Filtro por Equipe/Time -->
+                <div class="col-md-4">
+                    <label for="equipe" class="form-label mb-1 fw-semibold text-muted fs-7">Equipe / Time</label>
+                    <select name="equipe" id="equipe" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todas as Equipes</option>
+                        {% for eq in equipes %}
+                            <option value="{{ eq.id }}" {% if request.GET.equipe == eq.id|stringformat:"s" %}selected{% endif %}>
+                                {{ eq.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtro por Colaborador -->
+                <div class="col-md-4">
+                    <label for="colaborador" class="form-label mb-1 fw-semibold text-muted fs-7">Colaborador</label>
+                    <select name="colaborador" id="colaborador" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Todos os Colaboradores</option>
+                        {% for colab in colaboradores %}
+                            <option value="{{ colab.id }}" {% if request.GET.colaborador == colab.id|stringformat:"s" %}selected{% endif %} data-equipe-id="{{ colab.perfil.equipe_id|default:'' }}">
+                                {{ colab.get_full_name|default:colab.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <!-- Botão de Limpar Filtros -->
+                <div class="col-md-4 d-flex align-items-end">
+                    {% if request.GET.equipe or request.GET.colaborador %}
+                        <a href="{% url 'semeq:dashboard' %}" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="bi bi-x-circle me-1"></i>Limpar Filtros
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- MÉTRICAS / KPIS -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-3 col-sm-6">
+            <div class="card card-dashboard card-metric metric-blue">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>Apontamentos Hoje</h6>
+                            <h2>{{ total_hoje }}</h2>
+                        </div>
+                        <i class="bi bi-journal-check icon-card text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-sm-6">
+            <div class="card card-dashboard card-metric metric-green">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>Horas Trabalhadas</h6>
+                            <h2>{{ horas_trabalhadas }}</h2>
+                        </div>
+                        <i class="bi bi-clock-history icon-card text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-sm-6">
+            <div class="card card-dashboard card-metric metric-yellow">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>Em Aberto</h6>
+                            <h2>{{ em_aberto }}</h2>
+                        </div>
+                        <i class="bi bi-exclamation-circle icon-card text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-sm-6">
+            <div class="card card-dashboard card-metric metric-red">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>SLA (Concluídos)</h6>
+                            <h2>{{ sla_pct }}%</h2>
+                        </div>
+                        <i class="bi bi-award icon-card text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ÚLTIMOS APONTAMENTOS AGRUPADOS POR DATA -->
+    <div class="row">
+        <div class="col-md-12">
+            {% if apontamentos_por_data %}
+            {% for data, lista in apontamentos_por_data.items %}
+            <div class="card card-dashboard mb-4 shadow-sm{% if not forloop.first %} border-top{% endif %}" style="{% if not forloop.first %}border-top-width: 3px; border-top-color: #dee2e6;{% endif %}">
+              <!-- Cabeçalho do Dia -->
+              <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar3 me-2"></i>{{ data|date:"l, d/m/Y" }}</h6>
+              </div>
+              
+              <!-- Tabela das Tarefas do Dia -->
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0">
+<thead class="table-light">
+                        <tr>
+                          <th>ID</th>
+                          <th>CLIENTE</th>
+                          <th>RESPONSÁVEL</th>
+                          <th>PROJETO</th>
+                          <th>SOLICITANTE</th>
+                          <th>PRIORIDADE</th>
+                          <th>STATUS</th>
+                          <th>DURAÇÃO</th>
+                        </tr>
+                      </thead>
+                    <tbody>
+                      {% for a in lista %}
+                      <tr onclick="window.location='{% url 'semeq:apontamento_detalhe' a.apontamento.pk %}'" style="cursor: pointer;">
+                        <td class="fw-semibold text-dark">{{ a.apontamento.ticket|default:"—" }}</td>
+                        <td>{{ a.apontamento.cliente.corporation }} - {{ a.apontamento.cliente.plant }}</td>
+                        <td>{{ a.responsavel.get_full_name|default:a.responsavel.username }}</td>
+                        <td>{{ a.apontamento.projeto|truncatechars:30|default:"—" }}</td>
+                        <td>{{ a.apontamento.solicitante|default:"—" }}</td>
+                        <td>
+                            {% if a.apontamento.prioridade %}
+                            <span class="badge" style="background-color: {{ a.apontamento.prioridade.cor }}; color: {{ a.apontamento.prioridade.cor|contrast_color }};">
+                                {{ a.apontamento.prioridade.nome }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a.apontamento.status %}
+                            <span class="badge" style="background-color: {{ a.apontamento.status.cor }}; color: {{ a.apontamento.status.cor|contrast_color }};">{{ a.apontamento.status.status }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-medium text-primary text-nowrap">{{ a.apontamento.tempo_investido_minutos|default:a.get_tempo_exibicao_minutos }} min</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <!-- Rodapé com Total do Dia -->
+              <div class="card-footer bg-light border-top-0 text-end py-2">
+                <span class="text-muted me-2">Total do dia:</span>
+                <strong class="text-primary fs-6">{{ totais_por_data|get_item:data|default:0 }} min</strong>
+              </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="card card-dashboard">
+              <div class="card-body p-0">
+                <div class="text-center py-5">
+                  <i class="bi bi-journal-text fs-1 text-muted"></i>
+                  <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
+                  <p class="text-muted">Não há apontamentos para o período atual.</p>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/status.js' %}"></script>
+<script>
+// Auto-submit filter form on change (with debounce)
+let filterTimeout;
+document.querySelectorAll('#dashboardFilters select, #dashboardFilters input[type="date"]').forEach(el => {
+    el.addEventListener('change', function() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            document.getElementById('dashboardFilters').submit();
+        }, 300);
+    });
+});
+
+// ===== CASCATA EQUIPE -> COLABORADOR (Dashboard) =====
+const dashboardEquipeSelect = document.querySelector('#dashboardFilters select[name="equipe"]');
+const dashboardColaboradorSelect = document.querySelector('#dashboardFilters select[name="colaborador"]');
+
+if (dashboardEquipeSelect && dashboardColaboradorSelect) {
+    // Store original all options on first load
+    if (!window.dashboardAllColaboradoresOptions) {
+        window.dashboardAllColaboradoresOptions = Array.from(dashboardColaboradorSelect.options).slice(1).map(opt => ({
+            value: opt.value,
+            text: opt.text,
+            equipeId: opt.dataset.equipeId || '',
+            selected: opt.selected
+        }));
+    }
+    
+    function filtrarColaboradoresDashboard(equipeId) {
+        const currentValue = dashboardColaboradorSelect.value;
+        dashboardColaboradorSelect.innerHTML = '<option value="">Todos os Colaboradores</option>';
+        
+        if (equipeId && window.dashboardAllColaboradoresOptions) {
+            // Filter by equipe
+            window.dashboardAllColaboradoresOptions
+                .filter(u => u.equipeId === equipeId)
+                .forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.value;
+                    opt.textContent = u.text;
+                    opt.dataset.equipeId = u.equipeId;
+                    if (u.value === currentValue) opt.selected = true;
+                    dashboardColaboradorSelect.appendChild(opt);
+                });
+        } else if (!equipeId && window.dashboardAllColaboradoresOptions) {
+            // Show all users when no team selected
+            window.dashboardAllColaboradoresOptions.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.value;
+                opt.textContent = u.text;
+                opt.dataset.equipeId = u.equipeId;
+                if (u.value === currentValue) opt.selected = true;
+                dashboardColaboradorSelect.appendChild(opt);
+            });
+        }
+    }
+    
+    dashboardEquipeSelect.addEventListener('change', function() {
+        const equipeId = this.value;
+        filtrarColaboradoresDashboard(equipeId);
+        // Auto-submit after a short delay to allow UI update
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            document.getElementById('dashboardFilters').submit();
+        }, 350);
+    });
+    
+    // Initialize on load if equipe is pre-selected
+    if (dashboardEquipeSelect.value) {
+        filtrarColaboradoresDashboard(dashboardEquipeSelect.value);
+    }
+}
+</script>
+{% endblock %}

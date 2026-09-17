@@ -1,0 +1,27 @@
+{% extends 'cadastros/base_lista.html' %}
+
+{% block table_headers %}
+<th>Nome</th>
+<th>Username</th>
+<th>Email</th>
+<th>Função</th>
+<th>Equipe</th>
+<th>Status</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ obj.get_full_name|default:obj.username }}{% if obj.pk == request.user.pk %} <span class="badge bg-info ms-1">Você</span>{% endif %}</td>
+<td>{{ obj.username }}</td>
+<td>{{ obj.email|default:"—" }}</td>
+<td>{{ obj.perfil.get_role_display|default:"—" }}</td>
+<td>{{ obj.perfil.equipe|default:"—" }}</td>
+<td>
+    {% if obj.perfil.ativo %}
+    <span class="badge bg-success">Ativo</span>
+    {% else %}
+    <span class="badge bg-secondary">Inativo</span>
+    {% endif %}
+</td>
+{% endblock %}
+
+{% block extra_content %}{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'cadastros/base_lista.html' %}
+
+{% block table_headers %}
+<th>Corporação</th>
+<th>Planta</th>
+<th>Zona</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ obj.corporation }}</td>
+<td>{{ obj.plant }}</td>
+<td>{{ obj.zone|default:"—" }}</td>
+{% endblock %}

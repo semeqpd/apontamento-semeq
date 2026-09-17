@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar Colaborador{% else %}Novo Colaborador{% endif %} - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 700px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-brand">
+                <i class="bi bi-person"></i>
+                <span>{% if object %}Editar Colaborador{% else %}Novo Colaborador{% endif %}</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="section-title">Dados de Acesso</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.first_name.label }} <span class="text-danger">*</span></label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.first_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ form.last_name.label }} <span class="text-danger">*</span></label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.last_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ form.email.label }} <span class="text-danger">*</span></label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">{{ form.email.errors }}</div>
+                    {% endif %}
+                </div>
+
+                {% if not object %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }} <span class="text-danger">*</span></label>
+                        <div class="password-input-wrapper">
+                            {{ form.password }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text text-nowrap" style="min-height: 18px;">{{ form.password.help_text }}</div>
+                    </div>
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }} <span class="text-danger">*</span></label>
+                        <div class="password-input-wrapper">
+                            {{ form.password_confirm }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password_confirm.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password_confirm.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password_confirm.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">{{ form.password_confirm.help_text }}</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="password-strength-meter"></div>
+                    </div>
+                </div>
+                {% elif form.password %}
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                        <div class="password-input-wrapper">
+                            {{ form.password }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if form.password.help_text %}
+                            <div class="form-text">{{ form.password.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 d-flex flex-column">
+                        <label class="form-label" for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }}</label>
+                        <div class="password-input-wrapper">
+                            {{ form.password_confirm }}
+                            <button type="button" class="password-toggle-btn" data-target="#{{ form.password_confirm.id_for_label }}" aria-label="Mostrar/ocultar senha">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password_confirm.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.password_confirm.errors %}
+                                <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <hr>
+
+                <div class="section-title">Permissões</div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.role.label }} <span class="text-danger">*</span></label>
+                        {{ form.role }}
+                        {% if form.role.errors %}
+                            <div class="text-danger small mt-1">{{ form.role.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.equipe.label }}</label>
+                        {{ form.equipe }}
+                        {% if form.equipe.errors %}
+                            <div class="text-danger small mt-1">{{ form.equipe.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.telefone.label }}</label>
+                        {{ form.telefone }}
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check mt-4">
+                            {{ form.ativo }}
+                            <label class="form-check-label" for="{{ form.ativo.id_for_label }}">{{ form.ativo.label }}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <a href="{{ next_url|default:'/cadastros/#usuarios' }}" class="btn btn-semeq-cancel">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-check-lg me-1"></i> {% if object %}Atualizar{% else %}Salvar{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Verificação de força de senha em tempo real
+document.addEventListener('DOMContentLoaded', function() {
+    const pwd1 = document.getElementById('id_password');
+    const pwd2 = document.getElementById('id_password_confirm');
+    const meterContainer = document.querySelector('.password-strength-meter');
+
+    if (!pwd1 || !meterContainer) return;
+
+    const barra = document.createElement('div');
+    barra.className = 'progress d-none';
+    barra.style.height = '5px';
+    barra.innerHTML = '<div class="progress-bar" role="progressbar" style="width:0%"></div>';
+    meterContainer.appendChild(barra);
+
+    const bar = barra.querySelector('.progress-bar');
+    const msg = document.createElement('div');
+    msg.className = 'form-text small';
+    meterContainer.appendChild(msg);
+
+    function avaliarSenha(pwd) {
+        let score = 0;
+        if (!pwd) { return { score: 0, cor: '', texto: '' }; }
+        if (pwd.length >= 8) score++;
+        if (/[A-Z]/.test(pwd)) score++;
+        if (/[a-z]/.test(pwd)) score++;
+        if (/\d/.test(pwd)) score++;
+        if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+        if (score <= 1) return { score, cor: '#dc3545', texto: 'Senha fraca' };
+        if (score <= 2) return { score, cor: '#f59e0b', texto: 'Senha regular' };
+        if (score <= 3) return { score, cor: '#10b981', texto: 'Senha boa' };
+        return { score, cor: '#22c55e', texto: 'Senha forte' };
+    }
+
+    pwd1.addEventListener('input', function() {
+        const r = avaliarSenha(this.value);
+        if (!this.value) {
+            barra.classList.add('d-none');
+            msg.textContent = '';
+            return;
+        }
+        barra.classList.remove('d-none');
+        bar.style.width = (r.score * 20) + '%';
+        bar.style.backgroundColor = r.cor;
+        msg.textContent = r.texto;
+        msg.style.color = r.cor;
+
+        if (pwd2 && pwd2.value && pwd2.value !== this.value) {
+            pwd2.setCustomValidity('As senhas não coincidem.');
+        } else if (pwd2) {
+            pwd2.setCustomValidity('');
+        }
+    });
+
+    if (pwd2) {
+        pwd2.addEventListener('input', function() {
+            if (pwd1.value && this.value !== pwd1.value) {
+                this.setCustomValidity('As senhas não coincidem.');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

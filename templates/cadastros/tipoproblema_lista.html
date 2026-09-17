@@ -1,0 +1,21 @@
+{% extends 'cadastros/base_lista.html' %}
+
+{% block table_headers %}
+<th>Nome</th>
+<th>Descrição</th>
+<th>Ordem</th>
+<th>Ativo</th>
+{% endblock %}
+
+{% block table_row %}
+<td>{{ obj.nome }}</td>
+<td>{{ obj.descricao|default:"—"|truncatechars:50 }}</td>
+<td>{{ obj.ordem }}</td>
+<td>
+    {% if obj.ativo %}
+    <span class="badge bg-success">Sim</span>
+    {% else %}
+    <span class="badge bg-secondary">Não</span>
+    {% endif %}
+</td>
+{% endblock %}

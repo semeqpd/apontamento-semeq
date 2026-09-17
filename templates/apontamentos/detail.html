@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Detalhes do Apontamento - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-outline" title="Voltar">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i> ID {% if apontamento.ticket %}{{ apontamento.ticket }}{% else %}{{ apontamento.pk }}{% endif %}</h4>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap flex-md-nowrap">
+            {% can_edit_apontamento_tag request.user apontamento as can_edit %}
+            {% if apontamento.status.status != 'Concluído' %}
+            {% if can_edit %}
+            <a href="{% url 'semeq:apontamento_editar' apontamento.pk %}" class="btn btn-semeq-outline">
+                <i class="bi bi-pencil me-1"></i> Editar
+            </a>
+            {% endif %}
+            {% endif %}
+            {% can_delete_apontamento_tag request.user apontamento as can_delete %}
+            {% if can_delete %}
+            <button type="button" 
+            class="btn btn-outline-danger btn-excluir-apontamento" 
+            data-bs-toggle="modal" 
+            data-bs-target="#modalExcluirApontamento" 
+            data-id="{{ apontamento.pk }}" 
+            onclick="event.stopPropagation();">
+        <i class="bi bi-trash me-1"></i> Excluir
+    </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card card-dashboard mb-4">
+        <div class="card-header">
+            <i class="bi bi-info-circle me-2"></i> Dados do Apontamento
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <strong>Cliente:</strong>
+                    <p class="mb-0">{{ apontamento.cliente.corporation }} - {{ apontamento.cliente.plant }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Projeto:</strong>
+                    <p class="mb-0">{{ apontamento.projeto|default:"—" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Solicitante:</strong>
+                    <p class="mb-0">{{ apontamento.solicitante|default:"—" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Responsável:</strong>
+                    <p class="mb-0">{{ apontamento.responsavel.get_full_name|default:apontamento.responsavel.username }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Equipe:</strong>
+                    <p class="mb-0">{{ apontamento.equipe|default:"—" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Atividade:</strong>
+                    <p class="mb-0">{{ apontamento.atividade|default:"—" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Tipo do Problema:</strong>
+                    <p class="mb-0">{{ apontamento.tipo_problema|default:"—" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Status:</strong>
+                    <div class="mb-3">
+                        {% if apontamento.status %}
+                        <span class="badge fs-6 px-3 py-2 fw-semibold" 
+                              style="background-color: {{ apontamento.status.cor }}; color: #ffffff;">
+                            {{ apontamento.status.status }}
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">Sem Status</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <strong>Prioridade:</strong>
+                    <p class="mb-0">
+                        {% if apontamento.prioridade %}
+                        <span class="badge" style="background-color: {{ apontamento.prioridade.cor }}; color: {{ apontamento.prioridade.cor|contrast_color }};">{{ apontamento.prioridade.nome }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">—</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Data / Horário:</strong>
+                    <p class="mb-0">
+                        {% if apontamento.data_inicial %}
+                        {{ apontamento.data_inicial|date:"d/m/Y" }}
+                        {% if apontamento.hora_inicial or apontamento.hora_final %}
+                        - {% if apontamento.hora_inicial %}{{ apontamento.hora_inicial|time:"H:i" }}{% else %}—{% endif %}
+                        {% if apontamento.hora_final %} às {{ apontamento.hora_final|time:"H:i" }}{% endif %}
+                        {% endif %}
+                        {% elif apontamento.data %}
+                        {{ apontamento.data|date:"d/m/Y" }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Tempo Investido:</strong>
+                    <p class="mb-0 fw-medium text-primary">{{ apontamento.tempo_investido_formatado }}</p>
+                </div>
+                <div class="col-md-6">
+                    <strong>Equipamento:</strong>
+                    <p class="mb-0">{{ apontamento.equipamento|default:"—" }}</p>
+                </div>
+                <div class="col-md-12">
+                    <strong>Descrição:</strong>
+                    <p class="mb-0">{{ apontamento.descricao|linebreaks }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="d-flex gap-2 justify-content-end">
+        <a href="{% url 'semeq:apontamento_lista' %}" class="btn btn-semeq-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar à Lista
+        </a>
+    </div>
+</div>
+
+{% include 'apontamentos/includes/modal_excluir.html' %}
+
+{% endblock %}

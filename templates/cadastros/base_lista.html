@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}{{ title }} - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{% url 'semeq:cadastros_unificada' %}" class="btn btn-semeq-outline" title="Voltar aos Cadastros">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h4 class="mb-0"><i class="{{ icon }} me-2"></i> {{ title }}</h4>
+        </div>
+        <div class="d-flex gap-2">
+            {% if import_url %}
+            <a href="{{ import_url }}" class="btn btn-semeq-outline">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i> Importar
+            </a>
+            {% endif %}
+            {% if create_url %}
+            <a href="{{ create_url }}?next={{ request.path }}" class="btn btn-semeq-primary">
+                <i class="bi bi-plus-lg me-1"></i> Novo {{ create_label }}
+            </a>
+            {% endif %}
+            {% if delete_url_path == 'clientes' %}
+            {% if request.user.is_superuser or request.user.perfil.is_admin %}
+            <!-- <button type="button" class="btn btn-danger" title="Excluir TODOS os clientes (Admin)"
+                    data-bs-toggle="modal" data-bs-target="#modalExcluirTodosClientes">
+                <i class="bi bi-trash3 me-1"></i> Excluir Todos
+            </button> -->
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card card-dashboard mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3" id="{{ title|lower }}Filters">
+                <div class="col-md-4">
+                    <label class="form-label">Buscar</label>
+                    <input type="text" name="q" class="form-control" value="{{ search }}" placeholder="Buscar {{ title|lower }}...">
+                </div>
+                <div class="col-md-12 d-flex gap-2 flex-wrap">
+                    <a href="{{ request.path }}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista -->
+    <div class="card card-dashboard">
+        <div class="card-body p-0">
+            {% if object_list %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            {% block table_headers %}{% endblock %}
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for obj in object_list %}
+                        <tr>
+                            {% block table_row %}{% endblock %}
+                            <td class="text-end">
+                                {% if edit_url_name %}
+                                <a href="{% url edit_url_name obj.pk %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm me-1" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                                {% if delete_url_name %}
+                                <button type="button" class="btn btn-outline-danger btn-sm" title="Excluir"
+                                        data-bs-toggle="modal" data-bs-target="#modalExcluir{{ delete_url_path|title }}"
+                                        data-pk="{{ obj.pk }}" onclick="event.stopPropagation()">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-journal-text fs-1 text-muted"></i>
+                <h5 class="text-muted mt-3">Nenhum {{ title|lower }} encontrado</h5>
+                <p class="text-muted">Clique em "Novo {{ create_label }}" para criar o primeiro.</p>
+                {% if create_url %}
+                <a href="{{ create_url }}?next={{ request.path }}" class="btn btn-semeq-primary">
+                    <i class="bi bi-plus-lg me-1"></i> Criar {{ create_label }}
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+    <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center">
+        <span class="text-muted small">
+            Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ paginator.count }} {{ title|lower }}
+        </span>
+        <nav aria-label="Paginação">
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{{ filter_params }}&page=1">&laquo; Primeira</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{{ filter_params }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+                </li>
+                {% endif %}
+                
+                {% for num in paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ filter_params }}&page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{{ filter_params }}&page={{ page_obj.next_page_number }}">Próxima</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{{ filter_params }}&page={{ paginator.num_pages }}">Última &raquo;</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% block extra_content %}{% endblock %}
+
+    <!-- Modal Excluir Todos os Clientes (apenas para clientes) -->
+    {% if delete_url_path == 'clientes' %}
+    <div class="modal fade" id="modalExcluirTodosClientes" tabindex="-1" aria-labelledby="modalExcluirTodosClientesLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalExcluirTodosClientesLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Exclusão TOTAL</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                        <div>
+                            <strong>⚠️ AÇÃO IRREVERSÍVEL!</strong>
+                            <div class="small mt-1">Isso removerá <strong>TODOS</strong> os clientes, equipamentos e apontamentos associados.</div>
+                        </div>
+                    </div>
+                    
+                    <p class="text-danger small mb-4"><i class="bi bi-exclamation-triangle me-1"></i><strong>Esta ação NÃO pode ser desfeita.</strong></p>
+                    <p class="small text-muted">O cliente padrão <strong>SEMEQ LIMEIRA</strong> será preservado.</p>
+                    
+                    <form method="post" action="{% url 'semeq:cliente_excluir_todos' %}" class="d-inline">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button type="button" class="btn btn-semeq-secondary" data-bs-dismiss="modal">
+                                <i class="bi bi-x-lg me-1"></i> Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash3 me-1"></i> Sim, Excluir TUDO
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal Excluir Genérico -->
+    <div class="modal fade" id="modalExcluir{{ delete_url_path|title }}" tabindex="-1" aria-labelledby="modalExcluir{{ delete_url_path|title }}Label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalExcluir{{ delete_url_path|title }}Label"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
+                        <div>
+                            <strong>Esta ação não pode ser desfeita!</strong>
+                            <div class="small mt-1">O registro será removido permanentemente do sistema.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-warning bg-opacity-10 border-warning mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title mb-2"><i class="bi bi-info-circle me-1"></i>Registro a ser excluído:</h6>
+                            <div class="row g-2 small">
+                                {% block delete_info %}
+                                <div class="col-12">
+                                    <strong>{{ create_label }}:</strong> <span id="excluir{{ delete_url_path|title }}Info"></span>
+                                </div>
+                                {% endblock %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="post" id="formExcluir{{ delete_url_path|title }}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" id="excluir{{ delete_url_path|title }}Pk" name="pk">
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{{ request.path }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash me-1"></i> Sim, Excluir
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Delete modal
+    const modalExcluir = document.getElementById('modalExcluir{{ delete_url_path|title }}');
+    if (modalExcluir) {
+        modalExcluir.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const pk = button.getAttribute('data-pk');
+            const pkInput = document.getElementById('excluir{{ delete_url_path|title }}Pk');
+            const infoEl = document.getElementById('excluir{{ delete_url_path|title }}Info');
+            const form = document.getElementById('formExcluir{{ delete_url_path|title }}');
+            if (pkInput) pkInput.value = pk;
+            if (infoEl) infoEl.textContent = pk;
+            if (form) form.setAttribute('action', '/cadastros/{{ delete_url_path }}/' + pk + '/excluir/');
+        });
+    }
+});
+</script>
+{% endblock %}

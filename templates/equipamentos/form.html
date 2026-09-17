@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if object %}Editar{% else %}Novo{% endif %} Equipamento - Portal SEMEQ{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 960px;">
+    <div class="card">
+        <div class="card-header">
+            <div class="header-brand">
+                <i class="bi bi-gear"></i>
+                <span>{% if object %}Editar Equipamento{% else %}Novo Equipamento{% endif %}</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+                {% for error in form.non_field_errors %}
+                    <div>{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" novalidate id="equipamentosForm">
+                {% csrf_token %}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                <div class="section-title">Identificação</div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        {{ form.tipo.label_tag }}
+                        {{ form.tipo }}
+                        {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.device.label_tag }}
+                        {{ form.device }}
+                        {% for error in form.device.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.modelo.label_tag }}
+                        {{ form.modelo }}
+                        {% for error in form.modelo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+
+                <div class="section-title">Status</div>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            {{ form.ativo }}
+                            {{ form.ativo.label_tag }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 border-top pt-4">
+                    <a href="{{ next_url|default:'/cadastros/#equipamentos' }}" class="btn btn-semeq-secondary">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-semeq-primary">
+                        <i class="bi bi-check-lg me-1"></i> Salvar equipamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
