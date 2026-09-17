@@ -659,6 +659,9 @@ class ApontamentoCreateView(LoginRequiredMixin, CreateView):
                 dt_inicial = datetime.combine(self.object.data_inicial, hora_inicial)
                 dt_final = dt_inicial + timedelta(minutes=total_minutes)
                 hora_final = dt_final.time()
+
+                if total_minutes == 0:
+                    hora_final = (dt_inicial + timedelta(minutes=1)).time()
                 
                 # If end time is next day or later, cap at 23:59
                 if dt_final.date() > self.object.data_inicial:
@@ -1889,7 +1892,6 @@ class StatusUpdateView(PermissionMixin, BaseCRUDUpdateView):
     form_class = StatusForm
     template_name = 'cadastros/status_form.html'
     success_url = reverse_lazy('semeq:cadastro_status')
-
 
 class StatusDeleteView(PermissionMixin, DeleteView):
     model = Status

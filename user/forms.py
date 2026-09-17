@@ -514,11 +514,11 @@ class ApontamentoForm(forms.ModelForm):
     
         # Validate Concluído status requires tempo_investido_minutos > 0
         status = cleaned_data.get('status')
-        if status and status.is_concluido_fixo:
-            if not tempo_investido_minutos or tempo_investido_minutos <= 0:
-                raise ValidationError({
-                    'tempo_investido_minutos': 'Para concluir o apontamento, o Tempo Investido deve ser maior que 0 minutos.'
-                })
+        # if status and status.is_concluido_fixo:
+        #     if not tempo_investido_minutos or tempo_investido_minutos <= 0:
+        #         raise ValidationError({
+        #             'tempo_investido_minutos': 'Para concluir o apontamento, o Tempo Investido deve ser maior que 0 minutos.'
+        #         })
 
         # Ensure equipe is always set (fallback to user's profile equipe)
         if not cleaned_data.get('equipe') and self.user:
