@@ -18,7 +18,7 @@ class EquipamentoForm(forms.ModelForm):
             'tipo', 'device', 'modelo', 'ativo',
         ]
         widgets = {
-            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'tipo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Gateway, Bomba, Sensor...', 'list': 'dl-tipo-equipamento', 'autocomplete': 'off'}),
             'device': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Serial Number ou Tag'}),
             'modelo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Model X1'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'form-check-input form-switch'}),

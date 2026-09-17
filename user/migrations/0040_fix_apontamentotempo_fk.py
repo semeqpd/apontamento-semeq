@@ -3,6 +3,28 @@
 from django.db import migrations
 
 
+def _columns(schema_editor, table):
+    with schema_editor.connection.cursor() as cur:
+        desc = schema_editor.connection.introspection.get_table_description(cur, table)
+    return {c.name for c in desc}
+
+
+def rename_fk_forward(apps, schema_editor):
+    # First-run fix: em installs do zero a coluna já se chama apontamento_id
+    # (0030/0038); renomeia só se ainda for atendimento_id. DBs migrados: sem efeito.
+    if "atendimento_id" in _columns(schema_editor, "user_apontamentotempo"):
+        schema_editor.execute(
+            "ALTER TABLE user_apontamentotempo RENAME COLUMN atendimento_id TO apontamento_id;"
+        )
+
+
+def rename_fk_backward(apps, schema_editor):
+    if "apontamento_id" in _columns(schema_editor, "user_apontamentotempo"):
+        schema_editor.execute(
+            "ALTER TABLE user_apontamentotempo RENAME COLUMN apontamento_id TO atendimento_id;"
+        )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,8 +32,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql="ALTER TABLE user_apontamentotempo RENAME COLUMN atendimento_id TO apontamento_id;",
-            reverse_sql="ALTER TABLE user_apontamentotempo RENAME COLUMN apontamento_id TO atendimento_id;",
-        ),
+        migrations.RunPython(rename_fk_forward, rename_fk_backward),
     ]

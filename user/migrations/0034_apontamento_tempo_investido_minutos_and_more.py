@@ -20,7 +20,10 @@ class Migration(migrations.Migration):
                 verbose_name="Tempo Investido (minutos)",
             ),
         ),
-        migrations.AlterField(
+        # First-run fix: era AlterField, mas nada adiciona data_final antes
+        # (0036 tentava AddField duplicado). Vira AddField aqui; 0036 teve o
+        # AddField removido. DBs migrados: sem efeito.
+        migrations.AddField(
             model_name="apontamento",
             name="data_final",
             field=models.DateField(blank=True, null=True, verbose_name="Data Final"),

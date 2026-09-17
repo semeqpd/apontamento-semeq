@@ -35,10 +35,8 @@ class Migration(migrations.Migration):
             model_name="apontamento",
             name="uniq_apontamento_resp_data",
         ),
-        migrations.RemoveConstraint(
-            model_name="apontamento",
-            name="atendimento_data_final_gte_inicial",
-        ),
+        # REMOVIDO (first-run fix): a constraint atendimento_data_final_gte_inicial
+        # saiu de 0037 e é criada abaixo, após o AddField data_inicial.
         migrations.RemoveConstraint(
             model_name="apontamentotempo",
             name="uniq_apontamentotempo_atendimento_data",
@@ -73,6 +71,9 @@ class Migration(migrations.Migration):
             name="data_inicial",
             field=models.DateField(blank=True, null=True, verbose_name="Data Inicial"),
         ),
+        # First-run fix: constraint de 0037 NÃO recriada aqui — o modelo final
+        # (models.py) não tem esse CheckConstraint, e a validação vive no form.
+        # (makemigrations --check confirma zero drift). DBs migrados: sem efeito.
         migrations.AlterField(
             model_name="apontamento",
             name="cliente",
@@ -134,12 +135,16 @@ class Migration(migrations.Migration):
                 name="uniq_apontamentotempo_apontamento_data",
             ),
         ),
+        # First-run fix: DeleteModel ANTES do AlterModelTable — a tabela
+        # user_atendimento (Atendimento, criada em 0030) ainda existe aqui e
+        # o rename da tabela do Apontamento colidia ("already another table").
+        # 0039 é noop, então nenhum dado depende da ordem. DBs migrados: sem efeito.
+        migrations.DeleteModel(
+            name="Atendimento",
+        ),
         migrations.AlterModelTable(
             name="apontamento",
             table="user_atendimento",
-        ),
-        migrations.DeleteModel(
-            name="Atendimento",
         ),
         migrations.RemoveField(
             model_name="apontamento",

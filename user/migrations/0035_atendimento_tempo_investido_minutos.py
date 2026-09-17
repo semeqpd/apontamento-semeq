@@ -10,7 +10,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
+        # First-run fix: a coluna foi criada em 0034 (era AlterField lá).
+        # Aqui vira AlterField para manter o estado final. DBs migrados: sem efeito.
+        migrations.AlterField(
             model_name="apontamento",
             name="tempo_investido_minutos",
             field=models.PositiveIntegerField(

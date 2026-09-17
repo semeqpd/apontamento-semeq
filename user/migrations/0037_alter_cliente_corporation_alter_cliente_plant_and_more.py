@@ -39,16 +39,7 @@ class Migration(migrations.Migration):
                 name="apontamentotempo_hora_final_gt_inicial",
             ),
         ),
-        migrations.AddConstraint(
-            model_name="apontamento",
-            constraint=models.CheckConstraint(
-                condition=models.Q(
-                    ("data_final__gte", models.F("data_inicial")),
-                    ("data_inicial__isnull", True),
-                    ("data_final__isnull", True),
-                    _connector="OR",
-                ),
-                name="atendimento_data_final_gte_inicial",
-            ),
-        ),
+        # REMOVIDO (first-run fix): CheckConstraint data_final/data_inicial
+        # movida para 0038 (data_inicial só existe a partir de lá).
+        # DBs migrados: sem efeito.
     ]

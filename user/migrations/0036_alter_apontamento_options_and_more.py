@@ -24,11 +24,8 @@ class Migration(migrations.Migration):
             model_name="apontamento",
             name="uniq_apontamento_resp_data_hora",
         ),
-        migrations.AddField(
-            model_name="apontamento",
-            name="data_final",
-            field=models.DateField(blank=True, null=True, verbose_name="Data Final"),
-        ),
+        # REMOVIDO (first-run fix): AddField data_final movido para 0034.
+        # DBs migrados: sem efeito.
         migrations.AlterField(
             model_name="apontamento",
             name="tempo_investido_minutos",

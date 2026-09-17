@@ -128,15 +128,10 @@ class Cliente(models.Model):
 
 class Equipamento(models.Model):
     """Modelo para gerenciar Equipamentos com tipo, device e modelo."""
-    TIPO_CHOICES = [
-        ('gateway', 'Gateway'),
-        ('bomba', 'Bomba'),
-        ('sensor', 'Sensor'),
-        ('controlador', 'Controlador'),
-        ('outro', 'Outro'),
-    ]
+    # Sugestões para o campo livre (sem choices: aceita qualquer texto)
+    TIPOS_SUGERIDOS = ['Gateway', 'Bomba', 'Sensor', 'Controlador', 'Outro']
 
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='outro', verbose_name="Tipo")
+    tipo = models.CharField(max_length=100, default='outro', verbose_name="Tipo")
     device = models.CharField(max_length=100, verbose_name="Device", blank=True, default='')
     modelo = models.CharField(max_length=100, verbose_name="Modelo", blank=True, default='')
     ativo = models.BooleanField(default=True, verbose_name="Ativo")
@@ -152,7 +147,7 @@ class Equipamento(models.Model):
         ]
 
     def __str__(self):
-        base = f"{self.get_tipo_display()} - {self.device}" if self.device else f"{self.get_tipo_display()}"
+        base = f"{self.tipo} - {self.device}" if self.device else f"{self.tipo or 'Equipamento'}"
         return f"{base} {self.modelo}".strip() if self.modelo else base
 
 
