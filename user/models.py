@@ -405,8 +405,8 @@ class Apontamento(models.Model):
         verbose_name="Número Sequencial"
     )
     
-    # Ticket
-    ticket = models.CharField(max_length=100, unique=True, blank=True, null=True, verbose_name="Ticket")
+    # ID (identificador do apontamento, gerado automaticamente)
+    ticket = models.CharField(max_length=100, unique=True, blank=True, null=True, verbose_name="ID")
     
     # Dados do Apontamento (estáticos)
     projeto = models.ForeignKey(

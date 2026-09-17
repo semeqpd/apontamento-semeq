@@ -9,7 +9,7 @@
         <div class="card-header">
             <div class="header-brand">
                 <i class="bi bi-journal-plus"></i>
-                <span>{% if object %}Editar Apontamento: {% if object.ticket %}{{ object.ticket }}{% else %}#{{ object.pk }}{% endif %}{% else %}Novo Apontamento{% endif %}</span>
+                <span>{% if object %}Editar Apontamento (ID {% if object.ticket %}{{ object.ticket }}{% else %}#{{ object.pk }}{% endif %}){% else %}Novo Apontamento{% endif %}</span>
             </div>
         </div>
         <div class="card-body p-4">
@@ -26,6 +26,32 @@
                 {% endif %}
 
                 <div class="section-title">Dados do Apontamento</div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.projeto.label }}</label>
+                        {{ form.projeto }}
+                        {% if form.projeto.errors %}<div class="text-danger small mt-1">{{ form.projeto.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.atividade.label }} <span class="text-danger">*</span></label>
+                        {{ form.atividade }}
+                        {% if form.atividade.errors %}<div class="text-danger small mt-1">{{ form.atividade.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ form.solicitante.label }}</label>
+                        {{ form.solicitante }}
+                        {% if form.solicitante.errors %}<div class="text-danger small mt-1">{{ form.solicitante.errors }}</div>{% endif %}
+                    </div>
+
+                    <!-- Campo condicional: Outra atividade -->
+                    <div id="outroAtividadeContainer" class="col-12 mb-3" style="display: none;">
+                        <label class="form-label">{{ form.outro_atividade.label }}</label>
+                        {{ form.outro_atividade }}
+                        {% if form.outro_atividade.errors %}<div class="text-danger small mt-1">{{ form.outro_atividade.errors }}</div>{% endif %}
+                        <div class="form-text">Descreva a atividade que não está na lista</div>
+                    </div>
+                </div>
 
 <style>
 .combo { position: relative; }
@@ -72,18 +98,6 @@
     </div>
 </div>
 
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.projeto.label }}</label>
-                        {{ form.projeto }}
-                        {% if form.projeto.errors %}<div class="text-danger small mt-1">{{ form.projeto.errors }}</div>{% endif %}
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ form.solicitante.label }}</label>
-                        {{ form.solicitante }}
-                        {% if form.solicitante.errors %}<div class="text-danger small mt-1">{{ form.solicitante.errors }}</div>{% endif %}
-                    </div>
-
                 <hr>
 
                 <div class="section-title">Apontamento</div>
@@ -115,19 +129,6 @@
                     
                     </div>
                     
-                    <div class="col-md-4">
-                        <label class="form-label">{{ form.atividade.label }} <span class="text-danger">*</span></label>
-                        {{ form.atividade }}
-                        {% if form.atividade.errors %}<div class="text-danger small mt-1">{{ form.atividade.errors }}</div>{% endif %}
-                    </div>
-
-                    <!-- Campo condicional: Outra atividade -->
-                    <div id="outroAtividadeContainer" class="col-12 mb-3" style="display: none;">
-                        <label class="form-label">{{ form.outro_atividade.label }}</label>
-                        {{ form.outro_atividade }}
-                        {% if form.outro_atividade.errors %}<div class="text-danger small mt-1">{{ form.outro_atividade.errors }}</div>{% endif %}
-                        <div class="form-text">Descreva a atividade que não está na lista</div>
-                    </div>
 
                     <div class="col-md-4">
                         <label class="form-label">{{ form.tipo_problema.label }} <span class="text-danger">*</span></label>
@@ -143,25 +144,27 @@
                         <div class="form-text">Descreva o tipo de problema que não está na lista</div>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">{{ form.status.label }} <span class="text-danger">*</span></label>
                         {{ form.status }}
                         {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors }}</div>{% endif %}
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">{{ form.prioridade.label }} <span class="text-danger">*</span></label>
                         {{ form.prioridade }}
                         {% if form.prioridade.errors %}<div class="text-danger small mt-1">{{ form.prioridade.errors }}</div>{% endif %}
                     </div>
+                </div>
 
-                    <div class="col-md-3">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
                         <label class="form-label">{{ form.data_inicial.label }} <span class="text-danger">*</span></label>
                         {{ form.data_inicial }}
                         {% if form.data_inicial.errors %}<div class="text-danger small mt-1">{{ form.data_inicial.errors }}</div>{% endif %}
                     </div>
 
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         <label class="form-label">{{ form.data_final.label }}</label>
                         {{ form.data_final }}
                         {% if form.data_final.errors %}<div class="text-danger small mt-1">{{ form.data_final.errors }}</div>{% endif %}

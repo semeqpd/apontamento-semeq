@@ -16,7 +16,7 @@
       <table class="table table-sm table-hover align-middle mb-0" style="width: 100%; font-size: 0.75rem;">
         <thead class="table-light">
           <tr class="text-uppercase text-muted border-bottom" style="font-size: 0.65rem; letter-spacing: 0.5px; white-space: nowrap;">
-            <th class="text-nowrap" style="padding: 6px 10px;">TICKET</th>
+            <th class="text-nowrap" style="padding: 6px 10px;">ID</th>
             <th class="text-nowrap" style="padding: 6px 10px; width: 35%;">CLIENTE</th>
             <th class="text-nowrap" style="padding: 6px 10px;">RESPONSÁVEL</th>
             <th class="text-nowrap" style="padding: 6px 10px;">PROJETO</th>
@@ -123,9 +123,11 @@
       <i class="bi bi-journal-text fs-1 text-muted"></i>
       <h5 class="text-muted mt-3">Nenhum apontamento encontrado</h5>
       <p class="text-muted">Clique em "Novo Apontamento" para criar o primeiro.</p>
+      {% if pode_criar_apontamento %}
       <a href="{% url 'semeq:apontamento_novo' %}" class="btn btn-semeq-primary">
           <i class="bi bi-plus-lg me-1"></i> Criar Apontamento
       </a>
+      {% endif %}
     </div>
   </div
 </div>

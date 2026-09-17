@@ -58,7 +58,7 @@ from apps.core.views.base import (
     BaseCRUDUpdateView, BaseCRUDDeleteView
 )
 from .permissions import (
-    can_view_apontamento, can_edit_apontamento, can_delete_apontamento,
+    can_view_apontamento, can_edit_apontamento, can_delete_apontamento, can_create_apontamento,
     can_view_user, can_edit_user, can_delete_user, can_manage_users,
     filter_apontamentos_queryset, filter_apontamentostempo_queryset,
     filter_users_queryset, PermissionDenied as PermDenied
@@ -93,15 +93,22 @@ class DashboardView(LoginRequiredMixin, View):
             if colaborador_id:
                 qs = qs.filter(responsavel_id=colaborador_id)
 
-        # Calculate KPIs on filtered queryset
+        # Calculate KPIs on filtered queryset (inclui concluídos p/ SLA)
         kpis = calculate_kpis(qs)
         daily_compliance = get_daily_compliance(qs)
 
+        # Concluídos ocultos por padrão no dashboard (KPIs acima continuam contando)
+        qs_display = qs.exclude(
+            Q(apontamento__status__is_concluido=True) |
+            Q(apontamento__status__status__iexact='concluido') |
+            Q(apontamento__status__status__iexact='concluído')
+        )
+
         # FORCE ordering at the very end of pipeline (most recent first)
-        qs = qs.order_by('-data', '-hora_inicial')
+        qs_display = qs_display.order_by('-data', '-hora_inicial')
 
         # Group only the 10 most recent appointments for the dashboard
-        agrupados, totais = agrupar_dashboard_por_data(list(qs[:10]), current_user=self.request.user)
+        agrupados, totais = agrupar_dashboard_por_data(list(qs_display[:10]), current_user=self.request.user)
 
         # Get filter options
         from .models import Equipe
@@ -273,6 +280,9 @@ class ApontamentoListView(LoginRequiredMixin, ListView):
         if 'page' in filter_params:
             filter_params.pop('page')
         selector_context['url_params'] = filter_params.urlencode()
+
+        # Líder não pode criar apontamentos (esconde botões na UI)
+        selector_context['pode_criar_apontamento'] = can_create_apontamento(self.request.user)
         
         # Botão Voltar - Apontamentos volta para Dashboard
         selector_context['previous_page_url'] = '/dashboard/'
@@ -501,40 +511,48 @@ class ApontamentoExportView(LoginRequiredMixin, View):
             return self.export_xlsx(qs)
         return self.export_csv(qs)
 
+    @staticmethod
+    def _row(a):
+        """Linha de exportação a partir de um ApontamentoTempo."""
+        ap = a.apontamento
+        cli = getattr(ap, 'cliente', None) if ap else None
+        return [
+            getattr(ap, 'ticket', '') or '' if ap else '',
+            f"{cli.corporation} - {cli.plant}" if cli else '',
+            ap.projeto.nome if ap and ap.projeto else '',
+            ap.solicitante.nome if ap and ap.solicitante else '',
+            str(ap.equipamento) if ap and ap.equipamento else '',
+            ap.prioridade.nome if ap and ap.prioridade else '',
+            ap.equipe.nome if ap and ap.equipe else '',
+            a.responsavel.get_full_name() or a.responsavel.username,
+            ap.atividade.nome if ap and ap.atividade else '',
+            ap.tipo_problema.nome if ap and ap.tipo_problema else '',
+            ap.status.status if ap and ap.status else '',
+            a.data.strftime('%d/%m/%Y') if a.data else '',
+            a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
+            a.hora_final.strftime('%H:%M') if a.hora_final else '',
+            a.get_tempo_exibicao_minutos,
+            (ap.descricao if ap else '') or '',
+            (a.observacao or ''),
+        ]
+
+    EXPORT_HEADERS = [
+        'ID', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
+        'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
+        'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
+        'Descrição', 'Observação',
+    ]
+
     def export_csv(self, qs):
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="apontamentos_{date.today()}.csv"'
         response.write('\ufeff'.encode('utf-8'))
 
         writer = csv.writer(response, delimiter=';')
-        writer.writerow([
-            'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
-            'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
-            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
-            'GW no Ar', '>18h', 'Desvio', 'Descrição'
-        ])
+        writer.writerow(self.EXPORT_HEADERS)
 
         for a in qs:
-            tempo_min = a.tempo_minutos
-            if not tempo_min and a.tempo_total:
-                tempo_min = int(a.tempo_total.total_seconds() / 60)
-            writer.writerow([
-                a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
-                a.solicitante, str(a.equipamento) if a.equipamento else '',
-                a.prioridade.nome if a.prioridade else '',
-                a.equipe.nome if a.equipe else '',
-                a.responsavel.get_full_name() or a.responsavel.username,
-                a.atividade.nome if a.atividade else '',
-                a.tipo_problema.nome if a.tipo_problema else '',
-                a.status.status if a.status else '',
-                a.data.strftime('%d/%m/%Y'),
-                a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
-                a.hora_final.strftime('%H:%M') if a.hora_final else '',
-                tempo_min if tempo_min else '',
-                'Sim' if a.gw_ar else 'Não',
-                'Sim' if a.apos_18h else 'Não',
-                a.get_desvio_display(), a.descricao
-            ])
+            writer.writerow(self._row(a))
         return response
 
     def export_xlsx(self, qs):
@@ -542,35 +560,10 @@ class ApontamentoExportView(LoginRequiredMixin, View):
         ws = wb.active
         ws.title = 'Apontamentos'
 
-        headers = [
-            'Ticket', 'Cliente', 'Projeto', 'Solicitante', 'Equipamento',
-            'Prioridade', 'Equipe', 'Responsável', 'Atividade', 'Tipo Problema',
-            'Status', 'Data', 'Hora Inicial', 'Hora Final', 'Tempo (min)',
-            'GW no Ar', '>18h', 'Desvio', 'Descrição'
-        ]
-        ws.append(headers)
+        ws.append(self.EXPORT_HEADERS)
 
         for a in qs:
-            tempo_min = a.tempo_minutos
-            if not tempo_min and a.tempo_total:
-                tempo_min = int(a.tempo_total.total_seconds() / 60)
-            ws.append([
-                a.ticket, f"{a.cliente.corporation} - {a.cliente.plant}", a.projeto,
-                a.solicitante, str(a.equipamento) if a.equipamento else '',
-                a.prioridade.nome if a.prioridade else '',
-                a.equipe.nome if a.equipe else '',
-                a.responsavel.get_full_name() or a.responsavel.username,
-                a.atividade.nome if a.atividade else '',
-                a.tipo_problema.nome if a.tipo_problema else '',
-                a.status.status if a.status else '',
-                a.data.strftime('%d/%m/%Y'),
-                a.hora_inicial.strftime('%H:%M') if a.hora_inicial else '',
-                a.hora_final.strftime('%H:%M') if a.hora_final else '',
-                tempo_min if tempo_min else '',
-                'Sim' if a.gw_ar else 'Não',
-                'Sim' if a.apos_18h else 'Não',
-                a.get_desvio_display(), a.descricao
-            ])
+            ws.append(self._row(a))
 
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -599,7 +592,14 @@ class ApontamentoCreateView(LoginRequiredMixin, CreateView):
     form_class = ApontamentoForm
     template_name = 'apontamentos/form.html'
     success_url = reverse_lazy('semeq:apontamento_lista')
-    
+
+    def dispatch(self, request, *args, **kwargs):
+        # Líder não pode criar apontamentos (só visualiza o próprio time)
+        if not can_create_apontamento(request.user):
+            messages.error(request, 'Apenas colaboradores, gestores e administradores podem criar apontamentos.')
+            return redirect('semeq:apontamento_lista')
+        return super().dispatch(request, *args, **kwargs)
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user

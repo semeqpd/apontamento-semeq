@@ -316,9 +316,11 @@ class ApontamentoForm(forms.ModelForm):
 
     class Meta:
         model = Apontamento
+        # Ordem: Projeto, Atividade, Solicitante, Cliente, ID (auto) + demais
+        # ticket fora: gerado automaticamente, sem input manual
         fields = [
-            'cliente', 'projeto', 'solicitante', 'ticket', 'equipamento',
-            'prioridade', 'equipe', 'responsavel', 'atividade', 'tipo_problema',
+            'projeto', 'atividade', 'solicitante', 'cliente', 'equipamento',
+            'prioridade', 'equipe', 'responsavel', 'tipo_problema',
             'status', 'data_inicial', 'data_final', 'tempo_investido_minutos', 'descricao'
         ]
         widgets = {

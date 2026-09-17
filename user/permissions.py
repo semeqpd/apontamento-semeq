@@ -87,11 +87,19 @@ def can_view_apontamento(user, apontamento) -> bool:
 
 
 def can_create_apontamento(user) -> bool:
-    """Check if user can create apontamentos. All authenticated active users can."""
+    """Check if user can create apontamentos.
+
+    Líder NÃO pode criar (só visualiza o próprio time).
+    Admin/Gestor/Colaborador ativos podem.
+    """
     if not user.is_authenticated:
         return False
     perfil = get_user_perfil(user)
-    return perfil is not None and perfil.ativo
+    if perfil is None or not perfil.ativo:
+        return False
+    if perfil.role == 'lider' and not user.is_superuser:
+        return False
+    return True
 
 
 def can_edit_apontamento(user, apontamento) -> bool:
