@@ -51,7 +51,7 @@
                 <tbody>
                     {% for equipamento in equipamentos %}
                     <tr>
-                        <td>{{ equipamento.get_tipo_display }}</td>
+                        <td>{{ equipamento.tipo|default:"—" }}</td>
                         <td class="text-truncate" style="max-width: 180px;" title="{{ equipamento.device }}">{{ equipamento.device|default:"—" }}</td>
                         <td>{{ equipamento.modelo|default:"—" }}</td>
                         <td>

@@ -231,30 +231,11 @@ class Migration(migrations.Migration):
                 verbose_name="Atendimento",
             ),
         ),
-        migrations.AddIndex(
-            model_name="apontamento",
-            index=models.Index(
-                fields=["data_inicial"], name="user_atendi_data_in_8b9c72_idx"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="apontamento",
-            index=models.Index(
-                fields=["status"], name="user_atendi_status__c709b5_idx"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="apontamento",
-            index=models.Index(
-                fields=["responsavel"], name="user_atendi_respons_d40007_idx"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="apontamento",
-            index=models.Index(
-                fields=["cliente"], name="user_atendi_cliente_60d64e_idx"
-            ),
-        ),
+        # REMOVIDO (first-run fix): 4 AddIndex abaixo em "apontamento"
+        # (data_inicial, status, responsavel, cliente). data_inicial nem existe
+        # no estado em 0030 (só chega em 0038); os outros 3 viraram RenameIndex
+        # em 0051 e os nomes finais já existem via 0002/0024. Mantido só o de
+        # equipe (0038 faz RemoveIndex dele). DBs migrados: sem efeito.
         migrations.AddIndex(
             model_name="apontamento",
             index=models.Index(

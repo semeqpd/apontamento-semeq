@@ -1346,7 +1346,7 @@ class EquipamentoAutocompleteView(LoginRequiredMixin, View):
         results = [
             {
                 'value': item['pk'],
-                'text': f"{dict(Equipamento.TIPO_CHOICES).get(item['tipo'], item['tipo'])} - {item['device']} {item['modelo']}".strip() or str(item['pk']),
+                'text': f"{item['tipo']} - {item['device']} {item['modelo']}".strip() or str(item['pk']),
                 'equipamento_id': str(item['pk']),
                 'tipo': item['tipo'] or '',
                 'device': item['device'] or '',
@@ -1826,7 +1826,11 @@ class EquipamentoListView(EquipamentoPermissionMixin, ListView):
             'modelo': self.request.GET.get('modelo', ''),
             'ativo': self.request.GET.get('ativo', ''),
         }
-        context['tipo_choices'] = Equipamento.TIPO_CHOICES
+        # Filtro de tipo exato; lista do dropdown vem dos tipos já usados
+        context['tipo_choices'] = [
+            (t, t) for t in Equipamento.objects.exclude(tipo='').order_by('tipo')
+            .values_list('tipo', flat=True).distinct()
+        ]
         params = self.request.GET.copy()
         params.pop('page', None)
         context['filter_params'] = params.urlencode()
