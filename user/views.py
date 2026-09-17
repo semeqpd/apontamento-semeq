@@ -353,7 +353,7 @@ class ApontamentoDetailView(LoginRequiredMixin, DetailView):
 
 
 class ApontamentoStatusView(LoginRequiredMixin, View):
-    @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True, name='apont-status'))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
 
@@ -440,6 +440,7 @@ def alterar_status_apontamento(request, pk):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+@login_required
 @require_POST
 def excluir_apontamento(request, pk):
     """Exclui um apontamento via POST (usado pelo modal de confirmação)."""
@@ -471,7 +472,7 @@ def excluir_apontamento(request, pk):
 
 
 class ApontamentoTipoProblemaView(LoginRequiredMixin, View):
-    @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True, name='apont-tipoproblema'))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
 
@@ -1002,7 +1003,7 @@ class ClienteDeleteAllView(ClientePermissionMixin, View):
 
 
 class ClienteImportView(ClientePermissionMixin, View):
-    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True, name='cliente-import'))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
 
@@ -1258,6 +1259,7 @@ class ClienteBuscaView(LoginRequiredMixin, View):
         return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
+@login_required
 def buscar_clientes(request):
     """
     Autocomplete de clientes - retorna JSON para <datalist>
@@ -1279,6 +1281,7 @@ def buscar_clientes(request):
     return JsonResponse(results, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
+@login_required
 def buscar_corporacoes(request):
     """
     Retorna corporações únicas para o primeiro select
@@ -1290,6 +1293,7 @@ def buscar_corporacoes(request):
     return JsonResponse(data, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
+@login_required
 def buscar_plantas(request):
     """
     Retorna plantas de uma corporação específica
@@ -1305,6 +1309,7 @@ def buscar_plantas(request):
     return JsonResponse(data, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
+@login_required
 def buscar_cliente_detalhe(request):
     """
     Retorna detalhes de um cliente específico (para edição)
@@ -1649,7 +1654,7 @@ class ConfiguracoesView(LoginRequiredMixin, View):
 class ConfiguracoesTemaView(LoginRequiredMixin, View):
     """Endpoint AJAX para alternar tema light/dark."""
 
-    @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='30/m', key='user_or_ip', method='POST', block=True, name='config-tema'))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
 
@@ -1682,7 +1687,7 @@ class PublicRegistrationView(CreateView):
     template_name = 'registration/register.html'
     success_url = reverse_lazy('semeq:login')
     
-    @method_decorator(rate_limit(rate='20/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='20/m', key='user_or_ip', method='POST', block=True, name='register'))
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             return redirect('semeq:dashboard')
@@ -1722,7 +1727,7 @@ class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
     redirect_authenticated_user = True
     
-    @method_decorator(rate_limit(rate='10/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='10/m', key='user_or_ip', method='POST', block=True, name='login'))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
     
@@ -1739,7 +1744,7 @@ class SemeqPasswordResetView(PasswordResetView):
     subject_template_name = 'registration/password_reset_subject.txt'
     success_url = reverse_lazy('semeq:password_reset_done')
     
-    @method_decorator(rate_limit(rate='3/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='3/m', key='user_or_ip', method='POST', block=True, name='pw-reset'))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
 
@@ -1752,7 +1757,7 @@ class SemeqPasswordResetConfirmView(PasswordResetConfirmView):
     template_name = 'registration/password_reset_confirm.html'
     success_url = reverse_lazy('semeq:password_reset_complete')
     
-    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True))
+    @method_decorator(rate_limit(rate='5/m', key='user_or_ip', method='POST', block=True, name='pw-reset-confirm'))
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
 
@@ -2733,6 +2738,7 @@ def csrf_failure(request, reason=''):
     return render(request, 'errors/403_csrf.html', {'reason': reason}, status=403)
 
 
+@login_required
 def api_zonas_por_corporacao(request):
     """API endpoint para buscar zonas por corporação."""
     corporacao_id = request.GET.get('corporation_id')
@@ -2750,6 +2756,7 @@ def api_zonas_por_corporacao(request):
     return JsonResponse({'zonas': zonas})
 
 
+@login_required
 def api_plantas_por_corporacao_zona(request):
     """API endpoint para buscar plantas por corporação e zona."""
     corporacao_id = request.GET.get('corporation_id')
@@ -2782,6 +2789,7 @@ class ClienteListaJsonView(LoginRequiredMixin, View):
         return JsonResponse(data, safe=False, json_dumps_params={'ensure_ascii': False})
 
 
+@login_required
 def carregar_responsaveis(request):
     """API endpoint para carregar responsáveis filtrados por equipe."""
     equipe_id = request.GET.get('equipe_id')
@@ -2806,6 +2814,7 @@ def carregar_responsaveis(request):
     return JsonResponse(data, safe=False)
 
 
+@login_required
 def api_zonas_por_corporacao(request):
     """API endpoint para buscar zonas por corporação."""
     corporacao_id = request.GET.get('corporation_id')
@@ -2823,6 +2832,7 @@ def api_zonas_por_corporacao(request):
     return JsonResponse({'zonas': zonas})
 
 
+@login_required
 def api_plantas_por_corporacao_zona(request):
     """API endpoint para buscar plantas por corporação e zona."""
     corporacao_id = request.GET.get('corporation_id')
@@ -2838,6 +2848,7 @@ def api_plantas_por_corporacao_zona(request):
     return JsonResponse({'plantas': plantas})
 
 
+@login_required
 def carregar_responsaveis(request):
     """API endpoint para carregar responsáveis filtrados por equipe."""
     equipe_id = request.GET.get('equipe_id')
@@ -2872,13 +2883,13 @@ class HealthCheckView(View):
         checks = {}
         status_code = 200
         
-        # Database
+        # Database (sem vazar detalhe do erro: endpoint público)
         try:
             with connection.cursor() as cursor:
                 cursor.execute('SELECT 1')
             checks['database'] = 'ok'
-        except Exception as e:
-            checks['database'] = f'error: {e}'
+        except Exception:
+            checks['database'] = 'error'
             status_code = 503
         
         # Cache

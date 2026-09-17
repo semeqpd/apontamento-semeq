@@ -36,16 +36,21 @@ def _parse_rate(rate):
     return num, seconds
 
 
-def rate_limit(rate="10/m", key="ip", method="POST", block=True):
+def rate_limit(rate="10/m", key="ip", method="POST", block=True, name=None):
     """
     Limita requisições por IP ou por usuário.
 
     key: 'ip' | 'user' | 'user_or_ip'
     block: True -> retorna 429/403 quando excedido; False -> apenas loga (não implementado).
+    name: identifica o endpoint no bucket (OBRIGATÓRIO na prática — sem nome,
+        endpoints diferentes compartilham o mesmo balde e um flood num endpoint
+        bloqueia os outros).
     """
     num, window = _parse_rate(rate)
 
     def decorator(func):
+        bucket = name or getattr(func, "__name__", "default")
+
         @wraps(func)
         def wrapper(request, *args, **kwargs):
             if request.method != method and method != "*":
@@ -60,7 +65,7 @@ def rate_limit(rate="10/m", key="ip", method="POST", block=True):
             else:  # ip
                 ident = _get_client_ip(request)
 
-            cache_key = f"ratelimit:{getattr(request, '_rate_limit_name_', 'default')}:{key}:{ident}"
+            cache_key = f"ratelimit:{bucket}:{key}:{ident}"
             now = int(time.time())
             window_start = now - window
 
