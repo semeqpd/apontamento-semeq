@@ -431,6 +431,7 @@ def alterar_status_apontamento(request, pk):
                 ap.tempo_investido_minutos = tempo_novo
 
         ap.status = status_obj
+        ap.data_final = date.today()
         ap.save()
 
         return JsonResponse({'success': True, 'status': status_obj.status})

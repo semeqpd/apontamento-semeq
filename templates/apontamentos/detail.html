@@ -114,6 +114,16 @@
                     <strong>Tempo Investido:</strong>
                     <p class="mb-0 fw-medium text-primary">{{ apontamento.tempo_investido_formatado }}</p>
                 </div>
+                 <div class="col-md-6">
+                    <strong>Data Finalizada</strong>
+                    <p class="mb-0">
+                        {% if apontamento.data_final %}
+                        {{ apontamento.data_final | date:"d/m/Y" }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </p>
+                </div>
                 <div class="col-md-6">
                     <strong>Equipamento:</strong>
                     <p class="mb-0">{{ apontamento.equipamento|default:"—" }}</p>
